@@ -36,7 +36,9 @@ const searchResults = document.getElementById("search-results")
 const suggestionButtons = document.querySelectorAll("[data-search-suggestion]")
 const filterButtons = document.querySelectorAll("[data-filter]")
 const libraryCount = document.getElementById("library-count")
+const offlineStorageSummary = document.getElementById("offline-storage-summary")
 const libraryTrackList = document.getElementById("library-track-list")
+const downloadLibraryButton = document.getElementById("download-library")
 const playLibraryButton = document.getElementById("play-library")
 const playlistGrid = document.getElementById("playlist-grid")
 const playlistContext = document.getElementById("playlist-context")
@@ -61,8 +63,20 @@ const durationTime = document.getElementById("duration-time")
 const previousButton = document.getElementById("previous-button")
 const mainPlayButton = document.getElementById("main-play-button")
 const nextButton = document.getElementById("next-button")
+const shuffleButton = document.getElementById("shuffle-button")
+const repeatButton = document.getElementById("repeat-button")
+const openQueueButton = document.getElementById("open-queue-button")
+const queueSheet = document.getElementById("queue-sheet")
+const queueContextLabel = document.getElementById("queue-context-label")
+const queueCurrentTrack = document.getElementById("queue-current-track")
+const queueList = document.getElementById("queue-list")
+const queueCount = document.getElementById("queue-count")
+const clearQueueButton = document.getElementById("clear-queue-button")
+const saveQueuePlaylistButton = document.getElementById("save-queue-playlist-button")
 const sendCurrentTrackButton = document.getElementById("send-current-track")
 const addCurrentToPlaylistButton = document.getElementById("add-current-to-playlist")
+const downloadCurrentTrackButton = document.getElementById("download-current-track")
+const downloadCurrentTrackLabel = document.getElementById("download-current-track-label")
 const audioPlayer = document.getElementById("audio-player")
 const createJamButton = document.getElementById("create-jam-button")
 const copyJamCodeButton = document.getElementById("copy-jam-code")
@@ -104,6 +118,13 @@ const playlistSubmitButton = document.getElementById("playlist-submit-button")
 const profileModal = document.getElementById("profile-modal")
 const installModal = document.getElementById("install-modal")
 const installAppButton = document.getElementById("install-app-button")
+const downloadsOptionButton = document.getElementById("downloads-option-button")
+const downloadsOptionDescription = document.getElementById("downloads-option-description")
+const themeToggleButton = document.getElementById("theme-toggle-button")
+const themeOptionIcon = document.getElementById("theme-option-icon")
+const themeOptionTitle = document.getElementById("theme-option-title")
+const themeOptionDescription = document.getElementById("theme-option-description")
+const themeColorMeta = document.querySelector('meta[name="theme-color"]')
 const logoutButton = document.getElementById("logout-button")
 const modalCloseButtons = document.querySelectorAll("[data-close-modal]")
 const sheetCloseButtons = document.querySelectorAll("[data-close-sheet]")
@@ -112,9 +133,13 @@ const toastMessage = document.getElementById("toast-message")
 
 // configuracoes
 const cloud = window.DoisTonsCloud
+const offline = window.DoisTonsOffline
 const profileStorageKey = "dois-tons-profile"
 const accessStorageKey = "dois-tons-preview-access"
 const logoutStorageKey = "dois-tons-logged-out"
+const themeStorageKey = "dois-tons-theme"
+const playbackStorageKey = "dois-tons-playback"
+const offlineProfileStorageKey = "dois-tons-offline-profile"
 const availableCoverClasses = ["cover-rose","cover-sea","cover-sun","cover-plum","cover-forest"]
 const metadataLibraryUrl = "https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"
 const supportedAudioExtensions = ["mp3","m4a","mp4","aac","wav","ogg","oga","flac"]
@@ -193,12 +218,26 @@ const demoTracks = [
 let tracks = [...demoTracks]
 let playlists = []
 let currentTrackId = tracks[0].id
+let playbackQueue = tracks.map(track => track.id)
+let playbackQueueIndex = 0
+let playbackContext = {type:"library",label:"Biblioteca"}
+let shuffleEnabled = false
+let repeatMode = "off"
+let playbackStateRestored = false
+let playbackSaveTimeout = null
+let lastPlaybackProgressSave = 0
+let pendingPlaylistQueueIds = []
 let activeLibraryFilter = "all"
 let activePlaylistId = ""
 let currentProfile = null
 let duoMembers = []
 let cloudMode = false
 let cloudReady = false
+let offlineReady = false
+let offlineLaunch = false
+let offlineDownloads = new Map()
+let offlineObjectUrls = new Map()
+let downloadOperations = new Set()
 let isPlaying = false
 let jamActive = false
 let jamSession = null
@@ -216,6 +255,42 @@ let catalogItems = []
 let catalogAnalyzing = false
 let catalogImporting = false
 let catalogCancelRequested = false
+
+// tema
+function getStoredTheme() {
+    return localStorage.getItem(themeStorageKey) === "dark" ? "dark" : "light"
+}
+
+function updateThemeInterface(theme) {
+    const darkTheme = theme === "dark"
+
+    themeToggleButton?.setAttribute("aria-pressed",String(darkTheme))
+
+    if (themeOptionIcon) themeOptionIcon.setAttribute("href",darkTheme ? "#icon-sun" : "#icon-moon")
+    if (themeOptionTitle) themeOptionTitle.textContent = darkTheme ? "Tema claro" : "Tema escuro"
+    if (themeOptionDescription) themeOptionDescription.textContent = darkTheme ? "Voltar ao tema original" : "Usar Preto Elegante"
+}
+
+function applyTheme(theme,{persist = true} = {}) {
+    const nextTheme = theme === "dark" ? "dark" : "light"
+
+    document.documentElement.dataset.theme = nextTheme
+    document.documentElement.style.colorScheme = nextTheme
+    themeColorMeta?.setAttribute("content",nextTheme === "dark" ? "#0b0b0a" : "#f4e8d7")
+
+    if (persist) localStorage.setItem(themeStorageKey,nextTheme)
+
+    updateThemeInterface(nextTheme)
+}
+
+function toggleTheme() {
+    const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark"
+
+    applyTheme(nextTheme)
+    showToast(nextTheme === "dark" ? "Tema Preto Elegante ativado." : "Tema claro ativado.")
+}
+
+applyTheme(getStoredTheme(),{persist:false})
 
 // utilitarios
 function escapeHTML(value) {
@@ -298,8 +373,717 @@ function getAudioMimeType(file) {
     return mimeTypes[extension] || file?.type || "audio/mpeg"
 }
 
+// downloads offline
+function saveOfflineProfile(profile) {
+    if (!profile?.name || !profile?.duoId) return
+
+    localStorage.setItem(offlineProfileStorageKey,JSON.stringify({
+        name:profile.name,
+        memberId:profile.memberId || "",
+        duoId:profile.duoId,
+        userId:profile.userId || "",
+        mode:"cloud"
+    }))
+}
+
+function loadOfflineProfile() {
+    try {
+        const profile = JSON.parse(localStorage.getItem(offlineProfileStorageKey) || "null")
+
+        if (!profile?.name || !profile?.duoId) return null
+
+        return profile
+    } catch (error) {
+        return null
+    }
+}
+
+function getOfflineObjectUrls(record) {
+    const cached = offlineObjectUrls.get(record.trackId)
+
+    if (cached?.downloadedAt === record.downloadedAt) return cached
+
+    if (cached) {
+        if (cached.audioUrl) URL.revokeObjectURL(cached.audioUrl)
+        if (cached.coverUrl) URL.revokeObjectURL(cached.coverUrl)
+    }
+
+    const objectUrls = {
+        downloadedAt:record.downloadedAt,
+        audioUrl:URL.createObjectURL(record.audioBlob),
+        coverUrl:record.coverBlob ? URL.createObjectURL(record.coverBlob) : ""
+    }
+
+    offlineObjectUrls.set(record.trackId,objectUrls)
+
+    return objectUrls
+}
+
+function releaseOfflineObjectUrls() {
+    offlineObjectUrls.forEach(objectUrls => {
+        if (objectUrls.audioUrl) URL.revokeObjectURL(objectUrls.audioUrl)
+        if (objectUrls.coverUrl) URL.revokeObjectURL(objectUrls.coverUrl)
+    })
+
+    offlineObjectUrls.clear()
+}
+
+function createOfflineTrack(record,index = 0) {
+    const objectUrls = getOfflineObjectUrls(record)
+
+    return {
+        id:record.trackId,
+        title:record.title,
+        artist:record.artist,
+        album:record.album,
+        cover:getCoverClass(record,index),
+        coverImage:objectUrls.coverUrl,
+        duration:Number(record.duration || 0),
+        favorite:Boolean(record.favorite),
+        sharedBy:record.sharedBy || "",
+        tags:Array.isArray(record.tags) ? record.tags : [],
+        source:objectUrls.audioUrl,
+        cloudSource:"",
+        cloudCoverImage:"",
+        fileSize:Number(record.fileSize || record.audioBlob?.size || 0),
+        mimeType:record.mimeType || record.audioBlob?.type || "audio/mpeg",
+        downloaded:true,
+        offline:true,
+        cloud:false,
+        coverIndex:index
+    }
+}
+
+async function updateOfflineStorageInterface() {
+    if (!offlineReady || !currentProfile?.duoId) return
+
+    try {
+        const usage = await offline.getUsage(currentProfile.duoId)
+        const countLabel = usage.count === 1 ? "1 música" : `${usage.count} músicas`
+        const sizeLabel = formatFileSize(usage.used)
+
+        if (downloadsOptionDescription) {
+            downloadsOptionDescription.textContent = usage.count
+                ? `${countLabel} · ${sizeLabel} neste aparelho`
+                : "Nenhuma música salva neste aparelho"
+        }
+
+        if (offlineStorageSummary) {
+            offlineStorageSummary.textContent = usage.count ? `${sizeLabel} usados neste aparelho` : "Nenhum download salvo"
+        }
+    } catch (error) {
+        if (downloadsOptionDescription) downloadsOptionDescription.textContent = "Armazenamento offline indisponível"
+    }
+}
+
+async function synchronizeOfflineTracks() {
+    if (!offlineReady || !currentProfile?.duoId) return
+
+    const records = await offline.getDownloads(currentProfile.duoId)
+
+    offlineDownloads = new Map(records.map(record => [record.trackId,record]))
+
+    tracks = tracks.map((track,index) => {
+        const record = offlineDownloads.get(track.id)
+        const cloudSource = track.cloudSource || (track.offline ? "" : track.source)
+        const cloudCoverImage = track.cloudCoverImage ?? (track.offline ? "" : track.coverImage)
+
+        if (!record) {
+            return {
+                ...track,
+                source:cloudSource,
+                coverImage:cloudCoverImage,
+                cloudSource,
+                cloudCoverImage,
+                downloaded:false,
+                offline:false
+            }
+        }
+
+        const objectUrls = getOfflineObjectUrls(record)
+
+        return {
+            ...track,
+            source:objectUrls.audioUrl,
+            coverImage:objectUrls.coverUrl || cloudCoverImage,
+            cloudSource,
+            cloudCoverImage,
+            downloaded:true,
+            offline:true,
+            offlineSize:Number(record.fileSize || record.audioBlob?.size || 0),
+            mimeType:record.mimeType || track.mimeType || "audio/mpeg"
+        }
+    })
+
+    await updateOfflineStorageInterface()
+}
+
+async function saveOfflineLibrarySnapshot(sourceTracks,sourcePlaylists,sourceMembers) {
+    if (!offlineReady || !currentProfile?.duoId) return
+
+    const snapshotTracks = sourceTracks.map(track => ({
+        id:track.id,
+        title:track.title,
+        artist:track.artist,
+        album:track.album,
+        duration:Number(track.duration || 0),
+        favorite:Boolean(track.favorite),
+        sharedBy:track.sharedBy || "",
+        tags:Array.isArray(track.tags) ? track.tags : [],
+        fileSize:Number(track.fileSize || 0),
+        mimeType:track.mimeType || ""
+    }))
+    const snapshotPlaylists = sourcePlaylists.map(playlist => ({
+        id:playlist.id,
+        title:playlist.title,
+        description:playlist.description || "",
+        trackIds:Array.isArray(playlist.trackIds) ? playlist.trackIds : []
+    }))
+    const snapshotMembers = sourceMembers.map(member => ({
+        id:member.id,
+        display_name:member.display_name || ""
+    }))
+
+    try {
+        await offline.saveSnapshot({
+            duoId:currentProfile.duoId,
+            tracks:snapshotTracks,
+            playlists:snapshotPlaylists,
+            members:snapshotMembers
+        })
+    } catch (error) {
+        return
+    }
+}
+
+async function loadOfflineApplicationData() {
+    if (!offlineReady || !currentProfile?.duoId) return false
+
+    const previousTrackId = currentTrackId
+    const [records,snapshot] = await Promise.all([
+        offline.getDownloads(currentProfile.duoId),
+        offline.getSnapshot(currentProfile.duoId)
+    ])
+    const downloadedIds = new Set(records.map(record => record.trackId))
+    const snapshotTracks = Array.isArray(snapshot?.tracks) ? snapshot.tracks : []
+    const snapshotTrackIds = new Set(snapshotTracks.map(track => track.id))
+    const currentRemoved = Boolean(previousTrackId && !snapshotTrackIds.has(previousTrackId) && !downloadedIds.has(previousTrackId))
+    const currentUnavailableOffline = Boolean(previousTrackId && !navigator.onLine && !downloadedIds.has(previousTrackId))
+
+    if (currentRemoved || currentUnavailableOffline) {
+        audioPlayer.pause()
+        audioPlayer.removeAttribute("src")
+        audioPlayer.dataset.trackId = ""
+        audioPlayer.dataset.source = ""
+        audioPlayer.load()
+        isPlaying = false
+    }
+
+    offlineDownloads = new Map(records.map(record => [record.trackId,record]))
+    tracks = snapshotTracks.map((track,index) => ({
+        ...track,
+        cover:getCoverClass(track,index),
+        coverImage:"",
+        source:"",
+        cloudSource:"",
+        cloudCoverImage:"",
+        downloaded:false,
+        offline:false,
+        cloud:false,
+        coverIndex:index
+    }))
+
+    records.forEach((record,index) => {
+        const trackIndex = tracks.findIndex(track => track.id === record.trackId)
+
+        if (trackIndex >= 0) {
+            const objectUrls = getOfflineObjectUrls(record)
+
+            tracks[trackIndex] = {
+                ...tracks[trackIndex],
+                source:objectUrls.audioUrl,
+                coverImage:objectUrls.coverUrl,
+                fileSize:Number(record.fileSize || record.audioBlob?.size || tracks[trackIndex].fileSize || 0),
+                mimeType:record.mimeType || tracks[trackIndex].mimeType || "audio/mpeg",
+                downloaded:true,
+                offline:true
+            }
+        } else {
+            tracks.push(createOfflineTrack(record,tracks.length + index))
+        }
+    })
+
+    playlists = Array.isArray(snapshot?.playlists) ? snapshot.playlists : []
+    duoMembers = Array.isArray(snapshot?.members) && snapshot.members.length
+        ? snapshot.members
+        : [{
+            id:currentProfile.memberId || "offline-member",
+            display_name:currentProfile.name
+        }]
+    jamSession = null
+    jamInviteCode = ""
+    jamActive = false
+    offlineLaunch = true
+    currentTrackId = tracks.some(track => track.id === previousTrackId && track.downloaded)
+        ? previousTrackId
+        : tracks.find(track => track.downloaded)?.id || tracks[0]?.id || ""
+
+    if (!playbackStateRestored) {
+        restorePlaybackState()
+    } else if (tracks.length) {
+        normalizePlaybackQueue()
+    } else {
+        playbackQueue = []
+        playbackQueueIndex = -1
+        pauseTrack({syncJam:false})
+    }
+
+    updateProfileInterface()
+    renderApplicationData()
+    updatePlayerInterface()
+    updateJamInterface()
+    await updateOfflineStorageInterface()
+
+    return true
+}
+
+async function fetchOfflineBlob(url) {
+    if (!url) throw new Error("O arquivo desta música não está disponível para download.")
+
+    const response = await fetch(url,{cache:"no-store"})
+
+    if (!response.ok) throw new Error("Não foi possível baixar o arquivo de áudio.")
+
+    return response.blob()
+}
+
+async function hasOfflineStorageCapacity(requiredBytes) {
+    if (!offlineReady || !currentProfile?.duoId || !Number.isFinite(requiredBytes) || requiredBytes <= 0) return true
+
+    try {
+        const usage = await offline.getUsage(currentProfile.duoId)
+
+        if (!usage.quota) return true
+
+        const availableBytes = Math.max(0,usage.quota - usage.browserUsage)
+        const safetyMargin = Math.max(5 * 1024 * 1024,requiredBytes * 0.08)
+
+        return availableBytes >= requiredBytes + safetyMargin
+    } catch (error) {
+        return true
+    }
+}
+
+async function downloadTrackToDevice(trackId,{silent = false,refresh = true} = {}) {
+    const track = tracks.find(item => item.id === trackId)
+
+    if (!track || track.downloaded || downloadOperations.has(trackId)) return Boolean(track?.downloaded)
+
+    if (!offlineReady) {
+        if (!silent) showToast("Este navegador não oferece armazenamento offline para o Dois Tons.","warning")
+        return false
+    }
+
+    if (!cloudReady || !navigator.onLine) {
+        if (!silent) showToast("Conecte-se à internet para baixar esta música.","warning")
+        return false
+    }
+
+    if (!(await hasOfflineStorageCapacity(Number(track.fileSize || 0)))) {
+        if (!silent) showToast("Não há espaço suficiente neste aparelho para baixar esta música.","warning")
+        return false
+    }
+
+    let source = track.cloudSource || track.source
+
+    if (track.audioPath && cloud?.createPrivateUrl) {
+        try {
+            source = await cloud.createPrivateUrl(track.audioPath)
+        } catch (error) {
+            source = track.cloudSource || track.source
+        }
+    }
+
+    if (!source || source.startsWith("blob:")) {
+        if (!silent) showToast("O arquivo original desta música não está disponível.","warning")
+        return false
+    }
+
+    downloadOperations.add(trackId)
+
+    if (refresh) {
+        renderApplicationData()
+        updatePlayerInterface()
+    }
+
+    try {
+        const audioBlob = await fetchOfflineBlob(source)
+        let coverBlob = null
+        let coverSource = track.cloudCoverImage || track.coverImage
+
+        if (track.coverPath && cloud?.createPrivateUrl) {
+            try {
+                coverSource = await cloud.createPrivateUrl(track.coverPath)
+            } catch (error) {
+                coverSource = track.cloudCoverImage || track.coverImage
+            }
+        }
+
+        if (coverSource && !coverSource.startsWith("blob:")) {
+            try {
+                coverBlob = await fetchOfflineBlob(coverSource)
+            } catch (error) {
+                coverBlob = null
+            }
+        }
+
+        await offline.saveDownload({
+            duoId:currentProfile.duoId,
+            track,
+            audioBlob,
+            coverBlob
+        })
+
+        if (refresh) {
+            await synchronizeOfflineTracks()
+            normalizePlaybackQueue()
+            renderApplicationData()
+            updatePlayerInterface()
+        }
+
+        if (!silent) showToast(`${track.title} está disponível offline neste aparelho.`)
+
+        return true
+    } catch (error) {
+        if (!silent) showToast(getErrorMessage(error,"Não foi possível baixar esta música."),"warning")
+
+        return false
+    } finally {
+        downloadOperations.delete(trackId)
+
+        if (refresh) {
+            renderApplicationData()
+            updatePlayerInterface()
+        }
+    }
+}
+
+async function removeTrackDownload(trackId,{silent = false} = {}) {
+    const track = tracks.find(item => item.id === trackId)
+
+    if (!track?.downloaded || !currentProfile?.duoId) return
+
+    try {
+        await offline.removeDownload(currentProfile.duoId,trackId)
+
+        if (offlineLaunch && !cloudReady) {
+            await loadOfflineApplicationData()
+        } else {
+            await synchronizeOfflineTracks()
+            normalizePlaybackQueue()
+            renderApplicationData()
+            updatePlayerInterface()
+        }
+
+        if (!silent) showToast(`${track.title} foi removida dos downloads deste aparelho.`)
+    } catch (error) {
+        if (!silent) showToast(getErrorMessage(error,"Não foi possível remover o download."),"warning")
+    }
+}
+
+async function toggleTrackDownload(trackId) {
+    const track = tracks.find(item => item.id === trackId)
+
+    if (!track) return
+
+    if (!track.downloaded) {
+        await downloadTrackToDevice(trackId)
+        return
+    }
+
+    const shouldRemove = window.confirm(`Remover “${track.title}” dos downloads deste aparelho?`)
+
+    if (shouldRemove) await removeTrackDownload(trackId)
+}
+
+async function downloadVisibleCollection() {
+    const visibleTracks = getFilteredLibraryTracks().filter(track => !track.downloaded && (track.cloudSource || track.source))
+
+    if (!visibleTracks.length) {
+        showToast("Todas as músicas desta coleção já estão disponíveis offline.")
+        return
+    }
+
+    if (!cloudReady || !navigator.onLine) {
+        showToast("Conecte-se à internet para baixar esta coleção.","warning")
+        return
+    }
+
+    const estimatedSize = visibleTracks.reduce((total,track) => total + Number(track.fileSize || 0),0)
+    const sizeText = estimatedSize ? ` Aproximadamente ${formatFileSize(estimatedSize)}.` : ""
+    const shouldDownload = window.confirm(`Baixar ${visibleTracks.length === 1 ? "1 música" : `${visibleTracks.length} músicas`} para este aparelho?${sizeText}`)
+
+    if (!shouldDownload) return
+
+    setButtonLoading(downloadLibraryButton,true,"0%")
+
+    let completed = 0
+    let downloaded = 0
+
+    try {
+        for (const track of visibleTracks) {
+            const success = await downloadTrackToDevice(track.id,{silent:true,refresh:false})
+
+            completed += 1
+            if (success) downloaded += 1
+
+            const label = downloadLibraryButton?.querySelector("span")
+            if (label) label.textContent = `${Math.round((completed / visibleTracks.length) * 100)}%`
+        }
+
+        await synchronizeOfflineTracks()
+        normalizePlaybackQueue()
+        renderApplicationData()
+        updatePlayerInterface()
+
+        showToast(downloaded
+            ? `${downloaded === 1 ? "1 música baixada" : `${downloaded} músicas baixadas`} para este aparelho.`
+            : "Nenhuma música nova foi baixada.",downloaded ? "success" : "warning")
+    } finally {
+        setButtonLoading(downloadLibraryButton,false)
+    }
+}
+
+function openDownloadsLibrary() {
+    closeModal("profile")
+    activePlaylistId = ""
+    activeLibraryFilter = "downloads"
+    openView("library")
+    renderPlaylists()
+    updateLibraryFilters()
+    renderLibrary()
+}
+
 function getCurrentTrack() {
     return tracks.find(track => track.id === currentTrackId) || tracks[0]
+}
+
+function getPlayableTracks(sourceTracks = tracks) {
+    return sourceTracks.filter(track => {
+        if (!track?.source) return false
+        if (!cloudMode || navigator.onLine) return true
+
+        return Boolean(track.downloaded)
+    })
+}
+
+function getPlaybackContextTracks(context = playbackContext) {
+    if (!context) return tracks
+
+    if (context.type === "playlist") {
+        const playlist = playlists.find(item => item.id === context.id)
+
+        return playlist
+            ? playlist.trackIds.map(trackId => tracks.find(track => track.id === trackId)).filter(Boolean)
+            : tracks
+    }
+
+    if (context.type === "favorites") return tracks.filter(track => track.favorite)
+    if (context.type === "shared") return tracks.filter(track => track.sharedBy)
+    if (context.type === "downloads") return tracks.filter(track => track.downloaded)
+
+    if (context.type === "search") {
+        const query = String(context.query || "").trim().toLocaleLowerCase("pt-BR")
+
+        return query
+            ? tracks.filter(track => getTrackSearchText(track).includes(query))
+            : tracks
+    }
+
+    return tracks
+}
+
+function getLibraryPlaybackContext() {
+    if (activePlaylistId) {
+        const playlist = playlists.find(item => item.id === activePlaylistId)
+
+        return {
+            type:"playlist",
+            id:activePlaylistId,
+            label:playlist?.title || "Playlist"
+        }
+    }
+
+    if (activeLibraryFilter === "favorites") return {type:"favorites",label:"Favoritas"}
+    if (activeLibraryFilter === "shared") return {type:"shared",label:"Compartilhadas"}
+    if (activeLibraryFilter === "downloads") return {type:"downloads",label:"Downloads"}
+
+    return {type:"library",label:"Biblioteca"}
+}
+
+function getPlaybackContextFromElement(element) {
+    if (element.closest("#favorites-grid")) return {type:"favorites",label:"Favoritas"}
+    if (element.closest("#shared-track-list")) return {type:"shared",label:"Compartilhadas"}
+
+    if (element.closest("#search-results")) {
+        return {
+            type:"search",
+            label:"Resultados da busca",
+            query:searchInput.value
+        }
+    }
+
+    if (element.closest("#library-track-list")) return getLibraryPlaybackContext()
+
+    return {type:"library",label:"Biblioteca"}
+}
+
+function shuffleTrackIds(trackIds) {
+    const shuffled = [...trackIds]
+
+    for (let index = shuffled.length - 1; index > 0; index -= 1) {
+        const randomIndex = Math.floor(Math.random() * (index + 1))
+        ;[shuffled[index],shuffled[randomIndex]] = [shuffled[randomIndex],shuffled[index]]
+    }
+
+    return shuffled
+}
+
+function buildPlaybackQueue(trackId = currentTrackId,context = playbackContext) {
+    const contextTracks = getPlayableTracks(getPlaybackContextTracks(context))
+    const currentTrack = tracks.find(track => track.id === trackId)
+    const currentPlayable = Boolean(currentTrack && getPlayableTracks([currentTrack]).length)
+    let queueIds = contextTracks.map(track => track.id)
+
+    if (currentPlayable && !queueIds.includes(currentTrack.id)) queueIds.unshift(currentTrack.id)
+
+    if (!queueIds.length) {
+        playbackQueue = []
+        playbackQueueIndex = -1
+        renderQueue()
+        return
+    }
+
+    if (shuffleEnabled) {
+        if (queueIds.includes(trackId)) {
+            const remainingIds = queueIds.filter(id => id !== trackId)
+
+            playbackQueue = [trackId,...shuffleTrackIds(remainingIds)].filter(Boolean)
+            playbackQueueIndex = 0
+        } else {
+            playbackQueue = shuffleTrackIds(queueIds)
+            playbackQueueIndex = -1
+        }
+    } else {
+        playbackQueue = queueIds
+        playbackQueueIndex = playbackQueue.indexOf(trackId)
+    }
+
+    playbackContext = context || {type:"library",label:"Biblioteca"}
+    renderQueue()
+    schedulePlaybackStateSave()
+}
+
+function normalizePlaybackQueue() {
+    const playableIds = new Set(getPlayableTracks().map(track => track.id))
+
+    playbackQueue = playbackQueue.filter(trackId => playableIds.has(trackId))
+
+    if (!playableIds.has(currentTrackId)) {
+        playbackQueueIndex = -1
+        renderQueue()
+        return
+    }
+
+    if (!playbackQueue.includes(currentTrackId)) {
+        buildPlaybackQueue(currentTrackId,playbackContext)
+        return
+    }
+
+    playbackQueueIndex = playbackQueue.indexOf(currentTrackId)
+    renderQueue()
+}
+
+function schedulePlaybackStateSave() {
+    clearTimeout(playbackSaveTimeout)
+    playbackSaveTimeout = setTimeout(savePlaybackState,180)
+}
+
+function savePlaybackState() {
+    if (!currentProfile || !playbackStateRestored) return
+
+    const state = {
+        currentTrackId,
+        currentTime:Number.isFinite(audioPlayer?.currentTime) ? audioPlayer.currentTime : 0,
+        playbackQueue,
+        playbackQueueIndex,
+        playbackContext,
+        shuffleEnabled,
+        repeatMode
+    }
+
+    localStorage.setItem(playbackStorageKey,JSON.stringify(state))
+}
+
+function restorePlaybackState() {
+    if (playbackStateRestored || !tracks.length) return
+
+    playbackStateRestored = true
+
+    try {
+        const savedState = JSON.parse(localStorage.getItem(playbackStorageKey) || "null")
+
+        if (!savedState) {
+            buildPlaybackQueue(currentTrackId,{type:"library",label:"Biblioteca"})
+            updatePlaybackModeInterface()
+            return
+        }
+
+        shuffleEnabled = Boolean(savedState.shuffleEnabled)
+        repeatMode = ["off","all","one"].includes(savedState.repeatMode) ? savedState.repeatMode : "off"
+        playbackContext = savedState.playbackContext || {type:"library",label:"Biblioteca"}
+
+        const savedTrack = tracks.find(track => track.id === savedState.currentTrackId)
+        const savedTrackAvailable = Boolean(savedTrack && (!cloudMode || navigator.onLine || savedTrack.downloaded))
+
+        if (savedTrackAvailable) currentTrackId = savedState.currentTrackId
+
+        const playableIds = new Set(getPlayableTracks().map(track => track.id))
+        const storedQueue = Array.isArray(savedState.playbackQueue)
+            ? savedState.playbackQueue.filter(trackId => playableIds.has(trackId))
+            : []
+
+        playbackQueue = storedQueue.includes(currentTrackId) ? storedQueue : []
+
+        if (!playbackQueue.length) {
+            buildPlaybackQueue(currentTrackId,playbackContext)
+        } else {
+            playbackQueueIndex = playbackQueue.indexOf(currentTrackId)
+        }
+
+        const track = getCurrentTrack()
+
+        if (track?.source && Number(savedState.currentTime) > 0 && prepareAudioTrack(track)) {
+            const restorePosition = () => {
+                const duration = Number.isFinite(audioPlayer.duration) ? audioPlayer.duration : track.duration || 0
+                audioPlayer.currentTime = duration
+                    ? Math.min(Number(savedState.currentTime),Math.max(0,duration - 0.1))
+                    : Number(savedState.currentTime)
+                updateProgressInterface()
+            }
+
+            if (audioPlayer.readyState >= 1) {
+                restorePosition()
+            } else {
+                audioPlayer.addEventListener("loadedmetadata",restorePosition,{once:true})
+            }
+        }
+    } catch (error) {
+        buildPlaybackQueue(currentTrackId,{type:"library",label:"Biblioteca"})
+    }
+
+    updatePlaybackModeInterface()
+    renderQueue()
 }
 
 function getInitials(name) {
@@ -384,7 +1168,11 @@ function updateConnectionInterface() {
 
     if (profileConnection) {
         profileConnection.textContent = cloudMode
-            ? online ? "Nuvem privada conectada" : "Nuvem temporariamente offline"
+            ? online
+                ? "Nuvem privada conectada"
+                : offlineLaunch
+                    ? "Modo offline · downloads deste aparelho"
+                    : "Nuvem temporariamente offline"
             : "Modo de demonstração neste aparelho"
     }
 }
@@ -467,11 +1255,15 @@ function updateProfileInterface() {
 
 function openApplication(profile) {
     currentProfile = profile
+    if (cloudMode && profile?.duoId) saveOfflineProfile(profile)
     accessScreen.hidden = true
     appShell.hidden = false
 
     updateProfileInterface()
     renderApplicationData()
+
+    if (!cloudMode) restorePlaybackState()
+
     updatePlayerInterface()
 }
 
@@ -481,8 +1273,12 @@ function closeApplication() {
     clearCatalogQueue()
     stopJamSynchronization()
     cloud?.disconnectRealtime()
+    releaseOfflineObjectUrls()
+    offlineDownloads.clear()
+    offlineLaunch = false
     localStorage.removeItem(profileStorageKey)
     localStorage.removeItem(accessStorageKey)
+    localStorage.removeItem(offlineProfileStorageKey)
     localStorage.setItem(logoutStorageKey,"true")
     currentProfile = null
     duoMembers = []
@@ -491,6 +1287,11 @@ function closeApplication() {
     playlists = []
     tracks = cloudMode ? [] : [...demoTracks]
     currentTrackId = tracks[0]?.id || ""
+    playbackQueue = tracks.map(track => track.id)
+    playbackQueueIndex = 0
+    playbackContext = {type:"library",label:"Biblioteca"}
+    playbackStateRestored = false
+    localStorage.removeItem(playbackStorageKey)
     appShell.hidden = true
     accessScreen.hidden = false
     accessCodeInput.value = ""
@@ -562,10 +1363,17 @@ async function loadCloudApplicationData() {
 
     tracks = cloudTracks.map((track,index) => ({
         ...track,
-        cover:getCoverClass(track,index)
+        cover:getCoverClass(track,index),
+        cloudSource:track.source,
+        cloudCoverImage:track.coverImage,
+        downloaded:false,
+        offline:false
     }))
+    offlineLaunch = false
+    await synchronizeOfflineTracks()
     playlists = cloudPlaylists
     duoMembers = members
+    await saveOfflineLibrarySnapshot(tracks,playlists,duoMembers)
     currentTrackId = tracks.some(track => track.id === previousTrackId)
         ? previousTrackId
         : tracks[0]?.id || ""
@@ -573,6 +1381,12 @@ async function loadCloudApplicationData() {
     jamInviteCode = activeJam?.invite_code || ""
 
     if (jamActive && !jamSession?.active) deactivateLocalJam()
+
+    if (!playbackStateRestored) {
+        restorePlaybackState()
+    } else {
+        normalizePlaybackQueue()
+    }
 
     updateProfileInterface()
     renderApplicationData()
@@ -685,19 +1499,39 @@ function createAlbumCard(track,index) {
 
 function createTrackItem(track,index) {
     const currentClass = track.id === currentTrackId ? "current" : ""
+    const downloading = downloadOperations.has(track.id)
     const sharingLabel = track.sharedBy
         ? `<span><svg aria-hidden="true"><use href="#icon-send"></use></svg>${escapeHTML(track.sharedBy)}</span>`
         : `<span>${formatTime(track.duration)}</span>`
+    const offlineLabel = track.downloaded
+        ? `<span class="track-offline-label" title="Disponível offline"><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>`
+        : ""
 
     return `
-        <button type="button" class="track-item ${currentClass}" data-track-id="${escapeAttribute(track.id)}">
-            <span class="track-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
-            <span class="track-information">
-                <strong>${escapeHTML(track.title)}</strong>
-                <span>${escapeHTML(track.artist)} · ${escapeHTML(track.album)}</span>
+        <div class="track-item-row ${currentClass}">
+            <button type="button" class="track-item ${currentClass}" data-track-id="${escapeAttribute(track.id)}">
+                <span class="track-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+                <span class="track-information">
+                    <strong>${escapeHTML(track.title)}</strong>
+                    <span>${escapeHTML(track.artist)} · ${escapeHTML(track.album)}</span>
+                </span>
+                <span class="track-meta">${offlineLabel}${sharingLabel}</span>
+            </button>
+            <span class="track-item-actions">
+                <button
+                    type="button"
+                    class="track-download-button ${track.downloaded ? "downloaded" : ""} ${downloading ? "downloading" : ""}"
+                    data-download-track="${escapeAttribute(track.id)}"
+                    aria-label="${track.downloaded ? "Remover download de" : "Baixar"} ${escapeAttribute(track.title)}"
+                    ${downloading || (!track.downloaded && (!cloudReady || !navigator.onLine)) ? "disabled" : ""}
+                >
+                    <svg aria-hidden="true"><use href="#${track.downloaded ? "icon-check" : "icon-download"}"></use></svg>
+                </button>
+                <button type="button" class="track-queue-button" data-add-to-queue="${escapeAttribute(track.id)}" aria-label="Adicionar ${escapeAttribute(track.title)} à fila">
+                    <svg aria-hidden="true"><use href="#icon-queue"></use></svg>
+                </button>
             </span>
-            <span class="track-meta">${sharingLabel}</span>
-        </button>
+        </div>
     `
 }
 
@@ -766,6 +1600,7 @@ function getFilteredLibraryTracks() {
 
     if (activeLibraryFilter === "favorites") return tracks.filter(track => track.favorite)
     if (activeLibraryFilter === "shared") return tracks.filter(track => track.sharedBy)
+    if (activeLibraryFilter === "downloads") return tracks.filter(track => track.downloaded)
 
     return tracks
 }
@@ -781,16 +1616,22 @@ function updateLibraryFilters() {
 function renderLibrary() {
     const filteredTracks = getFilteredLibraryTracks()
     const label = filteredTracks.length === 1 ? "1 música" : `${filteredTracks.length} músicas`
+    const downloadsFilter = !activePlaylistId && activeLibraryFilter === "downloads"
 
     libraryCount.textContent = label
+    offlineStorageSummary.hidden = !downloadsFilter
+    downloadLibraryButton.hidden = downloadsFilter
+    downloadLibraryButton.disabled = !cloudReady || !navigator.onLine || !filteredTracks.some(track => !track.downloaded && (track.cloudSource || track.source))
     libraryTrackList.innerHTML = filteredTracks.length
         ? filteredTracks.map(createTrackItem).join("")
         : createEmptyState(
-            activePlaylistId ? "Playlist vazia" : "Nenhuma música encontrada",
-            activePlaylistId
-                ? "Abra uma música e use o botão Playlist para adicioná-la."
-                : "Escolha outro filtro ou adicione uma música à biblioteca.",
-            activePlaylistId ? "icon-playlist" : "icon-search"
+            downloadsFilter ? "Nenhum download" : activePlaylistId ? "Playlist vazia" : "Nenhuma música encontrada",
+            downloadsFilter
+                ? "Baixe uma música da biblioteca para ouvi-la mesmo sem internet."
+                : activePlaylistId
+                    ? "Abra uma música e use o botão Playlist para adicioná-la."
+                    : "Escolha outro filtro ou adicione uma música à biblioteca.",
+            downloadsFilter ? "icon-download" : activePlaylistId ? "icon-playlist" : "icon-search"
         )
 }
 
@@ -820,13 +1661,28 @@ function renderApplicationData() {
     renderLibrary()
     renderSearch(searchInput.value)
     renderPlaylistPicker()
+    renderQueue()
 }
 
 document.addEventListener("click",event => {
+    const downloadButton = event.target.closest("[data-download-track]")
+
+    if (downloadButton) {
+        toggleTrackDownload(downloadButton.dataset.downloadTrack)
+        return
+    }
+
+    const queueButton = event.target.closest("[data-add-to-queue]")
+
+    if (queueButton) {
+        addTrackToQueue(queueButton.dataset.addToQueue)
+        return
+    }
+
     const trackButton = event.target.closest("[data-track-id]")
 
     if (trackButton) {
-        selectTrack(trackButton.dataset.trackId,true)
+        selectTrack(trackButton.dataset.trackId,true,{context:getPlaybackContextFromElement(trackButton)})
         return
     }
 
@@ -879,6 +1735,184 @@ suggestionButtons.forEach(button => {
 })
 
 // player
+function createQueueTrack(track,index,{current = false,locked = false} = {}) {
+    if (!track) return ""
+
+    const queueControls = current
+        ? `<span class="queue-playing-indicator"><span></span><span></span><span></span></span>`
+        : locked
+            ? `<span class="queue-locked-label">Jam</span>`
+            : `
+            <span class="queue-item-actions">
+                <button type="button" data-queue-move="up" data-queue-index="${index}" aria-label="Mover para cima">
+                    <svg aria-hidden="true"><use href="#icon-up"></use></svg>
+                </button>
+                <button type="button" data-queue-move="down" data-queue-index="${index}" aria-label="Mover para baixo">
+                    <svg aria-hidden="true"><use href="#icon-down"></use></svg>
+                </button>
+                <button type="button" data-queue-remove="${index}" aria-label="Remover da fila">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </span>
+        `
+
+    return `
+        <article class="queue-item ${current ? "current" : ""}" data-queue-track-id="${escapeAttribute(track.id)}">
+            <button type="button" class="queue-item-main" ${current ? "disabled" : `data-queue-select="${index}"`}>
+                <span class="queue-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+                <span class="queue-item-information">
+                    <strong>${escapeHTML(track.title)}</strong>
+                    <span>${escapeHTML(track.artist)}</span>
+                </span>
+            </button>
+            ${queueControls}
+        </article>
+    `
+}
+
+function renderQueue() {
+    if (!queueCurrentTrack || !queueList) return
+
+    const currentTrack = getCurrentTrack()
+    const activeQueue = jamActive ? getJamSequence() : playbackQueue
+    const activeQueueIndex = jamActive ? activeQueue.indexOf(currentTrackId) : playbackQueueIndex
+    const upcomingIds = activeQueue.slice(Math.max(0,activeQueueIndex + 1))
+    const upcomingTracks = upcomingIds
+        .map(trackId => tracks.find(track => track.id === trackId))
+        .filter(Boolean)
+
+    queueContextLabel.textContent = jamActive ? "Jam sincronizada" : playbackContext?.label || "Biblioteca"
+    queueCurrentTrack.innerHTML = currentTrack
+        ? createQueueTrack(currentTrack,activeQueueIndex,{current:true,locked:jamActive})
+        : createEmptyState("Nenhuma música","Escolha uma música para iniciar a fila.","icon-queue")
+    queueCount.textContent = upcomingTracks.length === 1 ? "1 música" : `${upcomingTracks.length} músicas`
+    queueList.innerHTML = upcomingTracks.length
+        ? upcomingTracks.map((track,index) => createQueueTrack(track,activeQueueIndex + 1 + index,{locked:jamActive})).join("")
+        : createEmptyState("Fim da fila","Adicione músicas ou escolha outra coleção para continuar ouvindo.","icon-queue")
+
+    clearQueueButton.disabled = jamActive || !upcomingTracks.length
+    saveQueuePlaylistButton.disabled = jamActive || (!currentTrack && !upcomingTracks.length)
+}
+
+function updatePlaybackModeInterface() {
+    shuffleButton?.classList.toggle("active",shuffleEnabled)
+    shuffleButton?.setAttribute("aria-pressed",String(shuffleEnabled))
+    shuffleButton?.setAttribute("aria-label",shuffleEnabled ? "Desativar modo aleatório" : "Ativar modo aleatório")
+
+    const repeatLabels = {
+        off:"Ativar repetição da fila",
+        all:"Repetir somente esta música",
+        one:"Desativar repetição"
+    }
+
+    shuffleButton.disabled = jamActive
+    repeatButton.disabled = jamActive
+
+    repeatButton?.classList.toggle("active",repeatMode !== "off")
+    repeatButton?.classList.toggle("repeat-one",repeatMode === "one")
+    repeatButton?.setAttribute("aria-pressed",String(repeatMode !== "off"))
+    repeatButton?.setAttribute("data-repeat-mode",repeatMode)
+    repeatButton?.setAttribute("aria-label",repeatLabels[repeatMode])
+}
+
+function toggleShuffle() {
+    if (jamActive) {
+        showToast("Durante uma Jam, a ordem permanece igual nos dois aparelhos.","warning")
+        return
+    }
+
+    shuffleEnabled = !shuffleEnabled
+    buildPlaybackQueue(currentTrackId,playbackContext)
+    updatePlaybackModeInterface()
+    showToast(shuffleEnabled ? "Modo aleatório ativado." : "Modo aleatório desativado.")
+}
+
+function cycleRepeatMode() {
+    if (jamActive) {
+        showToast("Durante uma Jam, a repetição fica sincronizada pela sequência padrão.","warning")
+        return
+    }
+
+    repeatMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off"
+    updatePlaybackModeInterface()
+    schedulePlaybackStateSave()
+
+    const labels = {
+        off:"Repetição desativada.",
+        all:"Repetir fila ativado.",
+        one:"Repetir música ativado."
+    }
+
+    showToast(labels[repeatMode])
+}
+
+function addTrackToQueue(trackId) {
+    const track = tracks.find(item => item.id === trackId)
+
+    if (jamActive) {
+        showToast("A fila não pode ser alterada durante uma Jam.","warning")
+        return
+    }
+
+    if (!track?.source) {
+        showToast("Esta música ainda não possui um arquivo disponível.","warning")
+        return
+    }
+
+    if (!playbackQueue.includes(currentTrackId)) buildPlaybackQueue(currentTrackId,playbackContext)
+
+    if (playbackQueue.includes(trackId)) {
+        showToast(`${track.title} já está na fila.`,"warning")
+        return
+    }
+
+    playbackQueue.push(trackId)
+    renderQueue()
+    schedulePlaybackStateSave()
+    showToast(`${track.title} foi adicionada ao fim da fila.`)
+}
+
+function clearUpcomingQueue() {
+    if (jamActive) return
+    if (playbackQueueIndex < 0) return
+
+    playbackQueue = playbackQueue.slice(0,playbackQueueIndex + 1)
+    renderQueue()
+    schedulePlaybackStateSave()
+    showToast("Músicas a seguir removidas da fila.")
+}
+
+function moveQueueTrack(queueIndex,direction) {
+    if (jamActive) return
+
+    const targetIndex = direction === "up" ? queueIndex - 1 : queueIndex + 1
+    const firstUpcomingIndex = playbackQueueIndex + 1
+
+    if (queueIndex < firstUpcomingIndex || targetIndex < firstUpcomingIndex || targetIndex >= playbackQueue.length) return
+
+    ;[playbackQueue[queueIndex],playbackQueue[targetIndex]] = [playbackQueue[targetIndex],playbackQueue[queueIndex]]
+    renderQueue()
+    schedulePlaybackStateSave()
+}
+
+function removeQueueTrack(queueIndex) {
+    if (jamActive) return
+    if (queueIndex <= playbackQueueIndex || queueIndex >= playbackQueue.length) return
+
+    playbackQueue.splice(queueIndex,1)
+    renderQueue()
+    schedulePlaybackStateSave()
+}
+
+function selectQueueTrack(queueIndex) {
+    const trackId = playbackQueue[queueIndex]
+
+    if (!trackId) return
+
+    closeSheet("queue")
+    selectTrack(trackId,true,{preserveQueue:true,queueIndex})
+}
+
 function setCoverElement(element,track) {
     availableCoverClasses.forEach(coverClass => element.classList.remove(coverClass))
     element.classList.remove("custom-cover")
@@ -934,10 +1968,22 @@ function updatePlayerInterface() {
     miniPlayButton.setAttribute("aria-label",isPlaying ? "Pausar" : "Reproduzir")
     mainPlayButton.setAttribute("aria-label",isPlaying ? "Pausar" : "Reproduzir")
 
+    if (downloadCurrentTrackButton) {
+        const downloading = downloadOperations.has(track.id)
+
+        downloadCurrentTrackButton.classList.toggle("active",Boolean(track.downloaded))
+        downloadCurrentTrackButton.classList.toggle("downloading",downloading)
+        downloadCurrentTrackButton.disabled = downloading || (!track.downloaded && (!cloudReady || !navigator.onLine))
+        downloadCurrentTrackButton.setAttribute("aria-label",track.downloaded ? "Remover download desta música" : "Baixar música")
+        if (downloadCurrentTrackLabel) downloadCurrentTrackLabel.textContent = downloading ? "Baixando" : track.downloaded ? "Baixada" : "Baixar"
+    }
+
     setCoverElement(miniCover,track)
     setCoverElement(playerArtwork,track)
     updateProgressInterface()
     updateMediaSession(track)
+    updatePlaybackModeInterface()
+    renderQueue()
     renderHome()
     renderLibrary()
 }
@@ -958,10 +2004,27 @@ function updateProgressInterface() {
 function prepareAudioTrack(track) {
     if (!track?.source) return false
 
-    if (audioPlayer.dataset.trackId !== track.id) {
+    const sameTrack = audioPlayer.dataset.trackId === track.id
+    const sourceChanged = audioPlayer.dataset.source !== track.source
+
+    if (!sameTrack || sourceChanged) {
+        const restorePosition = sameTrack && Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
+
         audioPlayer.src = track.source
         audioPlayer.dataset.trackId = track.id
+        audioPlayer.dataset.source = track.source
         audioPlayer.load()
+
+        if (restorePosition > 0) {
+            audioPlayer.addEventListener("loadedmetadata",() => {
+                const duration = Number.isFinite(audioPlayer.duration) ? audioPlayer.duration : track.duration || 0
+
+                audioPlayer.currentTime = duration
+                    ? Math.min(restorePosition,Math.max(0,duration - 0.1))
+                    : restorePosition
+                updateProgressInterface()
+            },{once:true})
+        }
     }
 
     return true
@@ -970,6 +2033,13 @@ function prepareAudioTrack(track) {
 async function playTrack(options = {}) {
     const track = getCurrentTrack()
     const syncJam = options.syncJam !== false
+
+    if (cloudMode && !navigator.onLine && track && !track.downloaded) {
+        isPlaying = false
+        updatePlayerInterface()
+        showToast("Esta música ainda não foi baixada neste aparelho.","warning")
+        return false
+    }
 
     if (!prepareAudioTrack(track)) {
         isPlaying = false
@@ -984,6 +2054,7 @@ async function playTrack(options = {}) {
         await audioPlayer.play()
         isPlaying = true
         updatePlayerInterface()
+        schedulePlaybackStateSave()
 
         if (syncJam) await publishJamState()
 
@@ -1004,6 +2075,7 @@ function pauseTrack(options = {}) {
     audioPlayer.pause()
     isPlaying = false
     updatePlayerInterface()
+    schedulePlaybackStateSave()
 
     if (syncJam) publishJamState()
 }
@@ -1022,6 +2094,17 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
 
     if (!selectedTrack) return
 
+    if (options.context) {
+        playbackContext = options.context
+        buildPlaybackQueue(trackId,playbackContext)
+    } else if (options.preserveQueue && Number.isInteger(options.queueIndex)) {
+        playbackQueueIndex = options.queueIndex
+    } else if (!playbackQueue.includes(trackId)) {
+        buildPlaybackQueue(trackId,playbackContext)
+    } else {
+        playbackQueueIndex = playbackQueue.indexOf(trackId)
+    }
+
     const changedTrack = selectedTrack.id !== currentTrackId
     currentTrackId = selectedTrack.id
 
@@ -1029,11 +2112,13 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
         audioPlayer.pause()
         audioPlayer.removeAttribute("src")
         audioPlayer.dataset.trackId = ""
+        audioPlayer.dataset.source = ""
         audioPlayer.load()
         isPlaying = false
     }
 
     updatePlayerInterface()
+    schedulePlaybackStateSave()
 
     if (shouldPlay) {
         await playTrack(options)
@@ -1042,20 +2127,86 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
     }
 }
 
-function changeTrack(direction) {
-    if (!tracks.length) return
+function getJamSequence() {
+    return getPlayableTracks().map(track => track.id)
+}
 
-    const currentIndex = tracks.findIndex(track => track.id === currentTrackId)
-    const safeCurrentIndex = currentIndex < 0 ? 0 : currentIndex
-    const nextIndex = (safeCurrentIndex + direction + tracks.length) % tracks.length
+function changeTrack(direction,options = {}) {
+    const automatic = options.automatic === true
 
-    selectTrack(tracks[nextIndex].id,true)
+    if (automatic && repeatMode === "one" && !jamActive) {
+        audioPlayer.currentTime = 0
+        playTrack()
+        return
+    }
+
+    if (direction < 0 && !automatic && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
+        audioPlayer.currentTime = 0
+        updateProgressInterface()
+        publishJamState()
+        schedulePlaybackStateSave()
+        return
+    }
+
+    const activeQueue = jamActive ? getJamSequence() : playbackQueue
+    const currentIndex = activeQueue.indexOf(currentTrackId)
+
+    if (!activeQueue.length) {
+        buildPlaybackQueue(currentTrackId,playbackContext)
+        return
+    }
+
+    if (currentIndex < 0 && !jamActive) {
+        const fallbackIndex = direction > 0 ? 0 : activeQueue.length - 1
+
+        selectTrack(activeQueue[fallbackIndex],true,{preserveQueue:true,queueIndex:fallbackIndex})
+        return
+    }
+
+    if (currentIndex < 0) {
+        buildPlaybackQueue(currentTrackId,playbackContext)
+        return
+    }
+
+    let nextIndex = currentIndex + direction
+
+    if (nextIndex < 0 || nextIndex >= activeQueue.length) {
+        const canWrap = jamActive || repeatMode === "all"
+
+        if (!canWrap) {
+            if (automatic) {
+                isPlaying = false
+                updatePlayerInterface()
+                schedulePlaybackStateSave()
+            } else {
+                showToast(direction > 0 ? "Fim da fila." : "Você está no início da fila.","warning")
+            }
+            return
+        }
+
+        nextIndex = direction > 0 ? 0 : activeQueue.length - 1
+    }
+
+    const nextTrackId = activeQueue[nextIndex]
+
+    if (jamActive) {
+        playbackContext = {type:"library",label:"Jam sincronizada"}
+        playbackQueue = activeQueue
+        playbackQueueIndex = nextIndex
+    }
+
+    selectTrack(nextTrackId,true,{preserveQueue:true,queueIndex:nextIndex})
 }
 
 async function toggleFavorite() {
     const track = getCurrentTrack()
 
     if (!track) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para alterar as favoritas compartilhadas.","warning")
+        return
+    }
 
     const previousFavorite = track.favorite
     track.favorite = !track.favorite
@@ -1087,6 +2238,11 @@ async function sendCurrentTrack() {
         return
     }
 
+    if (!cloudReady || !navigator.onLine) {
+        showToast("Conecte-se à internet para enviar esta música.","warning")
+        return
+    }
+
     try {
         await cloud.shareTrack(track.id)
         await loadCloudApplicationData()
@@ -1100,12 +2256,17 @@ miniPlayButton?.addEventListener("click",togglePlayback)
 mainPlayButton?.addEventListener("click",togglePlayback)
 previousButton?.addEventListener("click",() => changeTrack(-1))
 nextButton?.addEventListener("click",() => changeTrack(1))
+shuffleButton?.addEventListener("click",toggleShuffle)
+repeatButton?.addEventListener("click",cycleRepeatMode)
 favoriteButton?.addEventListener("click",toggleFavorite)
 sendCurrentTrackButton?.addEventListener("click",sendCurrentTrack)
+downloadCurrentTrackButton?.addEventListener("click",() => toggleTrackDownload(currentTrackId))
 addCurrentToPlaylistButton?.addEventListener("click",() => {
     closeSheet("player")
     openPlaylistModal(currentTrackId)
 })
+
+downloadLibraryButton?.addEventListener("click",downloadVisibleCollection)
 
 playLibraryButton?.addEventListener("click",() => {
     const playableTrack = getFilteredLibraryTracks().find(track => track.source)
@@ -1115,7 +2276,7 @@ playLibraryButton?.addEventListener("click",() => {
         return
     }
 
-    selectTrack(playableTrack.id,true)
+    selectTrack(playableTrack.id,true,{context:getLibraryPlaybackContext()})
 })
 
 trackProgress?.addEventListener("input",() => {
@@ -1144,7 +2305,14 @@ audioPlayer?.addEventListener("pause",() => {
     updatePlayerInterface()
 })
 
-audioPlayer?.addEventListener("timeupdate",updateProgressInterface)
+audioPlayer?.addEventListener("timeupdate",() => {
+    updateProgressInterface()
+
+    if (Date.now() - lastPlaybackProgressSave > 4000) {
+        lastPlaybackProgressSave = Date.now()
+        schedulePlaybackStateSave()
+    }
+})
 
 audioPlayer?.addEventListener("loadedmetadata",() => {
     const track = getCurrentTrack()
@@ -1152,7 +2320,7 @@ audioPlayer?.addEventListener("loadedmetadata",() => {
     if (track && Number.isFinite(audioPlayer.duration)) {
         track.duration = audioPlayer.duration
 
-        if (cloudMode && track.cloud) {
+        if (cloudMode && cloudReady && navigator.onLine && track.cloud) {
             cloud.updateTrackDuration(track.id,audioPlayer.duration).catch(() => {})
         }
     }
@@ -1161,22 +2329,37 @@ audioPlayer?.addEventListener("loadedmetadata",() => {
     renderApplicationData()
 })
 
-audioPlayer?.addEventListener("ended",() => changeTrack(1))
+audioPlayer?.addEventListener("ended",() => changeTrack(1,{automatic:true}))
 
 // paineis e modais
-function openSheet(name) {
-    if (name !== "player" || !getCurrentTrack()) return
+function getSheet(name) {
+    const sheetMap = {
+        player:playerSheet,
+        queue:queueSheet
+    }
 
-    playerSheet.classList.add("open")
-    playerSheet.setAttribute("aria-hidden","false")
+    return sheetMap[name]
+}
+
+function openSheet(name) {
+    const sheet = getSheet(name)
+
+    if (!sheet || !getCurrentTrack()) return
+
+    if (name === "queue") renderQueue()
+
+    sheet.classList.add("open")
+    sheet.setAttribute("aria-hidden","false")
     setOverlayState()
 }
 
 function closeSheet(name) {
-    if (name !== "player") return
+    const sheet = getSheet(name)
 
-    playerSheet.classList.remove("open")
-    playerSheet.setAttribute("aria-hidden","true")
+    if (!sheet) return
+
+    sheet.classList.remove("open")
+    sheet.setAttribute("aria-hidden","true")
     setOverlayState()
 }
 
@@ -1224,12 +2407,30 @@ function closeAllOverlays() {
         modal.setAttribute("aria-hidden","true")
     })
 
-    playerSheet.classList.remove("open")
-    playerSheet.setAttribute("aria-hidden","true")
+    document.querySelectorAll(".bottom-sheet.open").forEach(sheet => {
+        sheet.classList.remove("open")
+        sheet.setAttribute("aria-hidden","true")
+    })
     setOverlayState()
 }
 
 openPlayerButton?.addEventListener("click",() => openSheet("player"))
+openQueueButton?.addEventListener("click",() => {
+    closeSheet("player")
+    openSheet("queue")
+})
+clearQueueButton?.addEventListener("click",clearUpcomingQueue)
+saveQueuePlaylistButton?.addEventListener("click",() => {
+    pendingPlaylistQueueIds = playbackQueue.slice(Math.max(0,playbackQueueIndex))
+
+    if (!pendingPlaylistQueueIds.length) {
+        showToast("Não há músicas na fila para salvar.","warning")
+        return
+    }
+
+    closeSheet("queue")
+    openPlaylistModal("",pendingPlaylistQueueIds)
+})
 uploadButton?.addEventListener("click",() => openModal("upload"))
 profileButton?.addEventListener("click",() => openModal("profile"))
 
@@ -1256,6 +2457,24 @@ sheetCloseButtons.forEach(button => {
 
 modalCloseButtons.forEach(button => {
     button.addEventListener("click",() => closeModal(button.dataset.closeModal))
+})
+
+queueList?.addEventListener("click",event => {
+    const selectButton = event.target.closest("[data-queue-select]")
+    const moveButton = event.target.closest("[data-queue-move]")
+    const removeButton = event.target.closest("[data-queue-remove]")
+
+    if (selectButton) {
+        selectQueueTrack(Number(selectButton.dataset.queueSelect))
+        return
+    }
+
+    if (moveButton) {
+        moveQueueTrack(Number(moveButton.dataset.queueIndex),moveButton.dataset.queueMove)
+        return
+    }
+
+    if (removeButton) removeQueueTrack(Number(removeButton.dataset.queueRemove))
 })
 
 document.addEventListener("keydown",event => {
@@ -1883,6 +3102,7 @@ async function handleUploadSubmit(event) {
 
         tracks.unshift(track)
         currentTrackId = track.id
+        buildPlaybackQueue(track.id,{type:"library",label:"Biblioteca"})
         renderApplicationData()
         updatePlayerInterface()
         closeModal("upload")
@@ -1962,8 +3182,9 @@ window.addEventListener("beforeunload",event => {
 })
 
 // playlists
-function openPlaylistModal(trackId = "") {
+function openPlaylistModal(trackId = "",queueIds = []) {
     pendingPlaylistTrackId = trackId
+    pendingPlaylistQueueIds = Array.isArray(queueIds) ? queueIds.filter(Boolean) : []
     renderPlaylistPicker()
     openModal("playlist")
 }
@@ -1971,9 +3192,24 @@ function openPlaylistModal(trackId = "") {
 function renderPlaylistPicker() {
     if (!playlistPicker) return
 
-    if (!playlists.length) {
+    if (pendingPlaylistQueueIds.length) {
+        const count = pendingPlaylistQueueIds.length
+
         playlistPicker.innerHTML = `
-            <p class="playlist-picker-empty">Ainda não há playlists. Crie uma abaixo${pendingPlaylistTrackId ? " e a música atual será adicionada automaticamente" : ""}.</p>
+            <p class="playlist-picker-empty">A fila atual tem ${count === 1 ? "1 música" : `${count} músicas`}. Dê um nome abaixo para salvá-la como uma nova playlist compartilhada.</p>
+        `
+        return
+    }
+
+    if (!playlists.length) {
+        const automaticMessage = pendingPlaylistTrackId
+            ? " e a música atual será adicionada automaticamente"
+            : pendingPlaylistQueueIds.length
+                ? " e a fila atual será salva nela"
+                : ""
+
+        playlistPicker.innerHTML = `
+            <p class="playlist-picker-empty">Ainda não há playlists. Crie uma abaixo${automaticMessage}.</p>
         `
         return
     }
@@ -2005,13 +3241,24 @@ async function handlePlaylistSubmit(event) {
         return
     }
 
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para criar uma playlist compartilhada.","warning")
+        return
+    }
+
     setButtonLoading(playlistSubmitButton,true,"Criando...")
 
     try {
+        const queuedTrackIds = pendingPlaylistQueueIds.filter((trackId,index,array) => array.indexOf(trackId) === index)
+
         if (cloudMode) {
             const playlist = await cloud.createPlaylist(title)
 
             if (pendingPlaylistTrackId) await cloud.addTrackToPlaylist(playlist.id,pendingPlaylistTrackId)
+
+            for (const trackId of queuedTrackIds) {
+                await cloud.addTrackToPlaylist(playlist.id,trackId)
+            }
 
             await loadCloudApplicationData()
         } else {
@@ -2019,14 +3266,21 @@ async function handlePlaylistSubmit(event) {
                 id:createId("playlist"),
                 title,
                 description:"",
-                trackIds:pendingPlaylistTrackId ? [pendingPlaylistTrackId] : []
+                trackIds:pendingPlaylistTrackId ? [pendingPlaylistTrackId] : queuedTrackIds
             })
             renderApplicationData()
         }
 
+        const createdFromQueue = queuedTrackIds.length > 0
+
         playlistForm.reset()
+        pendingPlaylistQueueIds = []
         renderPlaylistPicker()
-        showToast(pendingPlaylistTrackId ? "Playlist criada com a música atual." : "Playlist criada para vocês.")
+        showToast(pendingPlaylistTrackId
+            ? "Playlist criada com a música atual."
+            : createdFromQueue
+                ? "Fila salva como playlist."
+                : "Playlist criada para vocês.")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível criar a playlist."),"warning")
     } finally {
@@ -2036,6 +3290,11 @@ async function handlePlaylistSubmit(event) {
 
 async function toggleTrackInPlaylist(playlistId) {
     if (!pendingPlaylistTrackId) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para alterar uma playlist compartilhada.","warning")
+        return
+    }
 
     const playlist = playlists.find(item => item.id === playlistId)
 
@@ -2090,9 +3349,14 @@ function generateJamCode() {
 
 function updateJamInterface() {
     const availableJam = Boolean(jamSession?.active)
+    const jamOffline = cloudMode && (!cloudReady || !navigator.onLine)
+
+    updatePlaybackModeInterface()
+    renderQueue()
 
     jamRoom.classList.toggle("active",jamActive)
-    copyJamCodeButton.hidden = !availableJam
+    copyJamCodeButton.hidden = !availableJam || jamOffline
+    createJamButton.disabled = jamOffline
 
     if (jamActive) {
         jamRoomTitle.textContent = "Vocês estão na mesma batida."
@@ -2107,6 +3371,13 @@ function updateJamInterface() {
         jamRoomTitle.textContent = "Uma Jam está esperando por você."
         jamRoomDescription.textContent = `Sala ${jamSession.invite_code}. Entre para acompanhar a música no mesmo instante.`
         createJamButton.innerHTML = '<svg aria-hidden="true"><use href="#icon-users"></use></svg><span>Entrar na Jam</span>'
+        return
+    }
+
+    if (jamOffline) {
+        jamRoomTitle.textContent = "A Jam precisa de internet."
+        jamRoomDescription.textContent = "As músicas baixadas continuam funcionando offline. Reconecte-se para sincronizar os dois aparelhos."
+        createJamButton.innerHTML = '<svg aria-hidden="true"><use href="#icon-users"></use></svg><span>Jam indisponível</span>'
         return
     }
 
@@ -2138,7 +3409,7 @@ function deactivateLocalJam() {
 }
 
 async function publishJamState() {
-    if (!cloudMode || !jamActive || !jamSession?.id || applyingRemoteJamState) return
+    if (!cloudMode || !cloudReady || !navigator.onLine || !jamActive || !jamSession?.id || applyingRemoteJamState) return
 
     const track = getCurrentTrack()
 
@@ -2242,6 +3513,11 @@ async function toggleJam() {
         return
     }
 
+    if (!cloudReady || !navigator.onLine) {
+        showToast("A Jam precisa de internet para manter os dois aparelhos sincronizados.","warning")
+        return
+    }
+
     setButtonLoading(createJamButton,true,jamActive ? "Encerrando..." : "Conectando...")
 
     try {
@@ -2299,7 +3575,12 @@ createJamButton?.addEventListener("click",toggleJam)
 copyJamCodeButton?.addEventListener("click",copyJamInvite)
 
 document.addEventListener("visibilitychange",async () => {
-    if (document.visibilityState !== "visible" || !cloudMode || !jamActive || !jamSession?.id) return
+    if (document.visibilityState !== "visible") {
+        savePlaybackState()
+        return
+    }
+
+    if (!cloudMode || !jamActive || !jamSession?.id) return
 
     try {
         await cloud.synchronizeServerClock()
@@ -2340,6 +3621,8 @@ window.addEventListener("beforeinstallprompt",event => {
 })
 
 installAppButton?.addEventListener("click",handleInstallApplication)
+downloadsOptionButton?.addEventListener("click",openDownloadsLibrary)
+themeToggleButton?.addEventListener("click",toggleTheme)
 logoutButton?.addEventListener("click",closeApplication)
 
 // controles do sistema
@@ -2377,15 +3660,80 @@ function registerServiceWorker() {
     })
 }
 
-window.addEventListener("online",() => {
+async function restoreCloudConnection() {
+    if (!cloudMode || cloudReady || !navigator.onLine) return
+
+    try {
+        await cloud.initialize()
+        cloudReady = true
+
+        const restoredProfile = await cloud.restoreProfile()
+
+        if (restoredProfile) {
+            currentProfile = restoredProfile
+            saveOfflineProfile(restoredProfile)
+            await loadCloudApplicationData()
+            configureCloudSubscriptions()
+            showToast("Conexão restaurada. A biblioteca voltou a sincronizar.")
+        } else {
+            cloudReady = false
+            showToast("A internet voltou, mas esta sessão precisa entrar novamente na sala para sincronizar.","warning")
+        }
+    } catch (error) {
+        cloudReady = false
+    }
+
+    updateConnectionInterface()
+    renderApplicationData()
+    updatePlayerInterface()
+}
+
+window.addEventListener("online",async () => {
     updateConnectionInterface()
 
+    if (cloudMode && !cloudReady) {
+        await restoreCloudConnection()
+        return
+    }
+
     if (cloudMode && currentProfile) scheduleCloudRefresh()
+
+    renderApplicationData()
+    updatePlayerInterface()
 })
 
-window.addEventListener("offline",updateConnectionInterface)
+window.addEventListener("offline",() => {
+    if (jamActive) {
+        stopJamSynchronization()
+        jamActive = false
+        jamSession = null
+        jamInviteCode = ""
+    }
+
+    updateConnectionInterface()
+    normalizePlaybackQueue()
+    renderApplicationData()
+    updatePlayerInterface()
+    updateJamInterface()
+})
+window.addEventListener("pagehide",savePlaybackState)
+window.addEventListener("unload",releaseOfflineObjectUrls)
 
 // inicializacao
+async function initializeOfflineMode() {
+    if (!offline) return false
+
+    try {
+        const result = await offline.initialize()
+
+        offlineReady = Boolean(result?.supported)
+        return offlineReady
+    } catch (error) {
+        offlineReady = false
+        return false
+    }
+}
+
 async function initializeCloudMode() {
     cloudMode = Boolean(cloud?.isConfigured())
 
@@ -2397,6 +3745,13 @@ async function initializeCloudMode() {
     }
 
     accessNote.textContent = "Conectando à sala privada..."
+
+    if (!navigator.onLine) {
+        cloudReady = false
+        accessNote.textContent = "Sem internet. Se este aparelho já tiver downloads, o modo offline será aberto automaticamente."
+        updateConnectionInterface()
+        return false
+    }
 
     try {
         await cloud.initialize()
@@ -2419,7 +3774,10 @@ async function initializeApp() {
     configureMediaSessionActions()
     registerServiceWorker()
     updateJamInterface()
+    updatePlaybackModeInterface()
     renderCatalogQueue()
+
+    await initializeOfflineMode()
 
     const hasCloud = await initializeCloudMode()
     const explicitlyLoggedOut = localStorage.getItem(logoutStorageKey) === "true"
@@ -2436,6 +3794,17 @@ async function initializeApp() {
             }
         } catch (error) {
             accessNote.textContent = "Sua sessão expirou. Digite novamente o nome e o código da sala."
+        }
+    }
+
+    if (cloudMode && !hasCloud && !explicitlyLoggedOut && offlineReady) {
+        const offlineProfile = loadOfflineProfile()
+
+        if (offlineProfile) {
+            openApplication(offlineProfile)
+            await loadOfflineApplicationData()
+            showToast("Modo offline: as músicas baixadas continuam disponíveis.","warning")
+            return
         }
     }
 

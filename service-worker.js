@@ -4,13 +4,14 @@
 // ======================================================
 
 // configuracoes
-const cacheName = "dois-tons-v4"
+const cacheName = "dois-tons-v7"
 const appAssets = [
     "./",
     "./index.html",
     "./manifest.webmanifest",
     "./assets/css/style.css",
     "./assets/js/supabase-config.js",
+    "./assets/js/offline-service.js",
     "./assets/js/cloud-service.js",
     "./assets/js/script.js",
     "./assets/icons/icon.svg",

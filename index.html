@@ -9,6 +9,13 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="apple-mobile-web-app-title" content="Dois Tons">
 
+    <script>
+        (() => {
+            const savedTheme = localStorage.getItem("dois-tons-theme")
+            document.documentElement.dataset.theme = savedTheme === "dark" ? "dark" : "light"
+        })()
+    </script>
+
     <title>Dois Tons</title>
 
     <!-- ícones e manifesto -->
@@ -106,6 +113,32 @@
             <path d="M9 18V6l10-2v12"></path>
             <circle cx="6" cy="18" r="3"></circle>
             <circle cx="16" cy="16" r="3"></circle>
+        </symbol>
+        <symbol id="icon-moon" viewBox="0 0 24 24">
+            <path d="M20 15.6A8.3 8.3 0 0 1 8.4 4a8.4 8.4 0 1 0 11.6 11.6Z"></path>
+        </symbol>
+        <symbol id="icon-sun" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+        </symbol>
+        <symbol id="icon-shuffle" viewBox="0 0 24 24">
+            <path d="M4 7h3.5c4.5 0 5.5 10 9.5 10H20m-3-3 3 3-3 3M4 17h3.5c1.8 0 3-1.7 4-3.6M14 8.5C15 7.6 16 7 17 7h3m-3-3 3 3-3 3"></path>
+        </symbol>
+        <symbol id="icon-repeat" viewBox="0 0 24 24">
+            <path d="m17 2 3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3m13-3v2a4 4 0 0 1-4 4H4"></path>
+        </symbol>
+        <symbol id="icon-queue" viewBox="0 0 24 24">
+            <path d="M4 6h10M4 11h10M4 16h7"></path>
+            <path class="icon-fill" d="m15 14 6 4-6 4v-8Z"></path>
+        </symbol>
+        <symbol id="icon-trash" viewBox="0 0 24 24">
+            <path d="M4 7h16M9 7V4h6v3m3 0-1 14H7L6 7m4 4v6m4-6v6"></path>
+        </symbol>
+        <symbol id="icon-up" viewBox="0 0 24 24">
+            <path d="m6 15 6-6 6 6"></path>
+        </symbol>
+        <symbol id="icon-down" viewBox="0 0 24 24">
+            <path d="m6 9 6 6 6-6"></path>
         </symbol>
     </svg>
 
@@ -285,14 +318,24 @@
                     <button type="button" class="active" role="tab" aria-selected="true" data-filter="all">Músicas</button>
                     <button type="button" role="tab" aria-selected="false" data-filter="favorites">Favoritas</button>
                     <button type="button" role="tab" aria-selected="false" data-filter="shared">Compartilhadas</button>
+                    <button type="button" role="tab" aria-selected="false" data-filter="downloads">Downloads</button>
                 </div>
 
                 <div class="library-summary">
-                    <span id="library-count">0 músicas</span>
-                    <button type="button" id="play-library">
-                        <svg aria-hidden="true"><use href="#icon-play"></use></svg>
-                        Reproduzir
-                    </button>
+                    <div class="library-summary-information">
+                        <span id="library-count">0 músicas</span>
+                        <span class="offline-storage-summary" id="offline-storage-summary" hidden></span>
+                    </div>
+                    <div class="library-summary-actions">
+                        <button type="button" id="download-library">
+                            <svg aria-hidden="true"><use href="#icon-download"></use></svg>
+                            <span>Baixar</span>
+                        </button>
+                        <button type="button" id="play-library">
+                            <svg aria-hidden="true"><use href="#icon-play"></use></svg>
+                            Reproduzir
+                        </button>
+                    </div>
                 </div>
 
                 <div class="track-list library-track-list" id="library-track-list"></div>
@@ -410,6 +453,9 @@
             </div>
 
             <div class="player-controls">
+                <button type="button" class="playback-mode-button" id="shuffle-button" aria-label="Ativar modo aleatório" aria-pressed="false">
+                    <svg aria-hidden="true"><use href="#icon-shuffle"></use></svg>
+                </button>
                 <button type="button" id="previous-button" aria-label="Música anterior">
                     <svg aria-hidden="true"><use href="#icon-previous"></use></svg>
                 </button>
@@ -420,9 +466,16 @@
                 <button type="button" id="next-button" aria-label="Próxima música">
                     <svg aria-hidden="true"><use href="#icon-next"></use></svg>
                 </button>
+                <button type="button" class="playback-mode-button" id="repeat-button" aria-label="Ativar repetição da fila" aria-pressed="false" data-repeat-mode="off">
+                    <svg aria-hidden="true"><use href="#icon-repeat"></use></svg>
+                </button>
             </div>
 
             <div class="player-actions">
+                <button type="button" id="open-queue-button">
+                    <svg aria-hidden="true"><use href="#icon-queue"></use></svg>
+                    Fila
+                </button>
                 <button type="button" id="send-current-track">
                     <svg aria-hidden="true"><use href="#icon-send"></use></svg>
                     Enviar
@@ -431,9 +484,55 @@
                     <svg aria-hidden="true"><use href="#icon-playlist"></use></svg>
                     Playlist
                 </button>
+                <button type="button" id="download-current-track">
+                    <svg aria-hidden="true"><use href="#icon-download"></use></svg>
+                    <span id="download-current-track-label">Baixar</span>
+                </button>
                 <button type="button" data-open-view="jam" data-close-sheet="player">
                     <svg aria-hidden="true"><use href="#icon-users"></use></svg>
                     Ouvir em Jam
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- fila de reprodução -->
+    <section class="bottom-sheet queue-sheet" id="queue-sheet" aria-hidden="true" aria-labelledby="queue-title">
+        <div class="sheet-backdrop" data-close-sheet="queue"></div>
+        <div class="sheet-content queue-sheet-content">
+            <header class="sheet-header">
+                <button type="button" class="sheet-close-button" data-close-sheet="queue" aria-label="Fechar fila">
+                    <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                </button>
+                <div>
+                    <span id="queue-context-label">Biblioteca</span>
+                    <strong id="queue-title">Fila de reprodução</strong>
+                </div>
+                <button type="button" class="sheet-action-button" id="clear-queue-button" aria-label="Limpar músicas a seguir">
+                    <svg aria-hidden="true"><use href="#icon-trash"></use></svg>
+                </button>
+            </header>
+
+            <section class="queue-current" aria-labelledby="queue-current-title">
+                <p id="queue-current-title">Tocando agora</p>
+                <div id="queue-current-track"></div>
+            </section>
+
+            <section class="queue-up-next" aria-labelledby="queue-next-title">
+                <div class="queue-section-heading">
+                    <div>
+                        <p>A seguir</p>
+                        <strong id="queue-next-title">Sua sequência</strong>
+                    </div>
+                    <span id="queue-count">0 músicas</span>
+                </div>
+                <div class="queue-list" id="queue-list"></div>
+            </section>
+
+            <div class="queue-footer">
+                <button type="button" class="secondary-button" id="save-queue-playlist-button">
+                    <svg aria-hidden="true"><use href="#icon-playlist"></use></svg>
+                    <span>Salvar como playlist</span>
                 </button>
             </div>
         </div>
@@ -621,6 +720,18 @@
                 <div><strong id="profile-name">Visitante</strong><small id="profile-connection">Modo de demonstração</small></div>
             </div>
 
+            <button type="button" class="profile-option theme-option" id="theme-toggle-button" aria-pressed="false">
+                <span><svg aria-hidden="true"><use id="theme-option-icon" href="#icon-moon"></use></svg></span>
+                <span><strong id="theme-option-title">Tema escuro</strong><small id="theme-option-description">Usar Preto Elegante</small></span>
+                <span class="theme-switch" aria-hidden="true"><span></span></span>
+            </button>
+
+            <button type="button" class="profile-option" id="downloads-option-button">
+                <span><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>
+                <span><strong>Downloads</strong><small id="downloads-option-description">Nenhuma música salva neste aparelho</small></span>
+                <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </button>
+
             <button type="button" class="profile-option" id="install-app-button">
                 <span><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>
                 <span><strong>Instalar aplicativo</strong><small>Adicionar à tela de início</small></span>
@@ -666,6 +777,7 @@
 
     <!-- javascript -->
     <script src="assets/js/supabase-config.js"></script>
+    <script src="assets/js/offline-service.js"></script>
     <script src="assets/js/cloud-service.js"></script>
     <script src="assets/js/script.js"></script>
 </body>

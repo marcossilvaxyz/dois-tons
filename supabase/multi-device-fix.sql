@@ -99,7 +99,7 @@ as $$
     );
 $$;
 
--- o mesmo nome agora vincula um novo dispositivo ao perfil existente
+-- o mesmo nome vincula novos dispositivos e permite alternar entre perfis existentes
 create or replace function public.access_duo(p_code text,p_display_name text)
 returns table (
     duo_id uuid,
@@ -115,6 +115,8 @@ declare
     v_user_id uuid := auth.uid();
     v_duo_id uuid;
     v_member_id uuid;
+    v_current_member_id uuid;
+    v_requested_member_id uuid;
     v_name text := btrim(p_display_name);
     v_code text := btrim(p_code);
     v_hash text;
@@ -150,52 +152,68 @@ begin
     end if;
 
     select device.member_id
-    into v_member_id
+    into v_current_member_id
     from public.duo_member_devices as device
     where device.user_id = v_user_id
       and device.duo_id = v_duo_id
     for update;
 
-    if v_member_id is not null then
-        if not exists (
-            select 1
-            from public.duo_members as member
-            where member.id = v_member_id
-              and lower(member.display_name) = lower(v_name)
-        ) then
-            raise exception 'Este aparelho já está vinculado a outro perfil.';
+    select member.id
+    into v_requested_member_id
+    from public.duo_members as member
+    where member.duo_id = v_duo_id
+      and lower(member.display_name) = lower(v_name)
+    for update;
+
+    -- se o perfil já existe, este aparelho pode alternar para ele
+    -- depois que o código compartilhado foi validado
+    if v_requested_member_id is not null then
+        v_member_id := v_requested_member_id;
+
+        if v_current_member_id is null then
+            insert into public.duo_member_devices (duo_id,member_id,user_id)
+            values (v_duo_id,v_member_id,v_user_id)
+            on conflict (user_id)
+            do update set
+                duo_id = excluded.duo_id,
+                member_id = excluded.member_id;
+        elsif v_current_member_id <> v_member_id then
+            update public.duo_member_devices
+            set member_id = v_member_id,
+                duo_id = v_duo_id
+            where user_id = v_user_id;
         end if;
     else
-        select member.id
-        into v_member_id
+        select count(*)::integer
+        into v_member_count
         from public.duo_members as member
-        where member.duo_id = v_duo_id
-          and lower(member.display_name) = lower(v_name)
-        for update;
+        where member.duo_id = v_duo_id;
 
-        if v_member_id is not null then
+        if v_current_member_id is not null then
+            if v_member_count >= 2 then
+                raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+            end if;
+
+            raise exception 'Este aparelho já está vinculado a um perfil. Para criar a segunda pessoa, use outro aparelho; para alternar, informe o nome já cadastrado.';
+        end if;
+
+        if v_member_count < 2 then
+            insert into public.duo_members (duo_id,user_id,display_name)
+            values (v_duo_id,v_user_id,v_name)
+            returning id into v_member_id;
+
             insert into public.duo_member_devices (duo_id,member_id,user_id)
             values (v_duo_id,v_member_id,v_user_id)
             on conflict (user_id) do nothing;
         else
-            select count(*)::integer
-            into v_member_count
-            from public.duo_members as member
-            where member.duo_id = v_duo_id;
-
-            if v_member_count < 2 then
-                insert into public.duo_members (duo_id,user_id,display_name)
-                values (v_duo_id,v_user_id,v_name)
-                returning id into v_member_id;
-
-                insert into public.duo_member_devices (duo_id,member_id,user_id)
-                values (v_duo_id,v_member_id,v_user_id)
-                on conflict (user_id) do nothing;
-            else
-                raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
-            end if;
+            raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
         end if;
     end if;
+
+    select member.display_name
+    into v_name
+    from public.duo_members as member
+    where member.id = v_member_id;
 
     select count(*)::integer
     into v_member_count
@@ -204,56 +222,6 @@ begin
 
     return query
     select v_duo_id,v_member_id,v_name,v_member_count;
-end;
-$$;
-
--- compartilhamento usa o perfil logico, nao apenas o auth.uid deste aparelho
-create or replace function public.share_track(p_track_id uuid)
-returns public.shared_tracks
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-    v_user_id uuid := auth.uid();
-    v_duo_id uuid := private.current_duo_id();
-    v_member_id uuid := private.current_member_id();
-    v_recipient_id uuid;
-    v_share public.shared_tracks;
-begin
-    if v_duo_id is null then
-        raise exception 'Você ainda não entrou na sala.';
-    end if;
-
-    if not exists (
-        select 1
-        from public.tracks as track
-        where track.id = p_track_id
-          and track.duo_id = v_duo_id
-    ) then
-        raise exception 'Música não encontrada nesta sala.';
-    end if;
-
-    select member.user_id
-    into v_recipient_id
-    from public.duo_members as member
-    where member.duo_id = v_duo_id
-      and member.id <> v_member_id
-    limit 1;
-
-    if v_recipient_id is null then
-        raise exception 'A outra pessoa ainda não entrou na sala.';
-    end if;
-
-    insert into public.shared_tracks (duo_id,track_id,sender_id,recipient_id)
-    values (v_duo_id,p_track_id,v_user_id,v_recipient_id)
-    on conflict (track_id,recipient_id)
-    do update set
-        sender_id = excluded.sender_id,
-        created_at = now()
-    returning * into v_share;
-
-    return v_share;
 end;
 $$;
 

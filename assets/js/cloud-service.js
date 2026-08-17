@@ -730,6 +730,7 @@ window.DoisTonsCloud = (() => {
         accessDuo,
         addTrackToPlaylist,
         createPlaylist,
+        createPrivateUrl,
         disconnectRealtime,
         endJam,
         getActiveJam,
