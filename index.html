@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#f4e8d7">
+    <meta name="description" content="Dois Tons — uma experiência musical privada e compartilhada para duas pessoas.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Dois Tons">
+
+    <title>Dois Tons</title>
+
+    <!-- ícones e manifesto -->
+    <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+
+    <!-- estilos -->
+    <link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+    <!-- ícones -->
+    <svg class="icons-library" aria-hidden="true">
+        <symbol id="icon-home" viewBox="0 0 24 24">
+            <path d="M3 10.8 12 3l9 7.8v9.7a.5.5 0 0 1-.5.5H15v-6H9v6H3.5a.5.5 0 0 1-.5-.5v-9.7Z"></path>
+        </symbol>
+        <symbol id="icon-search" viewBox="0 0 24 24">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="m15.5 15.5 5 5"></path>
+        </symbol>
+        <symbol id="icon-library" viewBox="0 0 24 24">
+            <rect x="4" y="4" width="4" height="16" rx="1"></rect>
+            <rect x="10" y="4" width="4" height="16" rx="1"></rect>
+            <path d="m16.5 5 3-1 3.5 14.8-3.2.8L16.5 5Z"></path>
+        </symbol>
+        <symbol id="icon-users" viewBox="0 0 24 24">
+            <circle cx="9" cy="8" r="3"></circle>
+            <circle cx="17" cy="9" r="2.4"></circle>
+            <path d="M3.5 20c.5-4 2.2-6 5.5-6s5 2 5.5 6M14.5 15c3.5-.8 5.5.7 6 4"></path>
+        </symbol>
+        <symbol id="icon-upload" viewBox="0 0 24 24">
+            <path d="M12 16V3m0 0L7 8m5-5 5 5M4 14v5a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"></path>
+        </symbol>
+        <symbol id="icon-play" viewBox="0 0 24 24">
+            <path class="icon-fill" d="m8 5 11 7-11 7V5Z"></path>
+        </symbol>
+        <symbol id="icon-pause" viewBox="0 0 24 24">
+            <path class="icon-fill" d="M7 5h4v14H7V5Zm6 0h4v14h-4V5Z"></path>
+        </symbol>
+        <symbol id="icon-previous" viewBox="0 0 24 24">
+            <path class="icon-fill" d="M6 5h2v14H6V5Zm12 1v12L9 12l9-6Z"></path>
+        </symbol>
+        <symbol id="icon-next" viewBox="0 0 24 24">
+            <path class="icon-fill" d="M16 5h2v14h-2V5ZM6 6l9 6-9 6V6Z"></path>
+        </symbol>
+        <symbol id="icon-heart" viewBox="0 0 24 24">
+            <path d="M12 20S4 15.2 4 9.4C4 6.8 5.8 5 8.2 5c1.6 0 3 1 3.8 2.2C12.8 6 14.2 5 15.8 5 18.2 5 20 6.8 20 9.4 20 15.2 12 20 12 20Z"></path>
+        </symbol>
+        <symbol id="icon-close" viewBox="0 0 24 24">
+            <path d="m5 5 14 14M19 5 5 19"></path>
+        </symbol>
+        <symbol id="icon-chevron" viewBox="0 0 24 24">
+            <path d="m7 10 5 5 5-5"></path>
+        </symbol>
+        <symbol id="icon-more" viewBox="0 0 24 24">
+            <circle class="icon-fill" cx="5" cy="12" r="1.7"></circle>
+            <circle class="icon-fill" cx="12" cy="12" r="1.7"></circle>
+            <circle class="icon-fill" cx="19" cy="12" r="1.7"></circle>
+        </symbol>
+        <symbol id="icon-send" viewBox="0 0 24 24">
+            <path d="m3 11 17-8-7.8 18-1.7-7.5L3 11Zm7.5 2.5L20 3"></path>
+        </symbol>
+        <symbol id="icon-plus" viewBox="0 0 24 24">
+            <path d="M12 5v14M5 12h14"></path>
+        </symbol>
+        <symbol id="icon-check" viewBox="0 0 24 24">
+            <path d="m5 12 4 4L19 6"></path>
+        </symbol>
+        <symbol id="icon-share" viewBox="0 0 24 24">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <path d="m8.7 10.7 6.6-4.4m-6.6 7 6.6 4.4"></path>
+        </symbol>
+        <symbol id="icon-download" viewBox="0 0 24 24">
+            <path d="M12 3v13m0 0 5-5m-5 5-5-5M4 20h16"></path>
+        </symbol>
+        <symbol id="icon-lock" viewBox="0 0 24 24">
+            <rect x="4" y="10" width="16" height="11" rx="3"></rect>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+        </symbol>
+        <symbol id="icon-playlist" viewBox="0 0 24 24">
+            <path d="M4 6h10M4 11h10M4 16h7"></path>
+            <circle cx="17" cy="16" r="3"></circle>
+            <path d="M20 16V8l-6 1.5"></path>
+        </symbol>
+        <symbol id="icon-cloud" viewBox="0 0 24 24">
+            <path d="M7 18h11a4 4 0 0 0 .7-7.9A7 7 0 0 0 5.4 8.5 4.8 4.8 0 0 0 7 18Z"></path>
+            <path d="m9 13 3-3 3 3m-3-3v6"></path>
+        </symbol>
+        <symbol id="icon-folder" viewBox="0 0 24 24">
+            <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2h8.5A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5v-11Z"></path>
+        </symbol>
+        <symbol id="icon-music" viewBox="0 0 24 24">
+            <path d="M9 18V6l10-2v12"></path>
+            <circle cx="6" cy="18" r="3"></circle>
+            <circle cx="16" cy="16" r="3"></circle>
+        </symbol>
+    </svg>
+
+    <!-- acesso -->
+    <section class="access-screen" id="access-screen" aria-labelledby="access-title">
+        <div class="access-decoration access-decoration-one"></div>
+        <div class="access-decoration access-decoration-two"></div>
+
+        <div class="access-content">
+            <div class="brand-mark" aria-hidden="true">
+                <span></span>
+                <span></span>
+            </div>
+            <p class="access-eyebrow">Uma sala para duas pessoas</p>
+            <h1 id="access-title">Dois Tons</h1>
+            <p class="access-description">Suas músicas, seus momentos e uma Jam particular para vocês.</p>
+
+            <form class="access-form" id="access-form" novalidate>
+                <div class="form-group">
+                    <label for="display-name">Como podemos chamar você?</label>
+                    <input
+                        type="text"
+                        id="display-name"
+                        name="display-name"
+                        maxlength="24"
+                        autocomplete="nickname"
+                        placeholder="Seu nome"
+                        required
+                    >
+                    <span class="field-message" id="name-message"></span>
+                </div>
+
+                <div class="form-group">
+                    <label for="access-code">Código compartilhado</label>
+                    <div class="code-field">
+                        <svg aria-hidden="true"><use href="#icon-lock"></use></svg>
+                        <input
+                            type="password"
+                            id="access-code"
+                            name="access-code"
+                            minlength="8"
+                            maxlength="64"
+                            autocomplete="one-time-code"
+                            placeholder="Digite o código de vocês"
+                            required
+                        >
+                    </div>
+                    <span class="field-message" id="code-message"></span>
+                </div>
+
+                <button type="submit" class="primary-button access-button">
+                    <span>Entrar no Dois Tons</span>
+                    <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                </button>
+            </form>
+
+            <p class="preview-note" id="access-note">Conecte o projeto ao Supabase para ativar a sala privada entre os dois aparelhos.</p>
+        </div>
+    </section>
+
+    <!-- aplicativo -->
+    <div class="app-shell" id="app-shell" hidden>
+        <!-- cabeçalho -->
+        <header class="app-header">
+            <div>
+                <p class="app-brand">Dois Tons <span class="connection-dot" id="connection-dot" aria-label="Status da nuvem"></span></p>
+                <h1 id="greeting-title">Música para esta tarde.</h1>
+            </div>
+            <div class="header-actions">
+                <button type="button" class="header-button" id="upload-button" aria-label="Adicionar música">
+                    <svg aria-hidden="true"><use href="#icon-upload"></use></svg>
+                </button>
+                <button type="button" class="profile-button" id="profile-button" aria-label="Abrir perfil">
+                    <span id="profile-initials">DT</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- conteúdo -->
+        <main class="app-content">
+            <!-- início -->
+            <section class="app-view active" id="home-view" data-view="home" aria-labelledby="home-title">
+                <h2 class="sr-only" id="home-title">Início</h2>
+
+                <article class="jam-feature">
+                    <div class="jam-feature-decoration"></div>
+                    <div class="jam-status"><span></span>Sala para dois</div>
+                    <h3>Compartilhem esta canção.</h3>
+                    <p>Uma Jam feita para o ritmo de vocês.</p>
+                    <button type="button" class="jam-feature-button" data-open-view="jam" aria-label="Criar uma Jam">
+                        <svg aria-hidden="true"><use href="#icon-play"></use></svg>
+                    </button>
+                </article>
+
+                <section class="content-section" aria-labelledby="favorites-title">
+                    <header class="section-heading">
+                        <h2 id="favorites-title">Favoritas de vocês</h2>
+                        <button type="button" class="text-button" data-open-view="library">Ver coleção</button>
+                    </header>
+                    <div class="album-grid" id="favorites-grid"></div>
+                </section>
+
+                <section class="content-section" aria-labelledby="shared-title">
+                    <header class="section-heading">
+                        <h2 id="shared-title">Enviadas para você</h2>
+                        <button type="button" class="text-button" data-library-filter="shared">Ver todas</button>
+                    </header>
+                    <div class="track-list" id="shared-track-list"></div>
+                </section>
+            </section>
+
+            <!-- buscar -->
+            <section class="app-view" id="search-view" data-view="search" aria-labelledby="search-title">
+                <header class="view-heading">
+                    <p class="view-eyebrow">Encontre o próximo momento</p>
+                    <h2 id="search-title">Buscar</h2>
+                </header>
+
+                <label class="search-field" for="search-input">
+                    <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+                    <input type="search" id="search-input" placeholder="Música, artista ou álbum" autocomplete="off">
+                    <button type="button" id="clear-search" aria-label="Limpar busca" hidden>
+                        <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                    </button>
+                </label>
+
+                <div class="search-introduction" id="search-introduction">
+                    <p>Experimente buscar por</p>
+                    <div class="suggestion-list">
+                        <button type="button" data-search-suggestion="outono">Outono</button>
+                        <button type="button" data-search-suggestion="calma">Calma</button>
+                        <button type="button" data-search-suggestion="mar">Mar</button>
+                        <button type="button" data-search-suggestion="compartilhada">Compartilhadas</button>
+                    </div>
+                </div>
+
+                <div class="search-results" id="search-results" aria-live="polite"></div>
+            </section>
+
+            <!-- biblioteca -->
+            <section class="app-view" id="library-view" data-view="library" aria-labelledby="library-title">
+                <header class="view-heading library-heading">
+                    <div>
+                        <p class="view-eyebrow">Tudo o que pertence a vocês</p>
+                        <h2 id="library-title">Biblioteca</h2>
+                    </div>
+                    <div class="library-actions">
+                        <button type="button" class="catalog-action-button" data-open-catalog>
+                            <svg aria-hidden="true"><use href="#icon-folder"></use></svg>
+                            <span>Importar</span>
+                        </button>
+                        <button type="button" class="round-action-button" data-open-upload aria-label="Adicionar uma música">
+                            <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+                        </button>
+                    </div>
+                </header>
+
+                <section class="playlist-section" aria-labelledby="playlist-section-title">
+                    <header class="section-heading">
+                        <h2 id="playlist-section-title">Playlists de vocês</h2>
+                        <button type="button" class="text-button" id="create-playlist-button">Criar</button>
+                    </header>
+                    <div class="playlist-grid" id="playlist-grid"></div>
+                </section>
+
+                <div class="playlist-context" id="playlist-context" hidden>
+                    <div>
+                        <span>Playlist selecionada</span>
+                        <strong id="active-playlist-title"></strong>
+                    </div>
+                    <button type="button" id="clear-playlist-filter" aria-label="Fechar playlist">
+                        <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                    </button>
+                </div>
+
+                <div class="filter-tabs" role="tablist" aria-label="Filtros da biblioteca">
+                    <button type="button" class="active" role="tab" aria-selected="true" data-filter="all">Músicas</button>
+                    <button type="button" role="tab" aria-selected="false" data-filter="favorites">Favoritas</button>
+                    <button type="button" role="tab" aria-selected="false" data-filter="shared">Compartilhadas</button>
+                </div>
+
+                <div class="library-summary">
+                    <span id="library-count">0 músicas</span>
+                    <button type="button" id="play-library">
+                        <svg aria-hidden="true"><use href="#icon-play"></use></svg>
+                        Reproduzir
+                    </button>
+                </div>
+
+                <div class="track-list library-track-list" id="library-track-list"></div>
+            </section>
+
+            <!-- jam -->
+            <section class="app-view" id="jam-view" data-view="jam" aria-labelledby="jam-title">
+                <header class="view-heading">
+                    <p class="view-eyebrow">Escutem juntos, onde estiverem</p>
+                    <h2 id="jam-title">Jam</h2>
+                </header>
+
+                <div class="jam-room" id="jam-room">
+                    <div class="jam-orbit" aria-hidden="true">
+                        <span class="jam-person jam-person-one" id="jam-person-one">M</span>
+                        <span class="jam-person jam-person-two" id="jam-person-two">2</span>
+                        <span class="jam-orbit-line"></span>
+                    </div>
+                    <p class="jam-room-label">Sua sala particular</p>
+                    <h3 id="jam-room-title">Criem uma Jam para dois.</h3>
+                    <p id="jam-room-description">A música começa nos dois aparelhos e os controles permanecem sincronizados.</p>
+                    <button type="button" class="primary-button" id="create-jam-button">
+                        <svg aria-hidden="true"><use href="#icon-users"></use></svg>
+                        Criar uma Jam
+                    </button>
+                    <button type="button" class="secondary-button" id="copy-jam-code" hidden>
+                        <svg aria-hidden="true"><use href="#icon-share"></use></svg>
+                        Copiar convite
+                    </button>
+                </div>
+
+                <aside class="jam-information">
+                    <svg aria-hidden="true"><use href="#icon-lock"></use></svg>
+                    <div>
+                        <h3>Somente vocês</h3>
+                        <p>A sala usa o código compartilhado e não aparece publicamente.</p>
+                    </div>
+                </aside>
+            </section>
+        </main>
+
+        <!-- player compacto -->
+        <aside class="mini-player" id="mini-player" aria-label="Música atual">
+            <button type="button" class="mini-player-main" id="open-player" aria-label="Abrir player completo">
+                <span class="mini-cover cover-rose" id="mini-cover"></span>
+                <span class="mini-information">
+                    <strong id="mini-title">Entrelinhas</strong>
+                    <span id="mini-artist">Céu de Outono</span>
+                </span>
+            </button>
+            <button type="button" class="mini-control" id="mini-play-button" aria-label="Reproduzir">
+                <svg class="play-icon" aria-hidden="true"><use href="#icon-play"></use></svg>
+                <svg class="pause-icon" aria-hidden="true"><use href="#icon-pause"></use></svg>
+            </button>
+            <span class="mini-progress" id="mini-progress"></span>
+        </aside>
+
+        <!-- navegação -->
+        <nav class="bottom-navigation" aria-label="Navegação principal">
+            <button type="button" class="active" data-navigation="home" aria-current="page">
+                <svg aria-hidden="true"><use href="#icon-home"></use></svg>
+                <span>Início</span>
+            </button>
+            <button type="button" data-navigation="search">
+                <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+                <span>Buscar</span>
+            </button>
+            <button type="button" data-navigation="library">
+                <svg aria-hidden="true"><use href="#icon-library"></use></svg>
+                <span>Biblioteca</span>
+            </button>
+            <button type="button" data-navigation="jam">
+                <svg aria-hidden="true"><use href="#icon-users"></use></svg>
+                <span>Jam</span>
+            </button>
+        </nav>
+
+        <audio id="audio-player" preload="metadata"></audio>
+    </div>
+
+    <!-- player completo -->
+    <section class="bottom-sheet player-sheet" id="player-sheet" aria-hidden="true" aria-labelledby="player-title">
+        <div class="sheet-backdrop" data-close-sheet="player"></div>
+        <div class="sheet-content">
+            <header class="sheet-header">
+                <button type="button" class="sheet-close-button" data-close-sheet="player" aria-label="Fechar player">
+                    <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+                </button>
+                <div>
+                    <span>Reproduzindo agora</span>
+                    <strong>Dois Tons</strong>
+                </div>
+                <button type="button" class="sheet-action-button" aria-label="Mais opções">
+                    <svg aria-hidden="true"><use href="#icon-more"></use></svg>
+                </button>
+            </header>
+
+            <div class="player-artwork cover-rose" id="player-artwork">
+                <span></span>
+            </div>
+
+            <div class="player-track-information">
+                <div>
+                    <h2 id="player-title">Entrelinhas</h2>
+                    <p id="player-artist">Céu de Outono</p>
+                </div>
+                <button type="button" class="favorite-button" id="favorite-button" aria-label="Adicionar aos favoritos" aria-pressed="false">
+                    <svg aria-hidden="true"><use href="#icon-heart"></use></svg>
+                </button>
+            </div>
+
+            <div class="progress-control">
+                <input type="range" id="track-progress" min="0" max="100" value="0" aria-label="Progresso da música">
+                <div><span id="current-time">0:00</span><span id="duration-time">0:00</span></div>
+            </div>
+
+            <div class="player-controls">
+                <button type="button" id="previous-button" aria-label="Música anterior">
+                    <svg aria-hidden="true"><use href="#icon-previous"></use></svg>
+                </button>
+                <button type="button" class="main-play-button" id="main-play-button" aria-label="Reproduzir">
+                    <svg class="play-icon" aria-hidden="true"><use href="#icon-play"></use></svg>
+                    <svg class="pause-icon" aria-hidden="true"><use href="#icon-pause"></use></svg>
+                </button>
+                <button type="button" id="next-button" aria-label="Próxima música">
+                    <svg aria-hidden="true"><use href="#icon-next"></use></svg>
+                </button>
+            </div>
+
+            <div class="player-actions">
+                <button type="button" id="send-current-track">
+                    <svg aria-hidden="true"><use href="#icon-send"></use></svg>
+                    Enviar
+                </button>
+                <button type="button" id="add-current-to-playlist">
+                    <svg aria-hidden="true"><use href="#icon-playlist"></use></svg>
+                    Playlist
+                </button>
+                <button type="button" data-open-view="jam" data-close-sheet="player">
+                    <svg aria-hidden="true"><use href="#icon-users"></use></svg>
+                    Ouvir em Jam
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- adicionar música -->
+    <section class="modal" id="upload-modal" aria-hidden="true" aria-labelledby="upload-title">
+        <div class="modal-backdrop" data-close-modal="upload"></div>
+        <div class="modal-card">
+            <header class="modal-header">
+                <div>
+                    <p>Biblioteca particular</p>
+                    <h2 id="upload-title">Adicionar música</h2>
+                </div>
+                <button type="button" data-close-modal="upload" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <form id="upload-form" novalidate>
+                <label class="file-drop" for="audio-file" id="audio-file-drop">
+                    <svg aria-hidden="true"><use href="#icon-upload"></use></svg>
+                    <strong id="audio-file-title">Escolher arquivo de áudio</strong>
+                    <span>MP3, M4A, AAC, WAV, OGG ou FLAC</span>
+                    <input type="file" id="audio-file" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.flac" required>
+                </label>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="track-title">Título</label>
+                        <input type="text" id="track-title" maxlength="80" placeholder="Nome da música" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="track-artist">Artista</label>
+                        <input type="text" id="track-artist" maxlength="80" placeholder="Nome do artista" required>
+                    </div>
+                </div>
+
+                <label class="cover-picker" for="cover-file">
+                    <span class="cover-preview" id="cover-preview">
+                        <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+                    </span>
+                    <span><strong>Adicionar capa</strong><small>Imagem quadrada recomendada</small></span>
+                    <input type="file" id="cover-file" accept="image/*">
+                </label>
+
+                <p class="upload-information" id="upload-information">Com a nuvem configurada, o áudio e a capa ficam disponíveis nos dois aparelhos.</p>
+
+                <button type="submit" class="primary-button" id="upload-submit-button">
+                    <span>Adicionar à biblioteca</span>
+                </button>
+            </form>
+
+            <button type="button" class="catalog-shortcut" data-open-catalog>
+                <span><svg aria-hidden="true"><use href="#icon-folder"></use></svg></span>
+                <span><strong>Importar catálogo</strong><small>Escolher várias músicas ou uma pasta inteira</small></span>
+                <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </button>
+        </div>
+    </section>
+
+    <!-- importar catálogo -->
+    <section class="modal" id="catalog-modal" aria-hidden="true" aria-labelledby="catalog-title">
+        <div class="modal-backdrop" data-close-modal="catalog"></div>
+        <div class="modal-card catalog-modal-card">
+            <header class="modal-header">
+                <div>
+                    <p>Biblioteca particular</p>
+                    <h2 id="catalog-title">Importar catálogo</h2>
+                </div>
+                <button type="button" data-close-modal="catalog" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <p class="catalog-description">Selecione várias músicas ou uma pasta. O Dois Tons identificará as informações e as capas antes de enviar tudo para a nuvem.</p>
+
+            <div class="catalog-selectors">
+                <label class="catalog-selector" for="catalog-files">
+                    <svg aria-hidden="true"><use href="#icon-music"></use></svg>
+                    <span><strong>Escolher músicas</strong><small>Selecione vários arquivos de uma vez</small></span>
+                    <input
+                        type="file"
+                        id="catalog-files"
+                        accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.flac"
+                        multiple
+                    >
+                </label>
+
+                <label class="catalog-selector" for="catalog-folder">
+                    <svg aria-hidden="true"><use href="#icon-folder"></use></svg>
+                    <span><strong>Escolher uma pasta</strong><small>Recomendado para importar pelo Windows</small></span>
+                    <input
+                        type="file"
+                        id="catalog-folder"
+                        accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.oga,.flac"
+                        webkitdirectory
+                        directory
+                        multiple
+                    >
+                </label>
+            </div>
+
+            <section class="catalog-progress" id="catalog-progress" aria-live="polite">
+                <div class="catalog-progress-heading">
+                    <div>
+                        <strong id="catalog-progress-title">Nenhuma música selecionada</strong>
+                        <span id="catalog-progress-description">Você pode adicionar novos arquivos à lista antes de importar.</span>
+                    </div>
+                    <span id="catalog-progress-value">0%</span>
+                </div>
+                <div
+                    class="catalog-progress-track"
+                    id="catalog-progress-track"
+                    role="progressbar"
+                    aria-label="Progresso da importação"
+                    aria-valuemin="0"
+                    aria-valuemax="100"
+                    aria-valuenow="0"
+                >
+                    <span id="catalog-progress-bar"></span>
+                </div>
+            </section>
+
+            <div class="catalog-summary" id="catalog-summary" hidden></div>
+            <div class="catalog-list" id="catalog-list" aria-label="Músicas selecionadas"></div>
+
+            <div class="catalog-footer">
+                <button type="button" class="text-button catalog-clear-button" id="catalog-clear-button" disabled>Limpar lista</button>
+                <button type="button" class="secondary-button catalog-cancel-button" id="catalog-cancel-button" hidden>
+                    Parar importação
+                </button>
+                <button type="button" class="primary-button" id="catalog-import-button" disabled>
+                    <span>Importar músicas</span>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- playlists -->
+    <section class="modal" id="playlist-modal" aria-hidden="true" aria-labelledby="playlist-modal-title">
+        <div class="modal-backdrop" data-close-modal="playlist"></div>
+        <div class="modal-card compact-modal">
+            <header class="modal-header">
+                <div>
+                    <p>Feitas pelos dois</p>
+                    <h2 id="playlist-modal-title">Playlists</h2>
+                </div>
+                <button type="button" data-close-modal="playlist" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <div class="playlist-picker" id="playlist-picker"></div>
+
+            <form class="playlist-form" id="playlist-form" novalidate>
+                <div class="form-group">
+                    <label for="playlist-title">Nova playlist</label>
+                    <input type="text" id="playlist-title" maxlength="60" placeholder="Ex.: Nosso outono" required>
+                </div>
+                <button type="submit" class="secondary-button" id="playlist-submit-button">
+                    <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+                    <span>Criar playlist</span>
+                </button>
+            </form>
+        </div>
+    </section>
+
+    <!-- perfil -->
+    <section class="modal" id="profile-modal" aria-hidden="true" aria-labelledby="profile-title">
+        <div class="modal-backdrop" data-close-modal="profile"></div>
+        <div class="modal-card compact-modal">
+            <header class="modal-header">
+                <div>
+                    <p>Sua experiência</p>
+                    <h2 id="profile-title">Perfil</h2>
+                </div>
+                <button type="button" data-close-modal="profile" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <div class="profile-summary">
+                <span id="profile-modal-initials">DT</span>
+                <div><strong id="profile-name">Visitante</strong><small id="profile-connection">Modo de demonstração</small></div>
+            </div>
+
+            <button type="button" class="profile-option" id="install-app-button">
+                <span><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>
+                <span><strong>Instalar aplicativo</strong><small>Adicionar à tela de início</small></span>
+                <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </button>
+
+            <button type="button" class="profile-option danger-option" id="logout-button">
+                <span><svg aria-hidden="true"><use href="#icon-close"></use></svg></span>
+                <span><strong>Sair da sala</strong><small>Voltar à tela do código</small></span>
+                <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </button>
+        </div>
+    </section>
+
+    <!-- instalação -->
+    <section class="modal" id="install-modal" aria-hidden="true" aria-labelledby="install-title">
+        <div class="modal-backdrop" data-close-modal="install"></div>
+        <div class="modal-card compact-modal">
+            <header class="modal-header">
+                <div>
+                    <p>PWA para iPhone</p>
+                    <h2 id="install-title">Instalar Dois Tons</h2>
+                </div>
+                <button type="button" data-close-modal="install" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <ol class="install-steps">
+                <li><span>1</span><p>Abra esta página pelo <strong>Safari</strong>.</p></li>
+                <li><span>2</span><p>Toque no botão <strong>Compartilhar</strong>.</p></li>
+                <li><span>3</span><p>Escolha <strong>Adicionar à Tela de Início</strong>.</p></li>
+                <li><span>4</span><p>Ative <strong>Abrir como App</strong> e confirme.</p></li>
+            </ol>
+        </div>
+    </section>
+
+    <!-- notificações -->
+    <div class="toast" id="toast" role="status" aria-live="polite">
+        <svg aria-hidden="true"><use href="#icon-check"></use></svg>
+        <span id="toast-message"></span>
+    </div>
+
+    <!-- javascript -->
+    <script src="assets/js/supabase-config.js"></script>
+    <script src="assets/js/cloud-service.js"></script>
+    <script src="assets/js/script.js"></script>
+</body>
+</html>
