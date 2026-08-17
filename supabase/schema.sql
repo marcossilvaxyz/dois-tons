@@ -39,6 +39,29 @@ on public.duo_members (duo_id,lower(display_name));
 create index if not exists duo_members_duo_id_index
 on public.duo_members (duo_id);
 
+
+-- dispositivos autorizados para cada perfil
+create table if not exists public.duo_member_devices (
+    id uuid primary key default gen_random_uuid(),
+    duo_id uuid not null references public.duos(id) on delete cascade,
+    member_id uuid not null references public.duo_members(id) on delete cascade,
+    user_id uuid not null unique references auth.users(id) on delete cascade,
+    created_at timestamptz not null default now(),
+    constraint duo_member_devices_member_user_unique unique (member_id,user_id)
+);
+
+create index if not exists duo_member_devices_duo_id_index
+on public.duo_member_devices (duo_id);
+
+create index if not exists duo_member_devices_member_id_index
+on public.duo_member_devices (member_id);
+
+-- preserva os perfis existentes e transforma o usuario atual em primeiro dispositivo
+insert into public.duo_member_devices (duo_id,member_id,user_id)
+select member.duo_id,member.id,member.user_id
+from public.duo_members as member
+on conflict (user_id) do nothing;
+
 create table if not exists public.tracks (
     id uuid primary key default gen_random_uuid(),
     duo_id uuid not null references public.duos(id) on delete cascade,
@@ -171,6 +194,19 @@ create index if not exists jam_sessions_duo_id_index
 on public.jam_sessions (duo_id,updated_at desc);
 
 -- funcoes auxiliares privadas
+create or replace function private.current_member_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select device.member_id
+    from public.duo_member_devices as device
+    where device.user_id = (select auth.uid())
+    limit 1;
+$$;
+
 create or replace function private.current_duo_id()
 returns uuid
 language sql
@@ -178,9 +214,9 @@ stable
 security definer
 set search_path = ''
 as $$
-    select member.duo_id
-    from public.duo_members as member
-    where member.user_id = (select auth.uid())
+    select device.duo_id
+    from public.duo_member_devices as device
+    where device.user_id = (select auth.uid())
     limit 1;
 $$;
 
@@ -193,9 +229,26 @@ set search_path = ''
 as $$
     select exists (
         select 1
-        from public.duo_members as member
-        where member.duo_id = p_duo_id
-          and member.user_id = (select auth.uid())
+        from public.duo_member_devices as device
+        where device.duo_id = p_duo_id
+          and device.user_id = (select auth.uid())
+    );
+$$;
+
+create or replace function private.is_current_member_identity(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (
+        select 1
+        from public.duo_member_devices as current_device
+        join public.duo_member_devices as owner_device
+          on owner_device.member_id = current_device.member_id
+        where current_device.user_id = (select auth.uid())
+          and owner_device.user_id = p_user_id
     );
 $$;
 
@@ -208,9 +261,9 @@ set search_path = ''
 as $$
     select exists (
         select 1
-        from public.duo_members as member
-        where member.duo_id::text = split_part(p_name,'/',1)
-          and member.user_id = (select auth.uid())
+        from public.duo_member_devices as device
+        where device.duo_id::text = split_part(p_name,'/',1)
+          and device.user_id = (select auth.uid())
     );
 $$;
 
@@ -225,54 +278,7 @@ begin
 end;
 $$;
 
-create or replace function private.transfer_user_identity(p_duo_id uuid,p_previous_user_id uuid,p_new_user_id uuid)
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-begin
-    update public.tracks
-    set added_by = p_new_user_id
-    where duo_id = p_duo_id
-      and added_by = p_previous_user_id;
-
-    update public.favorites
-    set added_by = p_new_user_id
-    where duo_id = p_duo_id
-      and added_by = p_previous_user_id;
-
-    update public.shared_tracks
-    set sender_id = p_new_user_id
-    where duo_id = p_duo_id
-      and sender_id = p_previous_user_id;
-
-    update public.shared_tracks
-    set recipient_id = p_new_user_id
-    where duo_id = p_duo_id
-      and recipient_id = p_previous_user_id;
-
-    update public.playlists
-    set created_by = p_new_user_id
-    where duo_id = p_duo_id
-      and created_by = p_previous_user_id;
-
-    update public.playlist_tracks
-    set added_by = p_new_user_id
-    where duo_id = p_duo_id
-      and added_by = p_previous_user_id;
-
-    update public.jam_sessions
-    set created_by = p_new_user_id
-    where duo_id = p_duo_id
-      and created_by = p_previous_user_id;
-
-    update public.jam_sessions
-    set updated_by = p_new_user_id
-    where duo_id = p_duo_id
-      and updated_by = p_previous_user_id;
-end;
-$$;
+-- cada aparelho mantem sua propria identidade anonima vinculada ao mesmo perfil
 
 -- configuracao inicial executada somente pelo sql editor
 create or replace function private.configure_room(p_code text,p_title text default 'Dois Tons')
@@ -346,7 +352,6 @@ declare
     v_code text := btrim(p_code);
     v_hash text;
     v_member_count integer;
-    v_previous_user_id uuid;
 begin
     if v_user_id is null then
         raise exception 'Sessão inválida. Atualize a página e tente novamente.';
@@ -377,55 +382,51 @@ begin
         raise exception 'Código secreto incorreto.';
     end if;
 
-    select member.id
+    select device.member_id
     into v_member_id
-    from public.duo_members as member
-    where member.user_id = v_user_id
+    from public.duo_member_devices as device
+    where device.user_id = v_user_id
+      and device.duo_id = v_duo_id
     for update;
 
     if v_member_id is not null then
-        update public.duo_members as member
-        set display_name = v_name,
-            updated_at = now()
-        where member.id = v_member_id;
+        if not exists (
+            select 1
+            from public.duo_members as member
+            where member.id = v_member_id
+              and lower(member.display_name) = lower(v_name)
+        ) then
+            raise exception 'Este aparelho já está vinculado a outro perfil.';
+        end if;
     else
-        select member.id,member.user_id
-        into v_member_id,v_previous_user_id
+        select member.id
+        into v_member_id
         from public.duo_members as member
         where member.duo_id = v_duo_id
           and lower(member.display_name) = lower(v_name)
         for update;
 
         if v_member_id is not null then
-            perform private.transfer_user_identity(v_duo_id,v_previous_user_id,v_user_id);
-
-            update public.duo_members as member
-            set user_id = v_user_id,
-                display_name = v_name,
-                updated_at = now()
-            where member.id = v_member_id;
-
+            insert into public.duo_member_devices (duo_id,member_id,user_id)
+            values (v_duo_id,v_member_id,v_user_id)
+            on conflict (user_id) do nothing;
+        else
             select count(*)::integer
             into v_member_count
             from public.duo_members as member
             where member.duo_id = v_duo_id;
 
-            return query
-            select v_duo_id,v_member_id,v_name,v_member_count;
-            return;
-        end if;
+            if v_member_count < 2 then
+                insert into public.duo_members (duo_id,user_id,display_name)
+                values (v_duo_id,v_user_id,v_name)
+                returning id into v_member_id;
 
-        select count(*)::integer
-        into v_member_count
-        from public.duo_members as member
-        where member.duo_id = v_duo_id;
-
-        if v_member_count < 2 then
-            insert into public.duo_members (duo_id,user_id,display_name)
-            values (v_duo_id,v_user_id,v_name)
-            returning id into v_member_id;
-        else
-            raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+                insert into public.duo_member_devices (duo_id,member_id,user_id)
+                values (v_duo_id,v_member_id,v_user_id)
+                on conflict (user_id) do nothing;
+            else
+                raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+            end if;
         end if;
     end if;
 
@@ -449,6 +450,7 @@ as $$
 declare
     v_user_id uuid := auth.uid();
     v_duo_id uuid := private.current_duo_id();
+    v_member_id uuid := private.current_member_id();
     v_recipient_id uuid;
     v_share public.shared_tracks;
 begin
@@ -469,7 +471,7 @@ begin
     into v_recipient_id
     from public.duo_members as member
     where member.duo_id = v_duo_id
-      and member.user_id <> v_user_id
+      and member.id <> v_member_id
     limit 1;
 
     if v_recipient_id is null then
@@ -721,6 +723,7 @@ for each row execute function private.set_updated_at();
 -- row level security
 alter table public.duos enable row level security;
 alter table public.duo_members enable row level security;
+alter table public.duo_member_devices enable row level security;
 alter table public.tracks enable row level security;
 alter table public.favorites enable row level security;
 alter table public.shared_tracks enable row level security;
@@ -739,6 +742,16 @@ create policy "members read duo members"
 on public.duo_members for select
 to authenticated
 using ((select private.is_duo_member(duo_id)));
+
+
+drop policy if exists "members read duo devices" on public.duo_member_devices;
+create policy "members read duo devices"
+on public.duo_member_devices for select
+to authenticated
+using (
+    user_id = (select auth.uid())
+    or (select private.is_duo_member(duo_id))
+);
 
 drop policy if exists "members read tracks" on public.tracks;
 create policy "members read tracks"
@@ -759,17 +772,17 @@ drop policy if exists "owners update tracks" on public.tracks;
 create policy "owners update tracks"
 on public.tracks for update
 to authenticated
-using (added_by = (select auth.uid()))
+using ((select private.is_current_member_identity(added_by)))
 with check (
     duo_id = (select private.current_duo_id())
-    and added_by = (select auth.uid())
+    and (select private.is_current_member_identity(added_by))
 );
 
 drop policy if exists "owners delete tracks" on public.tracks;
 create policy "owners delete tracks"
 on public.tracks for delete
 to authenticated
-using (added_by = (select auth.uid()));
+using ((select private.is_current_member_identity(added_by)));
 
 drop policy if exists "members read favorites" on public.favorites;
 create policy "members read favorites"
@@ -848,6 +861,7 @@ using ((select private.is_duo_member(duo_id)));
 revoke all on table
     public.duos,
     public.duo_members,
+    public.duo_member_devices,
     public.tracks,
     public.favorites,
     public.shared_tracks,
@@ -856,7 +870,7 @@ revoke all on table
     public.jam_sessions
 from anon,authenticated;
 
-grant select on public.duos,public.duo_members to authenticated;
+grant select on public.duos,public.duo_members,public.duo_member_devices to authenticated;
 grant select,insert,update,delete on public.tracks to authenticated;
 grant select,insert,delete on public.favorites to authenticated;
 grant select on public.shared_tracks to authenticated;
@@ -865,7 +879,6 @@ grant select,delete on public.playlist_tracks to authenticated;
 grant select on public.jam_sessions to authenticated;
 
 revoke all on function private.configure_room(text,text) from public,anon,authenticated;
-revoke all on function private.transfer_user_identity(uuid,uuid,uuid) from public,anon,authenticated;
 
 revoke all on function public.access_duo(text,text) from public,anon;
 revoke all on function public.share_track(uuid) from public,anon;
@@ -884,7 +897,9 @@ grant execute on function public.set_jam_state(uuid,uuid,boolean,numeric) to aut
 grant execute on function public.end_jam(uuid) to authenticated;
 
 grant usage on schema private to authenticated;
+grant execute on function private.current_member_id() to authenticated;
 grant execute on function private.current_duo_id() to authenticated;
+grant execute on function private.is_current_member_identity(uuid) to authenticated;
 grant execute on function private.is_duo_member(uuid) to authenticated;
 grant execute on function private.can_access_storage_path(text) to authenticated;
 

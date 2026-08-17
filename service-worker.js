@@ -4,7 +4,7 @@
 // ======================================================
 
 // configuracoes
-const cacheName = "dois-tons-v3"
+const cacheName = "dois-tons-v4"
 const appAssets = [
     "./",
     "./index.html",

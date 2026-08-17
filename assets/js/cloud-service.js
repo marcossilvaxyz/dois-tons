@@ -118,12 +118,21 @@ window.DoisTonsCloud = (() => {
 
         if (!currentUser) return null
 
-        const result = await client
-            .from("duo_members")
-            .select("id,duo_id,user_id,display_name,created_at")
+        const deviceResult = await client
+            .from("duo_member_devices")
+            .select("member_id,duo_id")
             .eq("user_id",currentUser.id)
             .maybeSingle()
-        const member = unwrap(result)
+        const device = unwrap(deviceResult)
+
+        if (!device) return null
+
+        const memberResult = await client
+            .from("duo_members")
+            .select("id,duo_id,user_id,display_name,created_at")
+            .eq("id",device.member_id)
+            .maybeSingle()
+        const member = unwrap(memberResult)
 
         if (!member) return null
 
@@ -163,7 +172,7 @@ window.DoisTonsCloud = (() => {
             name:member.display_name,
             memberId:member.id,
             duoId:member.duo_id,
-            userId:member.user_id,
+            userId:currentUser?.id || member.user_id,
             mode:"cloud"
         }
     }
@@ -292,7 +301,7 @@ window.DoisTonsCloud = (() => {
     async function loadTracks() {
         requireMembership()
 
-        const [trackResult,favoriteResult,shareResult,memberResult] = await Promise.all([
+        const [trackResult,favoriteResult,shareResult,memberResult,deviceResult] = await Promise.all([
             loadTrackRows(),
             client
                 .from("favorites")
@@ -304,21 +313,39 @@ window.DoisTonsCloud = (() => {
                 .eq("duo_id",currentDuoId),
             client
                 .from("duo_members")
-                .select("user_id,display_name")
+                .select("id,user_id,display_name")
+                .eq("duo_id",currentDuoId),
+            client
+                .from("duo_member_devices")
+                .select("member_id,user_id")
                 .eq("duo_id",currentDuoId)
         ])
         const trackRows = unwrap(trackResult) || []
         const favoriteRows = unwrap(favoriteResult) || []
         const shareRows = unwrap(shareResult) || []
         const memberRows = unwrap(memberResult) || []
+        const deviceRows = unwrap(deviceResult) || []
         const favoriteIds = new Set(favoriteRows.map(item => item.track_id))
+        const memberById = new Map(memberRows.map(member => [member.id,member]))
         const memberNames = new Map(memberRows.map(member => [member.user_id,member.display_name]))
+        const currentMemberUsers = new Set()
+
+        deviceRows.forEach(device => {
+            const member = memberById.get(device.member_id)
+
+            if (!member) return
+
+            memberNames.set(device.user_id,member.display_name)
+
+            if (device.member_id === currentMember?.id) currentMemberUsers.add(device.user_id)
+        })
+
         const shareByTrack = new Map(shareRows.map(item => [item.track_id,item]))
 
         return Promise.all(trackRows.map(async (row,index) => {
             const share = shareByTrack.get(row.id)
             const sharedBy = share
-                ? share.sender_id === currentUser.id
+                ? currentMemberUsers.has(share.sender_id)
                     ? "Enviada por você"
                     : memberNames.get(share.sender_id) || "Sua pessoa"
                 : ""

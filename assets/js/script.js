@@ -454,7 +454,7 @@ function updateProfileInterface() {
     if (!currentProfile) return
 
     const initials = getInitials(currentProfile.name)
-    const partner = duoMembers.find(member => member.user_id !== currentProfile.userId)
+    const partner = duoMembers.find(member => member.id !== currentProfile.memberId)
 
     greetingTitle.textContent = getGreeting()
     profileInitials.textContent = initials
