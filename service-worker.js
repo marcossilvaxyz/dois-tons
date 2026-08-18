@@ -1,10 +1,5 @@
-// ======================================================
-// dois tons - service worker
-// suporte offline da pwa
-// ======================================================
-
-// configuracoes
-const cacheName = "dois-tons-v13"
+// arquivos básicos do app
+const cacheName = "dois-tons-v21"
 const appAssets = [
     "./",
     "./index.html",
@@ -22,7 +17,7 @@ const appAssets = [
     "./assets/icons/apple-touch-icon.png"
 ]
 
-// instalacao
+// instalação
 self.addEventListener("install",event => {
     event.waitUntil(
         caches.open(cacheName).then(cache => cache.addAll(appAssets))
@@ -31,7 +26,7 @@ self.addEventListener("install",event => {
     self.skipWaiting()
 })
 
-// atualizacao
+// ativação
 self.addEventListener("activate",event => {
     event.waitUntil(
         caches.keys().then(cacheNames => Promise.all(
@@ -44,13 +39,12 @@ self.addEventListener("activate",event => {
     self.clients.claim()
 })
 
-
-// mensagens
+// mensagens do app
 self.addEventListener("message",event => {
     if (event.data?.type === "SKIP_WAITING") self.skipWaiting()
 })
 
-// requisicoes
+// cache de navegação e assets
 self.addEventListener("fetch",event => {
     const request = event.request
     const requestUrl = new URL(request.url)

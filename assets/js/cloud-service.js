@@ -1,8 +1,3 @@
-// ======================================================
-// dois tons - servico de nuvem
-// integracao com auth, banco, storage e realtime
-// ======================================================
-
 window.DoisTonsCloud = (() => {
     // estado
     let client = null
@@ -12,11 +7,14 @@ window.DoisTonsCloud = (() => {
     let libraryChannel = null
     let jamChannel = null
     let jamAvailabilityChannel = null
+    let listeningChannel = null
+    let activityChannel = null
+    let dedicationChannel = null
     let serverOffset = 0
 
     const signedUrlCache = new Map()
 
-    // configuracao
+    // cliente
     function getConfig() {
         return window.DOIS_TONS_CONFIG || {}
     }
@@ -74,7 +72,7 @@ window.DoisTonsCloud = (() => {
         return data || null
     }
 
-    // autenticacao
+    // sessão
     async function initialize() {
         if (!isConfigured()) return {configured:false}
 
@@ -142,14 +140,48 @@ window.DoisTonsCloud = (() => {
         return mapProfile(member)
     }
 
-    async function accessDuo(code,name) {
+    async function createFreshAnonymousIdentity() {
         requireClient()
 
+        const signOutResult = await client.auth.signOut()
+        if (signOutResult.error) throw signOutResult.error
+
+        currentUser = null
+        currentMember = null
+        currentDuoId = null
+
+        const signInResult = await client.auth.signInAnonymously()
+        currentUser = unwrap(signInResult)?.user || null
+
+        if (!currentUser) throw new Error("Não foi possível criar uma nova sessão para alternar o perfil.")
+
+        return currentUser
+    }
+
+    async function requestDuoAccess(code,name) {
         const result = await client.rpc("access_duo",{
             p_code:code,
             p_display_name:name
         })
-        const access = firstRow(unwrap(result))
+
+        return firstRow(unwrap(result))
+    }
+
+    async function accessDuo(code,name,{allowIdentityRefresh = true} = {}) {
+        requireClient()
+
+        let access
+
+        try {
+            access = await requestDuoAccess(code,name)
+        } catch (error) {
+            const needsFreshIdentity = String(error?.message || "").includes("DOIS_TONS_PROFILE_SWITCH_REQUIRES_NEW_SESSION")
+
+            if (!allowIdentityRefresh || !needsFreshIdentity) throw error
+
+            await createFreshAnonymousIdentity()
+            access = await requestDuoAccess(code,name)
+        }
 
         if (!access) throw new Error("Não foi possível abrir a sala.")
 
@@ -189,7 +221,7 @@ window.DoisTonsCloud = (() => {
         return unwrap(result) || []
     }
 
-    // arquivos privados
+    // storage
     async function createPrivateUrl(path) {
         if (!path) return ""
 
@@ -332,15 +364,19 @@ window.DoisTonsCloud = (() => {
         const memberById = new Map(memberRows.map(member => [member.id,member]))
         const memberNames = new Map(memberRows.map(member => [member.user_id,member.display_name]))
         const memberIdsByUser = new Map(memberRows.map(member => [member.user_id,member.id]))
-        const currentMemberUsers = new Set()
+        const currentMemberUsers = new Set(
+            memberRows
+                .filter(member => member.id === currentMember?.id)
+                .map(member => member.user_id)
+        )
 
         deviceRows.forEach(device => {
             const member = memberById.get(device.member_id)
 
             if (!member) return
 
-            memberNames.set(device.user_id,member.display_name)
-            memberIdsByUser.set(device.user_id,device.member_id)
+            if (!memberNames.has(device.user_id)) memberNames.set(device.user_id,member.display_name)
+            if (!memberIdsByUser.has(device.user_id)) memberIdsByUser.set(device.user_id,device.member_id)
 
             if (device.member_id === currentMember?.id) currentMemberUsers.add(device.user_id)
         })
@@ -351,8 +387,8 @@ window.DoisTonsCloud = (() => {
             const share = shareByTrack.get(row.id)
             const sharedBy = share
                 ? currentMemberUsers.has(share.sender_id)
-                    ? "Enviada por você"
-                    : memberNames.get(share.sender_id) || "Sua pessoa"
+                    ? `Enviada por ${currentMember?.display_name || "meu perfil"}`
+                    : memberNames.get(share.sender_id) || "Outro perfil"
                 : ""
             const [audioUrl,coverUrl] = await Promise.all([
                 row.source_url ? Promise.resolve(row.source_url) : createPrivateUrl(row.audio_path),
@@ -637,7 +673,7 @@ window.DoisTonsCloud = (() => {
         devices.forEach(device => {
             const member = memberById.get(device.member_id)
 
-            if (member) memberNames.set(device.user_id,member.display_name)
+            if (member && !memberNames.has(device.user_id)) memberNames.set(device.user_id,member.display_name)
         })
 
         return playlistRows.map(playlist => {
@@ -647,13 +683,13 @@ window.DoisTonsCloud = (() => {
                     trackId:item.track_id,
                     position:Number(item.position || 0),
                     addedBy:item.added_by || "",
-                    addedByName:memberNames.get(item.added_by) || "Sua pessoa",
+                    addedByName:memberNames.get(item.added_by) || "Outro perfil",
                     createdAt:item.created_at || ""
                 }))
 
             return {
                 ...playlist,
-                createdByName:memberNames.get(playlist.created_by) || "Vocês",
+                createdByName:memberNames.get(playlist.created_by) || "nós",
                 items:playlistItems,
                 trackIds:playlistItems.map(item => item.trackId)
             }
@@ -769,16 +805,16 @@ window.DoisTonsCloud = (() => {
         devices.forEach(device => {
             const member = memberById.get(device.member_id)
 
-            if (member) memberNames.set(device.user_id,member.display_name)
+            if (member && !memberNames.has(device.user_id)) memberNames.set(device.user_id,member.display_name)
         })
 
         return rows.map(row => ({
             ...row,
-            actorName:memberNames.get(row.actor_id) || "Sua pessoa"
+            actorName:memberNames.get(row.actor_id) || "Outro perfil"
         }))
     }
 
-    // realtime da biblioteca
+    // realtime
     function subscribeLibrary(onChange) {
         requireMembership()
         unsubscribeLibrary()
@@ -806,6 +842,216 @@ window.DoisTonsCloud = (() => {
 
         client.removeChannel(libraryChannel)
         libraryChannel = null
+    }
+
+
+    // histórico
+    async function loadListeningHistory(limit = 5000) {
+        requireMembership()
+
+        const safeLimit = Math.max(1,Math.min(Number(limit || 5000),10000))
+        const pageSize = Math.min(750,safeLimit)
+        const historyRows = []
+        const memberResult = await client
+            .from("duo_members")
+            .select("id,display_name")
+            .eq("duo_id",currentDuoId)
+        const members = unwrap(memberResult) || []
+
+        while (historyRows.length < safeLimit) {
+            const start = historyRows.length
+            const end = Math.min(start + pageSize,safeLimit) - 1
+            const historyResult = await client
+                .from("listening_history")
+                .select("id,member_id,track_id,session_id,listened_seconds,completed,started_at,last_listened_at")
+                .eq("duo_id",currentDuoId)
+                .order("last_listened_at",{ascending:false})
+                .range(start,end)
+            const page = unwrap(historyResult) || []
+
+            historyRows.push(...page)
+
+            if (page.length < end - start + 1) break
+        }
+
+        const memberNames = new Map(members.map(member => [member.id,member.display_name]))
+
+        return historyRows.map(item => ({
+            ...item,
+            listenedSeconds:Number(item.listened_seconds || 0),
+            memberName:memberNames.get(item.member_id) || "Outro perfil"
+        }))
+    }
+
+    async function recordListeningProgress(trackId,sessionId,listenedSeconds,completed = false) {
+        requireMembership()
+
+        return unwrap(await client.rpc("record_listening_progress",{
+            p_track_id:trackId,
+            p_session_id:sessionId,
+            p_listened_seconds:Math.max(0,Math.round(Number(listenedSeconds || 0))),
+            p_completed:Boolean(completed)
+        }))
+    }
+
+    function subscribeListeningHistory(onChange) {
+        requireMembership()
+
+        if (listeningChannel) client.removeChannel(listeningChannel)
+
+        listeningChannel = client
+            .channel(`listening-${currentDuoId}`)
+            .on("postgres_changes",{
+                event:"*",
+                schema:"public",
+                table:"listening_history",
+                filter:`duo_id=eq.${currentDuoId}`
+            },onChange)
+            .subscribe()
+
+        return listeningChannel
+    }
+
+    function unsubscribeListeningHistory() {
+        if (!client || !listeningChannel) return
+
+        client.removeChannel(listeningChannel)
+        listeningChannel = null
+    }
+
+    // atividades
+    async function loadActivityNotifications(limit = 100) {
+        requireMembership()
+
+        const safeLimit = Math.max(1,Math.min(Number(limit || 100),200))
+        const [activityResult,memberResult] = await Promise.all([
+            client
+                .from("activity_notifications")
+                .select("id,recipient_member_id,actor_member_id,event_type,track_id,playlist_id,jam_id,details,read_at,created_at")
+                .eq("duo_id",currentDuoId)
+                .eq("recipient_member_id",currentMember.id)
+                .order("created_at",{ascending:false})
+                .limit(safeLimit),
+            client
+                .from("duo_members")
+                .select("id,display_name")
+                .eq("duo_id",currentDuoId)
+        ])
+        const rows = unwrap(activityResult) || []
+        const members = unwrap(memberResult) || []
+        const memberNames = new Map(members.map(member => [member.id,member.display_name]))
+
+        return rows.map(item => ({
+            ...item,
+            actorName:memberNames.get(item.actor_member_id) || "Outro perfil",
+            read:Boolean(item.read_at)
+        }))
+    }
+
+    async function markActivityNotifications(notificationId = null) {
+        requireMembership()
+
+        return unwrap(await client.rpc("mark_activity_notifications",{
+            p_notification_id:notificationId || null
+        }))
+    }
+
+    function subscribeActivity(onChange) {
+        requireMembership()
+
+        if (activityChannel) client.removeChannel(activityChannel)
+
+        activityChannel = client
+            .channel(`activity-${currentMember.id}`)
+            .on("postgres_changes",{
+                event:"*",
+                schema:"public",
+                table:"activity_notifications",
+                filter:`recipient_member_id=eq.${currentMember.id}`
+            },onChange)
+            .subscribe()
+
+        return activityChannel
+    }
+
+    function unsubscribeActivity() {
+        if (!client || !activityChannel) return
+
+        client.removeChannel(activityChannel)
+        activityChannel = null
+    }
+
+    // dedicatórias
+    async function loadMusicDedications(limit = 500) {
+        requireMembership()
+
+        const safeLimit = Math.max(1,Math.min(Number(limit || 500),1000))
+        const [dedicationResult,memberResult] = await Promise.all([
+            client
+                .from("music_dedications")
+                .select("id,duo_id,sender_member_id,recipient_member_id,track_id,track_title,track_artist,track_album,message,read_at,created_at")
+                .eq("duo_id",currentDuoId)
+                .order("created_at",{ascending:false})
+                .limit(safeLimit),
+            client
+                .from("duo_members")
+                .select("id,display_name")
+                .eq("duo_id",currentDuoId)
+        ])
+        const rows = unwrap(dedicationResult) || []
+        const members = unwrap(memberResult) || []
+        const memberNames = new Map(members.map(member => [member.id,member.display_name]))
+
+        return rows.map(item => ({
+            ...item,
+            senderName:memberNames.get(item.sender_member_id) || "Outro perfil",
+            recipientName:memberNames.get(item.recipient_member_id) || "Outro perfil",
+            received:item.recipient_member_id === currentMember.id,
+            sent:item.sender_member_id === currentMember.id,
+            read:Boolean(item.read_at)
+        }))
+    }
+
+    async function sendMusicDedication(trackId,message) {
+        requireMembership()
+
+        return unwrap(await client.rpc("send_music_dedication",{
+            p_track_id:trackId,
+            p_message:String(message || "").trim()
+        }))
+    }
+
+    async function markMusicDedications(dedicationId = null) {
+        requireMembership()
+
+        return unwrap(await client.rpc("mark_music_dedications",{
+            p_dedication_id:dedicationId || null
+        }))
+    }
+
+    function subscribeDedications(onChange) {
+        requireMembership()
+
+        if (dedicationChannel) client.removeChannel(dedicationChannel)
+
+        dedicationChannel = client
+            .channel(`dedications-${currentDuoId}`)
+            .on("postgres_changes",{
+                event:"*",
+                schema:"public",
+                table:"music_dedications",
+                filter:`duo_id=eq.${currentDuoId}`
+            },onChange)
+            .subscribe()
+
+        return dedicationChannel
+    }
+
+    function unsubscribeDedications() {
+        if (!client || !dedicationChannel) return
+
+        client.removeChannel(dedicationChannel)
+        dedicationChannel = null
     }
 
     // jam
@@ -936,6 +1182,9 @@ window.DoisTonsCloud = (() => {
     function disconnectRealtime() {
         unsubscribeLibrary()
         unsubscribeJam()
+        unsubscribeListeningHistory()
+        unsubscribeActivity()
+        unsubscribeDedications()
 
         if (client && jamAvailabilityChannel) client.removeChannel(jamAvailabilityChannel)
 
@@ -968,20 +1217,33 @@ window.DoisTonsCloud = (() => {
         getUserId,
         initialize,
         isConfigured,
+        loadActivityNotifications,
+        loadListeningHistory,
+        loadMusicDedications,
         loadPlaylistActivity,
         loadPlaylists,
         loadTracks,
+        markActivityNotifications,
+        markMusicDedications,
         movePlaylistTrack,
+        recordListeningProgress,
         removeTrackFromPlaylist,
         restoreProfile,
         setFavorite,
         setJamState,
         shareTrack,
+        sendMusicDedication,
+        subscribeActivity,
+        subscribeDedications,
         subscribeJam,
         subscribeJamAvailability,
         subscribeLibrary,
+        subscribeListeningHistory,
         synchronizeServerClock,
+        unsubscribeActivity,
+        unsubscribeDedications,
         unsubscribeJam,
+        unsubscribeListeningHistory,
         updatePlaylist,
         updateTrack,
         updateTrackDuration,

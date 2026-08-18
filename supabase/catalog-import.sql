@@ -1,9 +1,7 @@
--- =====================================================
--- dois tons - atualizacao do importador de catalogo
--- execute este arquivo uma vez no sql editor
--- =====================================================
+-- Importação do catálogo
+-- Execute no SQL Editor depois do schema principal.
 
--- identificacao de arquivos e prevencao de duplicatas
+-- identificação de arquivos e prevenção de duplicatas
 alter table public.tracks
 add column if not exists file_hash text;
 

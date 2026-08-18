@@ -1,7 +1,68 @@
--- =====================================================
--- dois tons - correcao para alternar perfis no aparelho
--- execute uma vez no sql editor do supabase
--- =====================================================
+-- Identidade dos perfis
+-- Mantém uma identidade anônima estável por perfil e preserva a autoria dos registros.
+
+-- o vínculo original do perfil tem prioridade sobre vínculos de aparelho
+update public.duo_member_devices as device
+set
+    member_id = member.id,
+    duo_id = member.duo_id
+from public.duo_members as member
+where member.user_id = device.user_id
+  and (
+      device.member_id is distinct from member.id
+      or device.duo_id is distinct from member.duo_id
+  );
+
+create or replace function private.is_current_member_identity(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (
+        select 1
+        from public.duo_member_devices as current_device
+        where current_device.user_id = (select auth.uid())
+          and (
+              exists (
+                  select 1
+                  from public.duo_members as owner_member
+                  where owner_member.id = current_device.member_id
+                    and owner_member.user_id = p_user_id
+              )
+              or exists (
+                  select 1
+                  from public.duo_member_devices as owner_device
+                  where owner_device.member_id = current_device.member_id
+                    and owner_device.user_id = p_user_id
+              )
+          )
+    );
+$$;
+
+create or replace function private.member_id_for_user(p_user_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select coalesce(
+        (
+            select member.id
+            from public.duo_members as member
+            where member.user_id = p_user_id
+            limit 1
+        ),
+        (
+            select device.member_id
+            from public.duo_member_devices as device
+            where device.user_id = p_user_id
+            limit 1
+        )
+    );
+$$;
 
 create or replace function public.access_duo(p_code text,p_display_name text)
 returns table (
@@ -68,8 +129,8 @@ begin
       and lower(member.display_name) = lower(v_name)
     for update;
 
-    -- um perfil existente pode ser usado neste mesmo aparelho
-    -- depois que o codigo compartilhado foi validado
+    -- se o perfil já existe, o cliente pode acessá-lo depois de validar o código.
+    -- ao trocar de perfil, uma nova sessão anônima é criada para preservar a autoria histórica.
     if v_requested_member_id is not null then
         v_member_id := v_requested_member_id;
 
@@ -81,10 +142,8 @@ begin
                 duo_id = excluded.duo_id,
                 member_id = excluded.member_id;
         elsif v_current_member_id <> v_member_id then
-            update public.duo_member_devices
-            set member_id = v_member_id,
-                duo_id = v_duo_id
-            where user_id = v_user_id;
+            -- cada perfil mantém uma identidade anônima estável para preservar autoria e permissões históricas
+            raise exception 'DOIS_TONS_PROFILE_SWITCH_REQUIRES_NEW_SESSION';
         end if;
     else
         select count(*)::integer
@@ -94,10 +153,10 @@ begin
 
         if v_current_member_id is not null then
             if v_member_count >= 2 then
-                raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+                raise exception 'Os dois perfis já foram cadastrados. Use exatamente um dos nomes existentes.';
             end if;
 
-            raise exception 'Este aparelho já está vinculado a um perfil. Para criar a segunda pessoa, use outro aparelho; para alternar, informe o nome já cadastrado.';
+            raise exception 'Este aparelho já está vinculado a um perfil. Um novo perfil deve ser criado em outro aparelho; para alternar, informe um nome já cadastrado.';
         end if;
 
         if v_member_count < 2 then
@@ -109,7 +168,7 @@ begin
             values (v_duo_id,v_member_id,v_user_id)
             on conflict (user_id) do nothing;
         else
-            raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+            raise exception 'Os dois perfis já foram cadastrados. Use exatamente um dos nomes existentes.';
         end if;
     end if;
 
@@ -128,4 +187,6 @@ begin
 end;
 $$;
 
+grant execute on function private.is_current_member_identity(uuid) to authenticated;
+grant execute on function private.member_id_for_user(uuid) to authenticated;
 grant execute on function public.access_duo(text,text) to authenticated;

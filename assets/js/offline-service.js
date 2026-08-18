@@ -1,10 +1,5 @@
-// ======================================================
-// dois tons - offline service
-// downloads privados salvos somente neste aparelho
-// ======================================================
-
 window.DoisTonsOffline = (() => {
-    // configuracoes
+    // banco local
     const databaseName = "dois-tons-offline"
     const databaseVersion = 2
     const downloadStoreName = "downloads"

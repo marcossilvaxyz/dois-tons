@@ -1,9 +1,7 @@
--- =====================================================
--- dois tons - estrutura do supabase
--- execute este arquivo uma vez no sql editor
--- =====================================================
+-- Estrutura principal do Dois Tons
+-- Execute uma vez no SQL Editor.
 
--- extensoes e schemas
+-- extensões e schemas
 create extension if not exists pgcrypto with schema extensions;
 
 create schema if not exists private;
@@ -39,7 +37,6 @@ on public.duo_members (duo_id,lower(display_name));
 create index if not exists duo_members_duo_id_index
 on public.duo_members (duo_id);
 
-
 -- dispositivos autorizados para cada perfil
 create table if not exists public.duo_member_devices (
     id uuid primary key default gen_random_uuid(),
@@ -56,7 +53,7 @@ on public.duo_member_devices (duo_id);
 create index if not exists duo_member_devices_member_id_index
 on public.duo_member_devices (member_id);
 
--- preserva os perfis existentes e transforma o usuario atual em primeiro dispositivo
+-- preserva os perfis existentes e transforma o usuário atual em primeiro dispositivo
 insert into public.duo_member_devices (duo_id,member_id,user_id)
 select member.duo_id,member.id,member.user_id
 from public.duo_members as member
@@ -193,7 +190,7 @@ where active;
 create index if not exists jam_sessions_duo_id_index
 on public.jam_sessions (duo_id,updated_at desc);
 
--- funcoes auxiliares privadas
+-- funções auxiliares privadas
 create or replace function private.current_member_id()
 returns uuid
 language sql
@@ -245,10 +242,21 @@ as $$
     select exists (
         select 1
         from public.duo_member_devices as current_device
-        join public.duo_member_devices as owner_device
-          on owner_device.member_id = current_device.member_id
         where current_device.user_id = (select auth.uid())
-          and owner_device.user_id = p_user_id
+          and (
+              exists (
+                  select 1
+                  from public.duo_members as owner_member
+                  where owner_member.id = current_device.member_id
+                    and owner_member.user_id = p_user_id
+              )
+              or exists (
+                  select 1
+                  from public.duo_member_devices as owner_device
+                  where owner_device.member_id = current_device.member_id
+                    and owner_device.user_id = p_user_id
+              )
+          )
     );
 $$;
 
@@ -278,9 +286,9 @@ begin
 end;
 $$;
 
--- cada aparelho mantem sua propria identidade anonima vinculada ao mesmo perfil
+-- cada aparelho mantém uma identidade anônima vinculada ao perfil
 
--- configuracao inicial executada somente pelo sql editor
+-- configuração inicial
 create or replace function private.configure_room(p_code text,p_title text default 'Dois Tons')
 returns uuid
 language plpgsql
@@ -332,7 +340,7 @@ begin
 end;
 $$;
 
--- acesso por codigo compartilhado
+-- acesso por código compartilhado
 create or replace function public.access_duo(p_code text,p_display_name text)
 returns table (
     duo_id uuid,
@@ -398,8 +406,8 @@ begin
       and lower(member.display_name) = lower(v_name)
     for update;
 
-    -- se o perfil já existe, este aparelho pode alternar para ele
-    -- depois que o código compartilhado foi validado
+    -- se o perfil já existe, o cliente pode acessá-lo depois de validar o código.
+    -- ao trocar de perfil, uma nova sessão anônima é criada para preservar a autoria histórica.
     if v_requested_member_id is not null then
         v_member_id := v_requested_member_id;
 
@@ -411,10 +419,8 @@ begin
                 duo_id = excluded.duo_id,
                 member_id = excluded.member_id;
         elsif v_current_member_id <> v_member_id then
-            update public.duo_member_devices
-            set member_id = v_member_id,
-                duo_id = v_duo_id
-            where user_id = v_user_id;
+            -- cada perfil mantém uma identidade anônima estável para preservar autoria e permissões históricas
+            raise exception 'DOIS_TONS_PROFILE_SWITCH_REQUIRES_NEW_SESSION';
         end if;
     else
         select count(*)::integer
@@ -424,10 +430,10 @@ begin
 
         if v_current_member_id is not null then
             if v_member_count >= 2 then
-                raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+                raise exception 'Os dois perfis já foram cadastrados. Use exatamente um dos nomes existentes.';
             end if;
 
-            raise exception 'Este aparelho já está vinculado a um perfil. Para criar a segunda pessoa, use outro aparelho; para alternar, informe o nome já cadastrado.';
+            raise exception 'Este aparelho já está vinculado a um perfil. Um novo perfil deve ser criado em outro aparelho; para alternar, informe um nome já cadastrado.';
         end if;
 
         if v_member_count < 2 then
@@ -439,7 +445,7 @@ begin
             values (v_duo_id,v_member_id,v_user_id)
             on conflict (user_id) do nothing;
         else
-            raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+            raise exception 'Os dois perfis já foram cadastrados. Use exatamente um dos nomes existentes.';
         end if;
     end if;
 
@@ -458,7 +464,7 @@ begin
 end;
 $$;
 
--- compartilhamento de musicas
+-- compartilhamento de músicas
 create or replace function public.share_track(p_track_id uuid)
 returns public.shared_tracks
 language plpgsql
@@ -473,7 +479,7 @@ declare
     v_share public.shared_tracks;
 begin
     if v_duo_id is null then
-        raise exception 'Você ainda não entrou na sala.';
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
     end if;
 
     if not exists (
@@ -493,7 +499,7 @@ begin
     limit 1;
 
     if v_recipient_id is null then
-        raise exception 'A segunda pessoa ainda não entrou no Dois Tons.';
+        raise exception 'O outro perfil ainda não está disponível no Dois Tons.';
     end if;
 
     insert into public.shared_tracks (duo_id,track_id,sender_id,recipient_id)
@@ -522,7 +528,7 @@ declare
     v_item public.playlist_tracks;
 begin
     if v_duo_id is null then
-        raise exception 'Você ainda não entrou na sala.';
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
     end if;
 
     if not exists (
@@ -562,7 +568,7 @@ begin
 end;
 $$;
 
--- jam sincronizada
+-- Jam sincronizada
 create or replace function public.server_time_ms()
 returns bigint
 language sql
@@ -588,7 +594,7 @@ declare
     v_jam_id uuid;
 begin
     if v_duo_id is null then
-        raise exception 'Você ainda não entrou na sala.';
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
     end if;
 
     if p_track_id is not null and not exists (
@@ -660,7 +666,7 @@ declare
     v_duo_id uuid := private.current_duo_id();
 begin
     if v_duo_id is null then
-        raise exception 'Você ainda não entrou na sala.';
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
     end if;
 
     if p_track_id is not null and not exists (
@@ -722,7 +728,7 @@ begin
 end;
 $$;
 
--- gatilhos de data de atualizacao
+-- gatilhos de data de atualização
 drop trigger if exists duo_members_set_updated_at on public.duo_members;
 create trigger duo_members_set_updated_at
 before update on public.duo_members
@@ -760,7 +766,6 @@ create policy "members read duo members"
 on public.duo_members for select
 to authenticated
 using ((select private.is_duo_member(duo_id)));
-
 
 drop policy if exists "members read duo devices" on public.duo_member_devices;
 create policy "members read duo devices"
@@ -875,7 +880,7 @@ on public.jam_sessions for select
 to authenticated
 using ((select private.is_duo_member(duo_id)));
 
--- privilegios da api
+-- privilégios da api
 revoke all on table
     public.duos,
     public.duo_members,
@@ -921,7 +926,7 @@ grant execute on function private.is_current_member_identity(uuid) to authentica
 grant execute on function private.is_duo_member(uuid) to authenticated;
 grant execute on function private.can_access_storage_path(text) to authenticated;
 
--- bucket privado para audios e capas
+-- bucket privado para áudios e capas
 insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types)
 values (
     'media',
@@ -982,7 +987,7 @@ using (
     and (select private.can_access_storage_path(name))
 );
 
--- realtime para biblioteca e jam
+-- realtime para biblioteca e Jam
 do $$
 declare
     table_name text;
@@ -1010,14 +1015,10 @@ begin
 end;
 $$;
 
--- =====================================================
--- depois de executar o arquivo, defina o codigo uma vez:
+-- Depois do schema, configure o código da sala uma vez:
 -- select private.configure_room('seu-codigo-com-8-ou-mais','Dois Tons');
--- =====================================================
 
--- =====================================================
--- etapa 11 - playlists colaborativas e historico
--- =====================================================
+-- Playlists e histórico
 
 create table if not exists public.playlist_activity (
     id uuid primary key default gen_random_uuid(),
@@ -1129,7 +1130,7 @@ declare
     v_target public.playlist_tracks;
     v_title text;
 begin
-    if v_duo_id is null then raise exception 'Você ainda não entrou na sala.'; end if;
+    if v_duo_id is null then raise exception 'Nenhum perfil está ativo nesta sessão.'; end if;
     if p_direction not in ('up','down') then raise exception 'Direção inválida.'; end if;
 
     select item.* into v_current
@@ -1185,3 +1186,717 @@ revoke all on public.playlist_activity from anon,authenticated;
 grant select on public.playlist_activity to authenticated;
 revoke all on function public.move_playlist_track(uuid,uuid,text) from public,anon;
 grant execute on function public.move_playlist_track(uuid,uuid,text) to authenticated;
+-- Histórico de reprodução e estatísticas
+
+create table if not exists public.listening_history (
+    id uuid primary key default gen_random_uuid(),
+    duo_id uuid not null references public.duos(id) on delete cascade,
+    member_id uuid not null references public.duo_members(id) on delete cascade,
+    track_id uuid not null references public.tracks(id) on delete cascade,
+    session_id uuid not null,
+    listened_seconds integer not null default 0 check (listened_seconds >= 0),
+    completed boolean not null default false,
+    started_at timestamptz not null default now(),
+    last_listened_at timestamptz not null default now(),
+    constraint listening_history_member_session_unique unique (member_id,session_id)
+);
+
+create index if not exists listening_history_duo_date_index
+on public.listening_history (duo_id,last_listened_at desc);
+
+create index if not exists listening_history_member_date_index
+on public.listening_history (member_id,last_listened_at desc);
+
+create index if not exists listening_history_track_index
+on public.listening_history (track_id);
+
+create or replace function public.record_listening_progress(
+    p_track_id uuid,
+    p_session_id uuid,
+    p_listened_seconds integer,
+    p_completed boolean default false
+)
+returns public.listening_history
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_duo_id uuid := private.current_duo_id();
+    v_member_id uuid := private.current_member_id();
+    v_duration integer := 0;
+    v_seconds integer := greatest(0,coalesce(p_listened_seconds,0));
+    v_result public.listening_history;
+begin
+    if v_duo_id is null or v_member_id is null then
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
+    end if;
+
+    select greatest(0,ceil(coalesce(track.duration_seconds,0)))::integer
+    into v_duration
+    from public.tracks as track
+    where track.id = p_track_id
+      and track.duo_id = v_duo_id;
+
+    if not found then
+        raise exception 'Música não encontrada nesta sala.';
+    end if;
+
+    if v_duration > 0 then
+        v_seconds := least(v_seconds,v_duration);
+    else
+        v_seconds := least(v_seconds,86400);
+    end if;
+
+    insert into public.listening_history (
+        duo_id,
+        member_id,
+        track_id,
+        session_id,
+        listened_seconds,
+        completed,
+        started_at,
+        last_listened_at
+    )
+    values (
+        v_duo_id,
+        v_member_id,
+        p_track_id,
+        p_session_id,
+        v_seconds,
+        coalesce(p_completed,false),
+        now(),
+        now()
+    )
+    on conflict (member_id,session_id)
+    do update set
+        listened_seconds = greatest(public.listening_history.listened_seconds,excluded.listened_seconds),
+        completed = public.listening_history.completed or excluded.completed,
+        last_listened_at = now()
+    where public.listening_history.track_id = excluded.track_id
+    returning * into v_result;
+
+    return v_result;
+end;
+$$;
+
+alter table public.listening_history enable row level security;
+
+drop policy if exists "members read listening history" on public.listening_history;
+create policy "members read listening history"
+on public.listening_history for select
+to authenticated
+using ((select private.is_duo_member(duo_id)));
+
+revoke all on public.listening_history from anon,authenticated;
+grant select on public.listening_history to authenticated;
+
+revoke all on function public.record_listening_progress(uuid,uuid,integer,boolean) from public,anon;
+grant execute on function public.record_listening_progress(uuid,uuid,integer,boolean) to authenticated;
+
+-- Atividades e notificações
+
+create table if not exists public.activity_notifications (
+    id uuid primary key default gen_random_uuid(),
+    duo_id uuid not null references public.duos(id) on delete cascade,
+    recipient_member_id uuid not null references public.duo_members(id) on delete cascade,
+    actor_member_id uuid references public.duo_members(id) on delete set null,
+    event_type text not null check (event_type in ('track_added','track_shared','playlist_activity','jam_started','jam_ended')),
+    source_key text not null,
+    track_id uuid references public.tracks(id) on delete set null,
+    playlist_id uuid references public.playlists(id) on delete set null,
+    jam_id uuid references public.jam_sessions(id) on delete set null,
+    details jsonb not null default '{}'::jsonb,
+    read_at timestamptz,
+    created_at timestamptz not null default now(),
+    constraint activity_notifications_recipient_source_unique unique (recipient_member_id,source_key)
+);
+
+create index if not exists activity_notifications_recipient_date_index
+on public.activity_notifications (recipient_member_id,created_at desc);
+
+create index if not exists activity_notifications_recipient_unread_index
+on public.activity_notifications (recipient_member_id,created_at desc)
+where read_at is null;
+
+create index if not exists activity_notifications_duo_date_index
+on public.activity_notifications (duo_id,created_at desc);
+
+create or replace function private.member_id_for_user(p_user_id uuid)
+returns uuid
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select coalesce(
+        (
+            select member.id
+            from public.duo_members as member
+            where member.user_id = p_user_id
+            limit 1
+        ),
+        (
+            select device.member_id
+            from public.duo_member_devices as device
+            where device.user_id = p_user_id
+            limit 1
+        )
+    );
+$$;
+
+create or replace function private.create_duo_activity(
+    p_duo_id uuid,
+    p_actor_member_id uuid,
+    p_event_type text,
+    p_source_key text,
+    p_track_id uuid default null,
+    p_playlist_id uuid default null,
+    p_jam_id uuid default null,
+    p_details jsonb default '{}'::jsonb
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if p_duo_id is null or p_actor_member_id is null or coalesce(p_source_key,'') = '' then
+        return;
+    end if;
+
+    insert into public.activity_notifications (
+        duo_id,
+        recipient_member_id,
+        actor_member_id,
+        event_type,
+        source_key,
+        track_id,
+        playlist_id,
+        jam_id,
+        details
+    )
+    select
+        p_duo_id,
+        member.id,
+        p_actor_member_id,
+        p_event_type,
+        p_source_key,
+        p_track_id,
+        p_playlist_id,
+        p_jam_id,
+        coalesce(p_details,'{}'::jsonb)
+    from public.duo_members as member
+    where member.duo_id = p_duo_id
+      and member.id <> p_actor_member_id
+    on conflict (recipient_member_id,source_key) do nothing;
+end;
+$$;
+
+create or replace function private.log_track_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_actor_member_id uuid := private.member_id_for_user(new.added_by);
+    v_recipient public.duo_members%rowtype;
+    v_existing_id uuid;
+    v_existing_count integer;
+begin
+    if v_actor_member_id is null then
+        return new;
+    end if;
+
+    for v_recipient in
+        select member.*
+        from public.duo_members as member
+        where member.duo_id = new.duo_id
+          and member.id <> v_actor_member_id
+    loop
+        select notification.id,
+               greatest(1,coalesce((notification.details ->> 'count')::integer,1))
+        into v_existing_id,v_existing_count
+        from public.activity_notifications as notification
+        where notification.recipient_member_id = v_recipient.id
+          and notification.actor_member_id = v_actor_member_id
+          and notification.event_type = 'track_added'
+          and notification.read_at is null
+          and notification.created_at >= now() - interval '90 seconds'
+        order by notification.created_at desc
+        limit 1
+        for update;
+
+        if v_existing_id is not null then
+            update public.activity_notifications
+            set track_id = new.id,
+                details = jsonb_build_object(
+                    'title',new.title,
+                    'track_title',new.title,
+                    'artist',new.artist,
+                    'count',v_existing_count + 1
+                ),
+                created_at = now()
+            where id = v_existing_id;
+        else
+            insert into public.activity_notifications (
+                duo_id,
+                recipient_member_id,
+                actor_member_id,
+                event_type,
+                source_key,
+                track_id,
+                details
+            )
+            values (
+                new.duo_id,
+                v_recipient.id,
+                v_actor_member_id,
+                'track_added',
+                'track-added:' || new.id::text,
+                new.id,
+                jsonb_build_object(
+                    'title',new.title,
+                    'track_title',new.title,
+                    'artist',new.artist,
+                    'count',1
+                )
+            )
+            on conflict (recipient_member_id,source_key) do nothing;
+        end if;
+    end loop;
+
+    return new;
+end;
+$$;
+
+create or replace function private.log_shared_track_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_actor_member_id uuid := private.member_id_for_user(new.sender_id);
+    v_title text;
+    v_artist text;
+begin
+    select track.title,track.artist
+    into v_title,v_artist
+    from public.tracks as track
+    where track.id = new.track_id;
+
+    perform private.create_duo_activity(
+        new.duo_id,
+        v_actor_member_id,
+        'track_shared',
+        'track-shared:' || new.id::text,
+        new.track_id,
+        null,
+        null,
+        jsonb_build_object(
+            'title',coalesce(v_title,'Música'),
+            'track_title',coalesce(v_title,'Música'),
+            'artist',coalesce(v_artist,'')
+        )
+    );
+
+    return new;
+end;
+$$;
+
+create or replace function private.log_playlist_notification_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_actor_member_id uuid := private.member_id_for_user(new.actor_id);
+    v_playlist_title text;
+begin
+    select playlist.title
+    into v_playlist_title
+    from public.playlists as playlist
+    where playlist.id = new.playlist_id;
+
+    perform private.create_duo_activity(
+        new.duo_id,
+        v_actor_member_id,
+        'playlist_activity',
+        'playlist-activity:' || new.id::text,
+        new.track_id,
+        new.playlist_id,
+        null,
+        coalesce(new.details,'{}'::jsonb) || jsonb_build_object(
+            'action',new.action,
+            'playlist_title',coalesce(v_playlist_title,new.details ->> 'title','Playlist')
+        )
+    );
+
+    return new;
+end;
+$$;
+
+create or replace function private.log_jam_notification_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_actor_member_id uuid;
+    v_track_title text;
+begin
+    if tg_op = 'INSERT' then
+        v_actor_member_id := private.member_id_for_user(new.created_by);
+
+        if new.current_track_id is not null then
+            select track.title into v_track_title
+            from public.tracks as track
+            where track.id = new.current_track_id;
+        end if;
+
+        perform private.create_duo_activity(
+            new.duo_id,
+            v_actor_member_id,
+            'jam_started',
+            'jam-started:' || new.id::text,
+            new.current_track_id,
+            null,
+            new.id,
+            jsonb_build_object(
+                'invite_code',new.invite_code,
+                'track_title',coalesce(v_track_title,'')
+            )
+        );
+    elsif old.active and not new.active then
+        v_actor_member_id := private.member_id_for_user(new.updated_by);
+
+        perform private.create_duo_activity(
+            new.duo_id,
+            v_actor_member_id,
+            'jam_ended',
+            'jam-ended:' || new.id::text,
+            new.current_track_id,
+            null,
+            new.id,
+            jsonb_build_object('invite_code',new.invite_code)
+        );
+    end if;
+
+    return new;
+end;
+$$;
+
+create or replace function public.mark_activity_notifications(p_notification_id uuid default null)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_duo_id uuid := private.current_duo_id();
+    v_member_id uuid := private.current_member_id();
+    v_updated integer := 0;
+begin
+    if v_duo_id is null or v_member_id is null then
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
+    end if;
+
+    update public.activity_notifications as notification
+    set read_at = coalesce(notification.read_at,now())
+    where notification.duo_id = v_duo_id
+      and notification.recipient_member_id = v_member_id
+      and notification.read_at is null
+      and (p_notification_id is null or notification.id = p_notification_id);
+
+    get diagnostics v_updated = row_count;
+
+    return v_updated;
+end;
+$$;
+
+drop trigger if exists activity_on_track_insert on public.tracks;
+create trigger activity_on_track_insert
+after insert on public.tracks
+for each row execute function private.log_track_activity();
+
+drop trigger if exists activity_on_shared_track_insert on public.shared_tracks;
+create trigger activity_on_shared_track_insert
+after insert on public.shared_tracks
+for each row execute function private.log_shared_track_activity();
+
+drop trigger if exists activity_on_playlist_activity_insert on public.playlist_activity;
+create trigger activity_on_playlist_activity_insert
+after insert on public.playlist_activity
+for each row execute function private.log_playlist_notification_activity();
+
+drop trigger if exists activity_on_jam_change on public.jam_sessions;
+create trigger activity_on_jam_change
+after insert or update on public.jam_sessions
+for each row execute function private.log_jam_notification_activity();
+
+alter table public.activity_notifications enable row level security;
+
+drop policy if exists "members read own activity notifications" on public.activity_notifications;
+create policy "members read own activity notifications"
+on public.activity_notifications for select
+to authenticated
+using (
+    duo_id = (select private.current_duo_id())
+    and recipient_member_id = (select private.current_member_id())
+);
+
+revoke all on public.activity_notifications from anon,authenticated;
+grant select on public.activity_notifications to authenticated;
+
+revoke all on function public.mark_activity_notifications(uuid) from public,anon;
+grant execute on function public.mark_activity_notifications(uuid) to authenticated;
+
+-- realtime das atividades; evita erro se a tabela já estiver publicada
+do $$
+begin
+    if exists (
+        select 1
+        from pg_publication
+        where pubname = 'supabase_realtime'
+    ) and not exists (
+        select 1
+        from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = 'activity_notifications'
+    ) then
+        alter publication supabase_realtime add table public.activity_notifications;
+    end if;
+end;
+$$;
+
+-- Dedicatórias
+
+create table if not exists public.music_dedications (
+    id uuid primary key default gen_random_uuid(),
+    duo_id uuid not null references public.duos(id) on delete cascade,
+    sender_member_id uuid not null references public.duo_members(id) on delete cascade,
+    recipient_member_id uuid not null references public.duo_members(id) on delete cascade,
+    track_id uuid references public.tracks(id) on delete set null,
+    track_title text not null,
+    track_artist text not null default '',
+    track_album text not null default '',
+    message text not null check (char_length(message) between 1 and 500),
+    read_at timestamptz,
+    created_at timestamptz not null default now(),
+    constraint music_dedications_different_members check (sender_member_id <> recipient_member_id)
+);
+
+create index if not exists music_dedications_duo_date_index
+on public.music_dedications (duo_id,created_at desc);
+
+create index if not exists music_dedications_recipient_date_index
+on public.music_dedications (recipient_member_id,created_at desc);
+
+create index if not exists music_dedications_recipient_unread_index
+on public.music_dedications (recipient_member_id,created_at desc)
+where read_at is null;
+
+create or replace function public.send_music_dedication(
+    p_track_id uuid,
+    p_message text
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_duo_id uuid := private.current_duo_id();
+    v_sender_member_id uuid := private.current_member_id();
+    v_recipient_member_id uuid;
+    v_track public.tracks%rowtype;
+    v_message text := btrim(coalesce(p_message,''));
+    v_dedication_id uuid;
+begin
+    if v_duo_id is null or v_sender_member_id is null then
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
+    end if;
+
+    if char_length(v_message) < 1 then
+        raise exception 'Escreva um recado antes de enviar.';
+    end if;
+
+    if char_length(v_message) > 500 then
+        raise exception 'O recado pode ter no máximo 500 caracteres.';
+    end if;
+
+    select member.id
+    into v_recipient_member_id
+    from public.duo_members as member
+    where member.duo_id = v_duo_id
+      and member.id <> v_sender_member_id
+    order by member.created_at
+    limit 1;
+
+    if v_recipient_member_id is null then
+        raise exception 'O outro perfil ainda precisa entrar.';
+    end if;
+
+    select track.*
+    into v_track
+    from public.tracks as track
+    where track.id = p_track_id
+      and track.duo_id = v_duo_id;
+
+    if v_track.id is null then
+        raise exception 'Esta música não pertence à sala.';
+    end if;
+
+    insert into public.music_dedications (
+        duo_id,
+        sender_member_id,
+        recipient_member_id,
+        track_id,
+        track_title,
+        track_artist,
+        track_album,
+        message
+    )
+    values (
+        v_duo_id,
+        v_sender_member_id,
+        v_recipient_member_id,
+        v_track.id,
+        v_track.title,
+        coalesce(v_track.artist,''),
+        coalesce(v_track.album,''),
+        v_message
+    )
+    returning id into v_dedication_id;
+
+    return v_dedication_id;
+end;
+$$;
+
+create or replace function public.mark_music_dedications(p_dedication_id uuid default null)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_duo_id uuid := private.current_duo_id();
+    v_member_id uuid := private.current_member_id();
+    v_updated integer := 0;
+begin
+    if v_duo_id is null or v_member_id is null then
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
+    end if;
+
+    update public.music_dedications as dedication
+    set read_at = coalesce(dedication.read_at,now())
+    where dedication.duo_id = v_duo_id
+      and dedication.recipient_member_id = v_member_id
+      and dedication.read_at is null
+      and (p_dedication_id is null or dedication.id = p_dedication_id);
+
+    get diagnostics v_updated = row_count;
+
+    return v_updated;
+end;
+$$;
+
+-- inclui dedicatórias na central de atividades
+alter table if exists public.activity_notifications
+    drop constraint if exists activity_notifications_event_type_check;
+
+alter table if exists public.activity_notifications
+    add constraint activity_notifications_event_type_check
+    check (event_type in ('track_added','track_shared','playlist_activity','jam_started','jam_ended','dedication_received'));
+
+create or replace function private.log_music_dedication_activity()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+    if to_regclass('public.activity_notifications') is null then
+        return new;
+    end if;
+
+    insert into public.activity_notifications (
+        duo_id,
+        recipient_member_id,
+        actor_member_id,
+        event_type,
+        source_key,
+        track_id,
+        details
+    )
+    values (
+        new.duo_id,
+        new.recipient_member_id,
+        new.sender_member_id,
+        'dedication_received',
+        'dedication:' || new.id::text,
+        new.track_id,
+        jsonb_build_object(
+            'dedication_id',new.id,
+            'track_title',new.track_title,
+            'artist',new.track_artist,
+            'message_preview',left(new.message,90)
+        )
+    )
+    on conflict (recipient_member_id,source_key) do nothing;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists activity_on_music_dedication_insert on public.music_dedications;
+create trigger activity_on_music_dedication_insert
+after insert on public.music_dedications
+for each row execute function private.log_music_dedication_activity();
+
+alter table public.music_dedications enable row level security;
+
+drop policy if exists "members read own music dedications" on public.music_dedications;
+create policy "members read own music dedications"
+on public.music_dedications for select
+to authenticated
+using (
+    duo_id = (select private.current_duo_id())
+    and (
+        sender_member_id = (select private.current_member_id())
+        or recipient_member_id = (select private.current_member_id())
+    )
+);
+
+revoke all on public.music_dedications from anon,authenticated;
+grant select on public.music_dedications to authenticated;
+
+revoke all on function public.send_music_dedication(uuid,text) from public,anon;
+grant execute on function public.send_music_dedication(uuid,text) to authenticated;
+
+revoke all on function public.mark_music_dedications(uuid) from public,anon;
+grant execute on function public.mark_music_dedications(uuid) to authenticated;
+
+-- realtime das dedicatórias
+do $$
+begin
+    if exists (
+        select 1
+        from pg_publication
+        where pubname = 'supabase_realtime'
+    ) and not exists (
+        select 1
+        from pg_publication_tables
+        where pubname = 'supabase_realtime'
+          and schemaname = 'public'
+          and tablename = 'music_dedications'
+    ) then
+        alter publication supabase_realtime add table public.music_dedications;
+    end if;
+end;
+$$;

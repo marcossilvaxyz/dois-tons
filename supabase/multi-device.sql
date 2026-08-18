@@ -1,7 +1,5 @@
--- =====================================================
--- dois tons - correcao de acesso em varios dispositivos
--- execute uma vez no sql editor do supabase
--- =====================================================
+-- Perfis em mais de um aparelho
+-- Execute no SQL Editor depois do schema principal.
 
 -- dispositivos autorizados para cada perfil
 create table if not exists public.duo_member_devices (
@@ -25,7 +23,7 @@ select member.duo_id,member.id,member.user_id
 from public.duo_members as member
 on conflict (user_id) do nothing;
 
--- identifica o perfil logico a partir da sessao anonima deste aparelho
+-- identifica o perfil lógico a partir da sessão anônima deste aparelho
 create or replace function private.current_member_id()
 returns uuid
 language sql
@@ -77,10 +75,21 @@ as $$
     select exists (
         select 1
         from public.duo_member_devices as current_device
-        join public.duo_member_devices as owner_device
-          on owner_device.member_id = current_device.member_id
         where current_device.user_id = (select auth.uid())
-          and owner_device.user_id = p_user_id
+          and (
+              exists (
+                  select 1
+                  from public.duo_members as owner_member
+                  where owner_member.id = current_device.member_id
+                    and owner_member.user_id = p_user_id
+              )
+              or exists (
+                  select 1
+                  from public.duo_member_devices as owner_device
+                  where owner_device.member_id = current_device.member_id
+                    and owner_device.user_id = p_user_id
+              )
+          )
     );
 $$;
 
@@ -165,8 +174,8 @@ begin
       and lower(member.display_name) = lower(v_name)
     for update;
 
-    -- se o perfil já existe, este aparelho pode alternar para ele
-    -- depois que o código compartilhado foi validado
+    -- se o perfil já existe, o cliente pode acessá-lo depois de validar o código.
+    -- ao trocar de perfil, uma nova sessão anônima é criada para preservar a autoria histórica.
     if v_requested_member_id is not null then
         v_member_id := v_requested_member_id;
 
@@ -178,10 +187,8 @@ begin
                 duo_id = excluded.duo_id,
                 member_id = excluded.member_id;
         elsif v_current_member_id <> v_member_id then
-            update public.duo_member_devices
-            set member_id = v_member_id,
-                duo_id = v_duo_id
-            where user_id = v_user_id;
+            -- cada perfil mantém uma identidade anônima estável para preservar autoria e permissões históricas
+            raise exception 'DOIS_TONS_PROFILE_SWITCH_REQUIRES_NEW_SESSION';
         end if;
     else
         select count(*)::integer
@@ -191,10 +198,10 @@ begin
 
         if v_current_member_id is not null then
             if v_member_count >= 2 then
-                raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+                raise exception 'Os dois perfis já foram cadastrados. Use exatamente um dos nomes existentes.';
             end if;
 
-            raise exception 'Este aparelho já está vinculado a um perfil. Para criar a segunda pessoa, use outro aparelho; para alternar, informe o nome já cadastrado.';
+            raise exception 'Este aparelho já está vinculado a um perfil. Um novo perfil deve ser criado em outro aparelho; para alternar, informe um nome já cadastrado.';
         end if;
 
         if v_member_count < 2 then
@@ -206,7 +213,7 @@ begin
             values (v_duo_id,v_member_id,v_user_id)
             on conflict (user_id) do nothing;
         else
-            raise exception 'A sala já possui duas pessoas. Use exatamente um dos nomes já cadastrados.';
+            raise exception 'Os dois perfis já foram cadastrados. Use exatamente um dos nomes existentes.';
         end if;
     end if;
 
@@ -225,7 +232,7 @@ begin
 end;
 $$;
 
--- permissoes para consultar os dispositivos do proprio duo
+-- permissões para consultar os dispositivos do próprio duo
 alter table public.duo_member_devices enable row level security;
 
 drop policy if exists "members read duo devices" on public.duo_member_devices;
@@ -237,7 +244,7 @@ using (
     or (select private.is_duo_member(duo_id))
 );
 
--- o mesmo perfil pode administrar uma musica criada em qualquer um de seus aparelhos
+-- o mesmo perfil pode administrar uma música criada em qualquer um de seus aparelhos
 drop policy if exists "owners update tracks" on public.tracks;
 create policy "owners update tracks"
 on public.tracks for update

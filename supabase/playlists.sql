@@ -1,8 +1,5 @@
--- =====================================================
--- dois tons - etapa 11
--- playlists colaborativas, reorganizacao e historico
--- execute uma vez no sql editor do supabase
--- =====================================================
+-- Playlists compartilhadas e histórico
+-- Execute no SQL Editor depois do schema principal.
 
 create table if not exists public.playlist_activity (
     id uuid primary key default gen_random_uuid(),
@@ -149,7 +146,7 @@ declare
     v_title text;
 begin
     if v_duo_id is null then
-        raise exception 'Você ainda não entrou na sala.';
+        raise exception 'Nenhum perfil está ativo nesta sessão.';
     end if;
 
     if p_direction not in ('up','down') then

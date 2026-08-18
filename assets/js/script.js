@@ -1,9 +1,4 @@
-// ======================================================
-// dois tons - script
-// pwa musical privada para duas pessoas
-// ======================================================
-
-// elementos
+// interface
 const accessScreen = document.getElementById("access-screen")
 const accessForm = document.getElementById("access-form")
 const accessButton = accessForm?.querySelector(".access-button")
@@ -22,6 +17,30 @@ const profileModalInitials = document.getElementById("profile-modal-initials")
 const profileName = document.getElementById("profile-name")
 const profileConnection = document.getElementById("profile-connection")
 const uploadButton = document.getElementById("upload-button")
+const activityButton = document.getElementById("activity-button")
+const activityBadge = document.getElementById("activity-badge")
+const activityModal = document.getElementById("activity-modal")
+const activityList = document.getElementById("activity-list")
+const activityFilterButtons = document.querySelectorAll("[data-activity-filter]")
+const activityMarkAllButton = document.getElementById("activity-mark-all")
+const activityProfileOptionButton = document.getElementById("activity-profile-option-button")
+const activityProfileDescription = document.getElementById("activity-profile-description")
+const dedicationPreviewList = document.getElementById("dedication-preview-list")
+const openDedicationsButton = document.getElementById("open-dedications")
+const dedicationModal = document.getElementById("dedication-modal")
+const dedicationList = document.getElementById("dedication-list")
+const dedicationFilterButtons = document.querySelectorAll("[data-dedication-filter]")
+const dedicationMarkAllButton = document.getElementById("dedication-mark-all")
+const dedicationProfileOptionButton = document.getElementById("dedication-profile-option-button")
+const dedicationProfileDescription = document.getElementById("dedication-profile-description")
+const dedicationComposeModal = document.getElementById("dedication-compose-modal")
+const dedicationComposePreview = document.getElementById("dedication-compose-preview")
+const dedicationRecipient = document.getElementById("dedication-recipient")
+const dedicationForm = document.getElementById("dedication-form")
+const dedicationMessageInput = document.getElementById("dedication-message")
+const dedicationMessageError = document.getElementById("dedication-message-error")
+const dedicationCharacterCount = document.getElementById("dedication-character-count")
+const dedicationSubmitButton = document.getElementById("dedication-submit-button")
 const navigationButtons = document.querySelectorAll("[data-navigation]")
 const appViews = document.querySelectorAll(".app-view")
 const openViewButtons = document.querySelectorAll("[data-open-view]")
@@ -29,10 +48,69 @@ const openUploadButtons = document.querySelectorAll("[data-open-upload]")
 const openCatalogButtons = document.querySelectorAll("[data-open-catalog]")
 const favoritesGrid = document.getElementById("favorites-grid")
 const sharedTrackList = document.getElementById("shared-track-list")
+const recentlyPlayedList = document.getElementById("recently-played-list")
+const listeningTotalTime = document.getElementById("listening-total-time")
+const listeningPersonalTime = document.getElementById("listening-personal-time")
+const listeningTotalPlays = document.getElementById("listening-total-plays")
+const listeningPersonalPlays = document.getElementById("listening-personal-plays")
+const listeningTopTrack = document.getElementById("listening-top-track")
+const listeningTopTrackDetail = document.getElementById("listening-top-track-detail")
+const listeningTopArtist = document.getElementById("listening-top-artist")
+const listeningTopArtistDetail = document.getElementById("listening-top-artist-detail")
+const openListeningHistoryButton = document.getElementById("open-listening-history")
+const openRecentHistoryButton = document.getElementById("open-recent-history")
+const smartMixGrid = document.getElementById("smart-mix-grid")
+const smartMixModal = document.getElementById("smart-mix-modal")
+const smartMixModalKicker = document.getElementById("smart-mix-modal-kicker")
+const smartMixModalTitle = document.getElementById("smart-mix-modal-title")
+const smartMixModalDescription = document.getElementById("smart-mix-modal-description")
+const smartMixModalMeta = document.getElementById("smart-mix-modal-meta")
+const smartMixTrackList = document.getElementById("smart-mix-track-list")
+const smartMixPlayButton = document.getElementById("smart-mix-play-button")
+const smartMixSaveButton = document.getElementById("smart-mix-save-button")
+const openMusicalProfileButton = document.getElementById("open-musical-profile")
+const openMusicalProfileCard = document.getElementById("open-musical-profile-card")
+const musicalProfileOptionButton = document.getElementById("musical-profile-option-button")
+const musicalProfileOptionDescription = document.getElementById("musical-profile-option-description")
+const musicalCompatibilityRing = document.getElementById("musical-compatibility-ring")
+const musicalCompatibilityValue = document.getElementById("musical-compatibility-value")
+const musicalProfileHeadline = document.getElementById("musical-profile-headline")
+const musicalProfileSummary = document.getElementById("musical-profile-summary")
+const musicalCommonArtist = document.getElementById("musical-common-artist")
+const musicalCommonTrack = document.getElementById("musical-common-track")
+const musicalProfileModal = document.getElementById("musical-profile-modal")
+const musicalProfileModalRing = document.getElementById("musical-profile-modal-ring")
+const musicalProfileModalScore = document.getElementById("musical-profile-modal-score")
+const musicalProfileModalHeadline = document.getElementById("musical-profile-modal-headline")
+const musicalProfileModalDescription = document.getElementById("musical-profile-modal-description")
+const musicalCommonArtists = document.getElementById("musical-common-artists")
+const musicalCommonTracks = document.getElementById("musical-common-tracks")
+const musicalMeLabel = document.getElementById("musical-me-label")
+const musicalPartnerLabel = document.getElementById("musical-partner-label")
+const musicalMeTracks = document.getElementById("musical-me-tracks")
+const musicalPartnerTracks = document.getElementById("musical-partner-tracks")
+const musicalEvolutionPartnerLabel = document.getElementById("musical-evolution-partner-label")
+const musicalEvolutionChart = document.getElementById("musical-evolution-chart")
+const musicalRetrospectiveKicker = document.getElementById("musical-retrospective-kicker")
+const musicalRetrospectiveTitle = document.getElementById("musical-retrospective-title")
+const musicalYearTime = document.getElementById("musical-year-time")
+const musicalYearTrack = document.getElementById("musical-year-track")
+const musicalYearArtist = document.getElementById("musical-year-artist")
+const musicalYearSharedTrack = document.getElementById("musical-year-shared-track")
 const searchInput = document.getElementById("search-input")
 const clearSearchButton = document.getElementById("clear-search")
 const searchIntroduction = document.getElementById("search-introduction")
 const searchResults = document.getElementById("search-results")
+const searchModeTabs = document.getElementById("search-mode-tabs")
+const searchModeButtons = document.querySelectorAll("[data-search-mode]")
+const searchRecentSection = document.getElementById("search-recent-section")
+const searchRecentList = document.getElementById("search-recent-list")
+const clearRecentSearchesButton = document.getElementById("clear-recent-searches")
+const searchDiscoveryTrackList = document.getElementById("search-discovery-track-list")
+const searchDiscoveryArtistGrid = document.getElementById("search-discovery-artist-grid")
+const searchDiscoveryAlbumGrid = document.getElementById("search-discovery-album-grid")
+const searchDiscoveryArtistsSection = document.getElementById("search-discovery-artists-section")
+const searchDiscoveryAlbumsSection = document.getElementById("search-discovery-albums-section")
 const suggestionButtons = document.querySelectorAll("[data-search-suggestion]")
 const filterButtons = document.querySelectorAll("[data-filter]")
 const libraryCount = document.getElementById("library-count")
@@ -90,6 +168,7 @@ const queueCount = document.getElementById("queue-count")
 const clearQueueButton = document.getElementById("clear-queue-button")
 const saveQueuePlaylistButton = document.getElementById("save-queue-playlist-button")
 const sendCurrentTrackButton = document.getElementById("send-current-track")
+const dedicateCurrentTrackButton = document.getElementById("dedicate-current-track")
 const addCurrentToPlaylistButton = document.getElementById("add-current-to-playlist")
 const downloadCurrentTrackButton = document.getElementById("download-current-track")
 const downloadCurrentTrackLabel = document.getElementById("download-current-track-label")
@@ -167,6 +246,9 @@ const playlistDeleteConfirmation = document.getElementById("playlist-delete-conf
 const playlistDeleteCancelButton = document.getElementById("playlist-delete-cancel")
 const playlistDeleteConfirmButton = document.getElementById("playlist-delete-confirm")
 const profileModal = document.getElementById("profile-modal")
+const listeningHistoryModal = document.getElementById("listening-history-modal")
+const listeningHistoryList = document.getElementById("listening-history-list")
+const historyFilterButtons = document.querySelectorAll("[data-history-filter]")
 const installModal = document.getElementById("install-modal")
 const installAppButton = document.getElementById("install-app-button")
 const installOptionTitle = document.getElementById("install-option-title")
@@ -187,7 +269,7 @@ const sheetCloseButtons = document.querySelectorAll("[data-close-sheet]")
 const toast = document.getElementById("toast")
 const toastMessage = document.getElementById("toast-message")
 
-// configuracoes
+// configuração
 const cloud = window.DoisTonsCloud
 const offline = window.DoisTonsOffline
 const metadata = window.DoisTonsMetadata
@@ -199,6 +281,7 @@ const playbackStorageKey = "dois-tons-playback"
 const offlineProfileStorageKey = "dois-tons-offline-profile"
 const durationValidationStorageKey = "dois-tons-duration-validation-v1"
 const metadataLookupStorageKey = "dois-tons-online-metadata"
+const listeningPendingStorageKey = "dois-tons-listening-pending-v1"
 const availableCoverClasses = ["cover-rose","cover-sea","cover-sun","cover-plum","cover-forest"]
 const metadataLibraryUrl = "https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"
 const supportedAudioExtensions = ["mp3","m4a","mp4","aac","wav","ogg","oga","flac"]
@@ -207,73 +290,47 @@ const maximumCoverFileSize = 10 * 1024 * 1024
 
 const demoTracks = [
     {
-        id:"entrelinhas",
-        title:"Entrelinhas",
-        artist:"Céu de Outono",
-        album:"Cartas ao Vento",
+        id:"exemplo-01",
+        title:"Faixa de exemplo 01",
+        artist:"Artista de exemplo",
+        album:"Álbum de exemplo",
         cover:"cover-rose",
         coverImage:"",
-        duration:226,
+        duration:210,
         favorite:true,
-        sharedBy:"Sua pessoa",
-        tags:["outono","calma","compartilhada"],
+        sharedBy:"Outro perfil",
+        tags:["exemplo"],
         source:""
     },
     {
-        id:"luz-de-agosto",
-        title:"Luz de Agosto",
-        artist:"Horizonte",
-        album:"Dias Dourados",
-        cover:"cover-sun",
-        coverImage:"",
-        duration:198,
-        favorite:true,
-        sharedBy:"",
-        tags:["outono","dourado","calma"],
-        source:""
-    },
-    {
-        id:"mare-baixa",
-        title:"Maré Baixa",
-        artist:"Azul Sereno",
-        album:"O Mar Dentro de Nós",
+        id:"exemplo-02",
+        title:"Faixa de exemplo 02",
+        artist:"Artista de exemplo",
+        album:"Álbum de exemplo",
         cover:"cover-sea",
         coverImage:"",
-        duration:241,
-        favorite:true,
-        sharedBy:"Sua pessoa",
-        tags:["mar","calma","compartilhada"],
-        source:""
-    },
-    {
-        id:"depois-da-chuva",
-        title:"Depois da Chuva",
-        artist:"Aurora Sul",
-        album:"Cores no Céu",
-        cover:"cover-plum",
-        coverImage:"",
-        duration:214,
+        duration:195,
         favorite:false,
         sharedBy:"",
-        tags:["chuva","noite","aurora"],
+        tags:["exemplo"],
         source:""
     },
     {
-        id:"folhas-ao-vento",
-        title:"Folhas ao Vento",
-        artist:"Bosque Lento",
-        album:"Caminhos",
+        id:"exemplo-03",
+        title:"Faixa de exemplo 03",
+        artist:"Artista de exemplo",
+        album:"Álbum de exemplo",
         cover:"cover-forest",
         coverImage:"",
-        duration:233,
+        duration:230,
         favorite:false,
-        sharedBy:"Sua pessoa",
-        tags:["outono","calma","compartilhada"],
+        sharedBy:"Outro perfil",
+        tags:["exemplo"],
         source:""
     }
 ]
 
-// estados
+// estado
 let tracks = [...demoTracks]
 let playlists = []
 let currentTrackId = tracks[0].id
@@ -289,6 +346,22 @@ let pendingPlaylistQueueIds = []
 let playlistOrganizing = false
 let playlistManagerPlaylistId = ""
 let playlistActivity = []
+let activityNotifications = []
+let activityFilter = "all"
+let activityRefreshTimeout = null
+let musicDedications = []
+let dedicationFilter = "received"
+let dedicationRefreshTimeout = null
+let dedicationComposeTrackId = ""
+let listeningHistory = []
+let listeningHistoryFilter = "all"
+let listeningSession = null
+let listeningProgressInterval = null
+let listeningHistoryRefreshTimeout = null
+let listeningSyncingPending = false
+let listeningPersistingSessions = new Set()
+let activeSmartMixKey = ""
+let activeSearchMode = "all"
 let activeLibraryFilter = "all"
 let activeLibraryMode = "songs"
 let activeLibraryEntity = null
@@ -369,12 +442,12 @@ function toggleTheme() {
     const nextTheme = document.documentElement.dataset.theme === "dark" ? "light" : "dark"
 
     applyTheme(nextTheme)
-    showToast(nextTheme === "dark" ? "Tema Preto Elegante ativado." : "Tema claro ativado.")
+    showToast(nextTheme === "dark" ? "Tema escuro ativado." : "Tema claro ativado.")
 }
 
 applyTheme(getStoredTheme(),{persist:false})
 
-// experiencia ios e pwa
+// iOS e instalação
 function getRuntimePlatform() {
     const userAgent = navigator.userAgent || ""
     const iOS = /iPhone|iPad|iPod/i.test(userAgent)
@@ -560,7 +633,7 @@ async function refreshAfterForeground() {
     lastForegroundRefresh = now
 }
 
-// utilitarios
+// utilitários
 function escapeHTML(value) {
     const temporaryElement = document.createElement("div")
     temporaryElement.textContent = String(value ?? "")
@@ -569,7 +642,10 @@ function escapeHTML(value) {
 }
 
 function escapeAttribute(value) {
-    return escapeHTML(value).replaceAll("`","&#96;")
+    return escapeHTML(value)
+        .replaceAll('"',"&quot;")
+        .replaceAll("'","&#39;")
+        .replaceAll("`","&#96;")
 }
 
 function formatTime(seconds) {
@@ -620,7 +696,7 @@ function normalizeCatalogText(value) {
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g,"")
         .toLocaleLowerCase("pt-BR")
-        .replace(/[^a-z0-9]+/g," ")
+        .replace(/[^\p{L}\p{N}]+/gu," ")
         .trim()
 }
 
@@ -661,7 +737,7 @@ function getAudioMimeType(file) {
     return mimeTypes[extension] || file?.type || "audio/mpeg"
 }
 
-// downloads offline
+// downloads
 function saveOfflineProfile(profile) {
     if (!profile?.name || !profile?.duoId) return
 
@@ -1276,11 +1352,9 @@ function getPlaybackContextTracks(context = playbackContext) {
     if (context.type === "downloads") return tracks.filter(track => track.downloaded)
 
     if (context.type === "search") {
-        const query = String(context.query || "").trim().toLocaleLowerCase("pt-BR")
+        const query = String(context.query || "").trim()
 
-        return query
-            ? tracks.filter(track => getTrackSearchText(track).includes(query))
-            : tracks
+        return query ? getRankedSearchTracks(query) : tracks
     }
 
     return tracks
@@ -1302,6 +1376,31 @@ function getLibraryPlaybackContext() {
 function getPlaybackContextFromElement(element) {
     if (element.closest("#favorites-grid")) return {type:"favorites",label:"Favoritas"}
     if (element.closest("#shared-track-list")) return {type:"shared",label:"Compartilhadas"}
+    if (element.closest("#smart-mix-track-list")) {
+        const mix = getSmartMixByKey()
+
+        return {
+            type:"collection",
+            label:mix?.title || "Mix do Dois Tons",
+            trackIds:mix?.tracks.map(track => track.id) || []
+        }
+    }
+
+    if (element.closest("#recently-played-list") || element.closest("#listening-history-list")) {
+        return {
+            type:"collection",
+            label:"Tocadas recentemente",
+            trackIds:getRecentlyPlayedTracks().map(track => track.id)
+        }
+    }
+
+    if (element.closest("#search-discovery-track-list")) {
+        return {
+            type:"collection",
+            label:"Sugestões",
+            trackIds:getSearchDiscoveryTracks().map(track => track.id)
+        }
+    }
 
     if (element.closest("#search-results")) {
         return {
@@ -1489,14 +1588,199 @@ function getCoverClass(track,index = 0) {
     return availableCoverClasses[seed % availableCoverClasses.length]
 }
 
+function escapeCSSUrl(value) {
+    return String(value || "")
+        .replaceAll("\\","\\\\")
+        .replaceAll("'","\\'")
+        .replace(/[\r\n\f]/g,"")
+}
+
 function getCoverStyle(track) {
     if (!track.coverImage) return ""
 
-    return `style="background-image:url('${escapeAttribute(track.coverImage)}');background-position:center;background-size:cover"`
+    return `style="background-image:url('${escapeAttribute(escapeCSSUrl(track.coverImage))}');background-position:center;background-size:cover"`
+}
+
+function normalizeSearchText(value) {
+    return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g,"")
+        .toLocaleLowerCase("pt-BR")
+        .replace(/[^\p{L}\p{N}]+/gu," ")
+        .trim()
 }
 
 function getTrackSearchText(track) {
-    return [track.title,track.artist,track.album,...track.tags].join(" ").toLocaleLowerCase("pt-BR")
+    const tags = Array.isArray(track?.tags) ? track.tags : []
+
+    return normalizeSearchText([track?.title,track?.artist,track?.album,...tags].join(" "))
+}
+
+function getSearchTokens(query) {
+    return normalizeSearchText(query).split(/\s+/).filter(Boolean)
+}
+
+function getSearchWordDistance(first,second) {
+    if (first === second) return 0
+    if (!first.length) return second.length
+    if (!second.length) return first.length
+    if (Math.abs(first.length - second.length) > 1) return 2
+
+    let previous = Array.from({length:second.length + 1},(_,index) => index)
+
+    for (let firstIndex = 1; firstIndex <= first.length; firstIndex += 1) {
+        const current = [firstIndex]
+        let rowMinimum = current[0]
+
+        for (let secondIndex = 1; secondIndex <= second.length; secondIndex += 1) {
+            const substitution = previous[secondIndex - 1] + (first[firstIndex - 1] === second[secondIndex - 1] ? 0 : 1)
+            const insertion = current[secondIndex - 1] + 1
+            const deletion = previous[secondIndex] + 1
+            const value = Math.min(substitution,insertion,deletion)
+
+            current.push(value)
+            rowMinimum = Math.min(rowMinimum,value)
+        }
+
+        if (rowMinimum > 1) return 2
+        previous = current
+    }
+
+    return previous[second.length]
+}
+
+function getSearchTextScore(value,query) {
+    const normalizedValue = normalizeSearchText(value)
+    const normalizedQuery = normalizeSearchText(query)
+    const tokens = getSearchTokens(query)
+
+    if (!normalizedValue || !normalizedQuery || !tokens.length) return 0
+
+    let score = 0
+
+    if (normalizedValue === normalizedQuery) score += 1200
+    else if (normalizedValue.startsWith(normalizedQuery)) score += 850
+    else if (normalizedValue.includes(normalizedQuery)) score += 620
+
+    const words = normalizedValue.split(/\s+/).filter(Boolean)
+
+    for (const token of tokens) {
+        let tokenScore = 0
+
+        if (words.includes(token)) tokenScore = 150
+        else if (words.some(word => word.startsWith(token))) tokenScore = 110
+        else if (normalizedValue.includes(token)) tokenScore = 80
+        else if (token.length >= 4 && words.some(word => Math.abs(word.length - token.length) <= 1 && getSearchWordDistance(word,token) <= 1)) tokenScore = 45
+
+        if (!tokenScore) return 0
+        score += tokenScore
+    }
+
+    return score
+}
+
+function getTrackSearchScore(track,query) {
+    const tags = Array.isArray(track?.tags) ? track.tags.join(" ") : ""
+    const combined = [track?.title,track?.artist,track?.album,tags].join(" ")
+    const combinedScore = getSearchTextScore(combined,query)
+
+    if (!combinedScore) return 0
+
+    return combinedScore
+        + getSearchTextScore(track?.title,query) * 3
+        + getSearchTextScore(track?.artist,query) * 2
+        + getSearchTextScore(track?.album,query)
+}
+
+function getRankedSearchTracks(query,limit = 0) {
+    const ranked = tracks
+        .map((track,index) => ({track,index,score:getTrackSearchScore(track,query)}))
+        .filter(item => item.score > 0)
+        .sort((first,second) => second.score - first.score || first.index - second.index)
+        .map(item => item.track)
+
+    return limit > 0 ? ranked.slice(0,limit) : ranked
+}
+
+function getSearchEntityScore(label,details,query) {
+    const labelScore = getSearchTextScore(label,query)
+    const detailsScore = getSearchTextScore(details,query)
+
+    return labelScore * 3 + detailsScore
+}
+
+function getRankedSearchArtists(query,limit = 0) {
+    const ranked = getArtistGroups()
+        .map(group => ({
+            group,
+            score:getSearchEntityScore(group.artist,group.tracks.map(track => `${track.title} ${track.album}`).join(" "),query)
+        }))
+        .filter(item => item.score > 0)
+        .sort((first,second) => second.score - first.score || first.group.artist.localeCompare(second.group.artist,"pt-BR",{sensitivity:"base"}))
+        .map(item => item.group)
+
+    return limit > 0 ? ranked.slice(0,limit) : ranked
+}
+
+function getRankedSearchAlbums(query,limit = 0) {
+    const ranked = getAlbumGroups()
+        .map(group => ({
+            group,
+            score:getSearchEntityScore(group.album,`${group.artist} ${group.tracks.map(track => track.title).join(" ")}`,query)
+        }))
+        .filter(item => item.score > 0)
+        .sort((first,second) => second.score - first.score || first.group.album.localeCompare(second.group.album,"pt-BR",{sensitivity:"base"}))
+        .map(item => item.group)
+
+    return limit > 0 ? ranked.slice(0,limit) : ranked
+}
+
+function getRankedSearchPlaylists(query,limit = 0) {
+    const ranked = playlists
+        .map((playlist,index) => ({
+            playlist,
+            index,
+            score:getSearchEntityScore(
+                playlist.title,
+                `${playlist.description || ""} ${playlist.trackIds.map(trackId => tracks.find(track => track.id === trackId)).filter(Boolean).map(track => `${track.title} ${track.artist}`).join(" ")}`,
+                query
+            )
+        }))
+        .filter(item => item.score > 0)
+        .sort((first,second) => second.score - first.score || first.index - second.index)
+        .map(item => item.playlist)
+
+    return limit > 0 ? ranked.slice(0,limit) : ranked
+}
+
+const recentSearchStorageKey = "dois-tons-recent-searches-v1"
+
+function getRecentSearches() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(recentSearchStorageKey) || "[]")
+
+        return Array.isArray(saved) ? saved.filter(Boolean).slice(0,6) : []
+    } catch {
+        return []
+    }
+}
+
+function saveRecentSearch(query) {
+    const value = String(query || "").trim()
+
+    if (value.length < 2) return
+
+    const normalized = normalizeSearchText(value)
+    const searches = getRecentSearches().filter(item => normalizeSearchText(item) !== normalized)
+
+    searches.unshift(value)
+    localStorage.setItem(recentSearchStorageKey,JSON.stringify(searches.slice(0,6)))
+    renderSearchLanding()
+}
+
+function clearRecentSearches() {
+    localStorage.removeItem(recentSearchStorageKey)
+    renderSearchLanding()
 }
 
 function getErrorMessage(error,fallback = "Não foi possível concluir esta ação.") {
@@ -1551,11 +1835,11 @@ function updateConnectionInterface() {
                 : offlineLaunch
                     ? "Modo offline · downloads deste aparelho"
                     : "Nuvem temporariamente offline"
-            : "Modo de demonstração neste aparelho"
+            : "Modo local neste aparelho"
     }
 }
 
-// perfil e acesso
+// acesso
 function validateAccessForm() {
     const name = displayNameInput.value.trim()
     const code = accessCodeInput.value.trim()
@@ -1610,10 +1894,10 @@ function loadPreviewProfile() {
 function getGreeting() {
     const hour = new Date().getHours()
 
-    if (hour < 12) return "Música para esta manhã."
-    if (hour < 18) return "Música para esta tarde."
+    if (hour < 12) return "Bom dia."
+    if (hour < 18) return "Boa tarde."
 
-    return "Música para esta noite."
+    return "Boa noite."
 }
 
 function updateProfileInterface() {
@@ -1628,6 +1912,14 @@ function updateProfileInterface() {
     profileName.textContent = currentProfile.name
     jamPersonOne.textContent = initials.slice(0,1)
     jamPersonTwo.textContent = partner ? getInitials(partner.display_name).slice(0,1) : "2"
+
+    const partnerLabel = partner?.display_name || "Outro perfil"
+    const partnerOwnerOption = libraryOwnerSelect?.querySelector('option[value="partner"]')
+    const partnerHistoryButton = [...historyFilterButtons].find(button => button.dataset.historyFilter === "partner")
+
+    if (partnerOwnerOption) partnerOwnerOption.textContent = partnerLabel
+    if (partnerHistoryButton) partnerHistoryButton.textContent = partnerLabel
+
     updateConnectionInterface()
 }
 
@@ -1647,6 +1939,7 @@ function openApplication(profile) {
 
 function closeApplication() {
     pauseTrack({syncJam:false})
+    finishListeningSession({completed:false})
     closeAllOverlays()
     clearCatalogQueue()
     stopJamSynchronization()
@@ -1663,6 +1956,12 @@ function closeApplication() {
     jamSession = null
     jamActive = false
     playlists = []
+    activityNotifications = []
+    activityFilter = "all"
+    musicDedications = []
+    dedicationFilter = "received"
+    dedicationComposeTrackId = ""
+    listeningHistory = []
     tracks = cloudMode ? [] : [...demoTracks]
     currentTrackId = tracks[0]?.id || ""
     playbackQueue = tracks.map(track => track.id)
@@ -1692,7 +1991,7 @@ async function handleAccessSubmit(event) {
         savePreviewProfile(displayNameInput.value)
         localStorage.removeItem(logoutStorageKey)
         openApplication(currentProfile)
-        showToast("Modo de demonstração aberto somente neste aparelho.","warning")
+        showToast("Modo local aberto neste aparelho.","warning")
         return
     }
 
@@ -1711,8 +2010,8 @@ async function handleAccessSubmit(event) {
         await loadCloudApplicationData()
         configureCloudSubscriptions()
         showToast(profile.memberCount === 1
-            ? "Sala aberta. Falta apenas a segunda pessoa entrar."
-            : "Vocês dois estão conectados ao Dois Tons.")
+            ? "Perfil conectado. Falta só o outro perfil entrar."
+            : "Os dois perfis estão conectados.")
     } catch (error) {
         codeMessage.textContent = getErrorMessage(error,"Código incorreto ou sala indisponível.")
         accessCodeInput.closest(".form-group").classList.add("invalid")
@@ -1733,16 +2032,19 @@ accessCodeInput?.addEventListener("input",() => {
     codeMessage.textContent = ""
 })
 
-// dados da nuvem
+// sincronização
 async function loadCloudApplicationData() {
     if (!cloudMode || !cloudReady || !currentProfile) return
 
     const previousTrackId = currentTrackId
-    const [cloudTracks,cloudPlaylists,members,activeJam] = await Promise.all([
+    const [cloudTracks,cloudPlaylists,members,activeJam,cloudListeningHistory,cloudActivityNotifications,cloudMusicDedications] = await Promise.all([
         cloud.loadTracks(),
         cloud.loadPlaylists(),
         cloud.getMembers(),
-        cloud.getActiveJam()
+        cloud.getActiveJam(),
+        cloud.loadListeningHistory().catch(() => []),
+        cloud.loadActivityNotifications().catch(() => []),
+        cloud.loadMusicDedications().catch(() => [])
     ])
     const previousTrackRemoved = Boolean(previousTrackId && !cloudTracks.some(track => track.id === previousTrackId))
 
@@ -1766,6 +2068,9 @@ async function loadCloudApplicationData() {
     await synchronizeOfflineTracks()
     playlists = cloudPlaylists
     duoMembers = members
+    listeningHistory = cloudListeningHistory
+    activityNotifications = cloudActivityNotifications
+    musicDedications = cloudMusicDedications
     await saveOfflineLibrarySnapshot(tracks,playlists,duoMembers)
     currentTrackId = tracks.some(track => track.id === previousTrackId)
         ? previousTrackId
@@ -1785,6 +2090,12 @@ async function loadCloudApplicationData() {
     renderApplicationData()
     updatePlayerInterface()
     updateJamInterface()
+
+    if (jamActive && jamSession?.active) {
+        applyRemoteJamState(jamSession,{silent:true}).catch(() => {})
+    }
+
+    syncPendingListeningRecords()
 }
 
 function scheduleCloudRefresh() {
@@ -1806,6 +2117,9 @@ function configureCloudSubscriptions() {
 
     cloud.subscribeLibrary(scheduleCloudRefresh)
     cloud.subscribeJamAvailability(handleJamAvailabilityChange)
+    cloud.subscribeListeningHistory(scheduleListeningHistoryRefresh)
+    cloud.subscribeActivity(scheduleActivityRefresh)
+    cloud.subscribeDedications(scheduleDedicationRefresh)
 }
 
 function handleJamAvailabilityChange(remoteJam) {
@@ -1818,7 +2132,7 @@ function handleJamAvailabilityChange(remoteJam) {
             if (wasActive) pauseTrack({syncJam:false})
             deactivateLocalJam()
             if (wasActive && remoteJam.updated_by !== cloud.getUserId()) {
-                showToast("A outra pessoa encerrou a Jam.")
+                showToast("A Jam foi encerrada.")
             }
         }
         return
@@ -1829,7 +2143,7 @@ function handleJamAvailabilityChange(remoteJam) {
     updateJamInterface()
 }
 
-// navegacao
+// navegação
 function openView(viewName) {
     const selectedView = document.querySelector(`[data-view="${viewName}"]`)
 
@@ -1887,7 +2201,7 @@ window.addEventListener("scroll",() => {
     appHeader?.classList.toggle("scrolled",window.scrollY > 8)
 })
 
-// renderizacao
+// renderização
 function createAlbumCard(track,index) {
     return `
         <button type="button" class="album-card" data-track-id="${escapeAttribute(track.id)}">
@@ -1990,17 +2304,1701 @@ function createEmptyState(title,description,icon = "icon-search") {
     `
 }
 
+// atividades
+function getActivityUnreadCount() {
+    return activityNotifications.filter(item => !item.read_at && !item.read).length
+}
+
+function formatActivityDate(value) {
+    if (!value) return ""
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) return ""
+
+    const now = new Date()
+    const difference = Math.max(0,now.getTime() - date.getTime())
+    const minutes = Math.floor(difference / 60000)
+
+    if (minutes < 1) return "Agora"
+    if (minutes < 60) return `${minutes} min atrás`
+
+    const hours = Math.floor(minutes / 60)
+
+    if (hours < 24) return `${hours}h atrás`
+
+    return new Intl.DateTimeFormat("pt-BR",{
+        day:"2-digit",
+        month:"short",
+        hour:"2-digit",
+        minute:"2-digit"
+    }).format(date).replace(" de "," ")
+}
+
+function getActivityPresentation(item) {
+    const actor = item.actor_member_id === currentProfile?.memberId ? currentProfile?.name || "Meu perfil" : item.actorName || "Outro perfil"
+    const details = item.details && typeof item.details === "object" ? item.details : {}
+    const trackTitle = details.track_title || details.title || tracks.find(track => track.id === item.track_id)?.title || "uma música"
+    const artist = details.artist || tracks.find(track => track.id === item.track_id)?.artist || ""
+    const playlistTitle = details.playlist_title || details.title || playlists.find(playlist => playlist.id === item.playlist_id)?.title || "uma playlist"
+
+    if (item.event_type === "track_added") {
+        const count = Math.max(1,Number(details.count || 1))
+
+        return {
+            icon:"icon-upload",
+            title:count > 1 ? `${actor} adicionou ${count} músicas` : `${actor} adicionou uma música`,
+            description:count > 1
+                ? `Mais recente: “${trackTitle}”${artist ? ` · ${artist}` : ""}`
+                : `“${trackTitle}”${artist ? ` · ${artist}` : ""}`,
+            action:"Ouvir"
+        }
+    }
+
+    if (item.event_type === "track_shared") {
+        return {
+            icon:"icon-send",
+            title:`${actor} compartilhou uma música`,
+            description:`“${trackTitle}”${artist ? ` · ${artist}` : ""}`,
+            action:"Ouvir"
+        }
+    }
+
+    if (item.event_type === "playlist_activity") {
+        const action = details.action || "updated"
+        const messages = {
+            created:`${actor} criou uma playlist`,
+            updated:`${actor} atualizou uma playlist`,
+            track_added:`${actor} adicionou uma música à playlist`,
+            track_removed:`${actor} removeu uma música da playlist`,
+            track_moved:`${actor} reorganizou uma playlist`
+        }
+        const description = [playlistTitle,details.track_title].filter(Boolean).join(" · ")
+
+        return {
+            icon:"icon-playlist",
+            title:messages[action] || `${actor} alterou uma playlist`,
+            description,
+            action:"Abrir"
+        }
+    }
+
+    if (item.event_type === "dedication_received") {
+        return {
+            icon:"icon-heart",
+            title:`${actor} enviou uma dedicatória`,
+            description:`“${trackTitle}”${details.message_preview ? ` · ${details.message_preview}` : ""}`,
+            action:"Ler"
+        }
+    }
+
+    if (item.event_type === "jam_started") {
+        return {
+            icon:"icon-users",
+            title:`${actor} criou uma Jam`,
+            description:details.invite_code ? `Convite ${details.invite_code} · Entre para ouvir junto.` : "Há uma Jam disponível.",
+            action:"Entrar"
+        }
+    }
+
+    if (item.event_type === "jam_ended") {
+        return {
+            icon:"icon-users",
+            title:`${actor} encerrou a Jam`,
+            description:"A sessão sincronizada terminou.",
+            action:""
+        }
+    }
+
+    return {
+        icon:"icon-bell",
+        title:`Nova atividade de ${actor}`,
+        description:"Há uma nova atividade.",
+        action:""
+    }
+}
+
+function createActivityItem(item) {
+    const presentation = getActivityPresentation(item)
+    const unread = !item.read_at && !item.read
+
+    return `
+        <article class="activity-item ${unread ? "unread" : ""}" data-activity-id="${escapeAttribute(item.id)}">
+            <span class="activity-item-icon"><svg aria-hidden="true"><use href="#${escapeAttribute(presentation.icon)}"></use></svg></span>
+            <button type="button" class="activity-item-main" data-open-activity="${escapeAttribute(item.id)}">
+                <strong>${escapeHTML(presentation.title)}</strong>
+                <span>${escapeHTML(presentation.description)}</span>
+                <small>${escapeHTML(formatActivityDate(item.created_at))}</small>
+            </button>
+            <span class="activity-item-side">
+                ${unread ? '<span class="activity-unread-dot" aria-label="Não lida"></span>' : ""}
+                ${presentation.action ? `<small>${escapeHTML(presentation.action)}</small>` : ""}
+            </span>
+        </article>
+    `
+}
+
+function renderActivityCenter() {
+    const unreadCount = getActivityUnreadCount()
+
+    if (activityBadge) {
+        activityBadge.hidden = unreadCount === 0
+        activityBadge.textContent = unreadCount > 99 ? "99+" : String(unreadCount)
+    }
+
+    if (activityButton) {
+        activityButton.classList.toggle("has-unread",unreadCount > 0)
+        activityButton.setAttribute("aria-label",unreadCount
+            ? `Abrir atividades, ${unreadCount} não ${unreadCount === 1 ? "lida" : "lidas"}`
+            : "Abrir atividades")
+    }
+
+    if (activityProfileDescription) {
+        activityProfileDescription.textContent = unreadCount
+            ? `${unreadCount} ${unreadCount === 1 ? "atividade nova" : "atividades novas"}`
+            : "Nenhuma atividade nova"
+    }
+
+    if (activityMarkAllButton) activityMarkAllButton.disabled = unreadCount === 0 || !cloudReady || !navigator.onLine
+
+    activityFilterButtons.forEach(button => {
+        const active = button.dataset.activityFilter === activityFilter
+
+        button.classList.toggle("active",active)
+        button.setAttribute("aria-selected",String(active))
+    })
+
+    if (!activityList) return
+
+    if (!cloudMode) {
+        activityList.innerHTML = createEmptyState("Atividades","Conecte ao Supabase para carregar as atividades.","icon-bell")
+        return
+    }
+
+    if (!navigator.onLine && !activityNotifications.length) {
+        activityList.innerHTML = createEmptyState("Sem conexão","Reconecte-se para atualizar as atividades.","icon-cloud")
+        return
+    }
+
+    const visibleItems = activityFilter === "unread"
+        ? activityNotifications.filter(item => !item.read_at && !item.read)
+        : activityNotifications
+
+    activityList.innerHTML = visibleItems.length
+        ? visibleItems.map(createActivityItem).join("")
+        : createEmptyState(
+            activityFilter === "unread" ? "Tudo em dia" : "Nenhuma atividade ainda",
+            activityFilter === "unread" ? "Não há atividades novas." : "Músicas, dedicatórias, playlists e Jam aparecem aqui quando houver novidade.",
+            "icon-bell"
+        )
+}
+
+async function refreshActivityNotifications({announce = false} = {}) {
+    if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return
+
+    const previousIds = new Set(activityNotifications.map(item => item.id))
+
+    try {
+        activityNotifications = await cloud.loadActivityNotifications()
+        renderActivityCenter()
+
+        if (announce && activityNotifications.some(item => !previousIds.has(item.id) && !item.read_at)) {
+            showToast("Nova atividade.")
+        }
+    } catch (error) {
+        return
+    }
+}
+
+function scheduleActivityRefresh(payload) {
+    clearTimeout(activityRefreshTimeout)
+
+    const eventType = payload?.new?.event_type || payload?.record?.event_type || ""
+    const inserted = payload?.eventType === "INSERT" || payload?.event === "INSERT"
+    const announce = inserted && eventType !== "dedication_received"
+
+    activityRefreshTimeout = setTimeout(() => refreshActivityNotifications({announce}),350)
+}
+
+async function markActivityRead(notificationId) {
+    const item = activityNotifications.find(entry => entry.id === notificationId)
+
+    if (!item || item.read_at || item.read) return true
+    if (!cloudMode || !cloudReady || !navigator.onLine) return false
+
+    try {
+        await cloud.markActivityNotifications(notificationId)
+        item.read = true
+        item.read_at = new Date().toISOString()
+        renderActivityCenter()
+        return true
+    } catch (error) {
+        showToast("Não foi possível atualizar esta atividade.","warning")
+        return false
+    }
+}
+
+async function markAllActivitiesRead() {
+    if (!getActivityUnreadCount()) return
+    if (!cloudMode || !cloudReady || !navigator.onLine) {
+        showToast("Conecte-se à internet para marcar as atividades como lidas.","warning")
+        return
+    }
+
+    try {
+        await cloud.markActivityNotifications()
+        const readAt = new Date().toISOString()
+
+        activityNotifications.forEach(item => {
+            item.read = true
+            item.read_at = item.read_at || readAt
+        })
+
+        renderActivityCenter()
+    } catch (error) {
+        showToast("Não foi possível marcar as atividades como lidas.","warning")
+    }
+}
+
+async function openActivityItem(notificationId) {
+    const item = activityNotifications.find(entry => entry.id === notificationId)
+
+    if (!item) return
+
+    await markActivityRead(item.id)
+    closeModal("activity")
+
+    if (item.event_type === "dedication_received") {
+        const dedicationId = item.details?.dedication_id
+
+        if (dedicationId) await markDedicationRead(dedicationId)
+
+        dedicationFilter = "received"
+        renderDedicationCenter()
+        openModal("dedication")
+        return
+    }
+
+    if (item.event_type === "jam_started") {
+        openView("jam")
+        return
+    }
+
+    if (item.playlist_id && playlists.some(playlist => playlist.id === item.playlist_id)) {
+        activeLibraryEntity = null
+        activeLibraryMode = "playlists"
+        activeLibraryFilter = "all"
+        activePlaylistId = item.playlist_id
+        playlistOrganizing = false
+        openView("library")
+        renderPlaylists()
+        updateLibraryFilters()
+        renderLibrary()
+        return
+    }
+
+    if (item.track_id && tracks.some(track => track.id === item.track_id)) {
+        await selectTrack(item.track_id,false,{context:{type:"library",label:"Atividades"}})
+        openSheet("player")
+    }
+}
+
+// dedicatórias
+function getDedicationUnreadCount() {
+    return musicDedications.filter(item => item.received && !item.read_at && !item.read).length
+}
+
+function getDedicationTrack(item) {
+    return tracks.find(track => track.id === item.track_id) || null
+}
+
+function createDedicationItem(item,{compact = false} = {}) {
+    const track = getDedicationTrack(item)
+    const received = item.received ?? item.recipient_member_id === currentProfile?.memberId
+    const unread = received && !item.read_at && !item.read
+    const title = track?.title || item.track_title || "Música removida"
+    const artist = track?.artist || item.track_artist || ""
+    const album = track?.album || item.track_album || ""
+    const personLabel = received
+        ? `De ${item.senderName || "outro perfil"}`
+        : `Para ${item.recipientName || "outro perfil"} · ${item.read_at || item.read ? "Lida" : "Ainda não lida"}`
+    const coverClass = track ? getCoverClass(track,track.coverIndex || 0) : "cover-rose"
+    const coverStyle = track ? getCoverStyle(track) : ""
+
+    return `
+        <article class="dedication-item ${unread ? "unread" : ""} ${compact ? "compact" : ""}" data-dedication-id="${escapeAttribute(item.id)}">
+            <button type="button" class="dedication-item-main" data-open-dedication="${escapeAttribute(item.id)}">
+                <span class="dedication-cover ${escapeAttribute(coverClass)} ${track?.coverImage ? "custom-cover" : ""}" ${coverStyle}></span>
+                <span class="dedication-copy">
+                    <small>${escapeHTML(personLabel)} · ${escapeHTML(formatActivityDate(item.created_at))}</small>
+                    <strong>${escapeHTML(title)}</strong>
+                    <span>${escapeHTML([artist,album].filter(Boolean).join(" · "))}</span>
+                    <q>${escapeHTML(item.message || "")}</q>
+                </span>
+                ${unread ? '<span class="dedication-unread-dot" aria-label="Não lida"></span>' : ""}
+            </button>
+        </article>
+    `
+}
+
+function renderDedicationPreview() {
+    if (!dedicationPreviewList) return
+
+    if (!cloudMode) {
+        dedicationPreviewList.innerHTML = createEmptyState("Recados musicais","Conecte o Dois Tons ao Supabase para trocar dedicatórias.","icon-heart")
+        return
+    }
+
+    const received = musicDedications.filter(item => item.received).slice(0,2)
+
+    dedicationPreviewList.innerHTML = received.length
+        ? received.map(item => createDedicationItem(item,{compact:true})).join("")
+        : createEmptyState("Nenhuma dedicatória ainda","Quando chegar uma música com um recado, ela aparecerá aqui.","icon-heart")
+}
+
+function renderDedicationCenter() {
+    const unreadCount = getDedicationUnreadCount()
+
+    if (dedicationProfileDescription) {
+        dedicationProfileDescription.textContent = unreadCount
+            ? `${unreadCount} ${unreadCount === 1 ? "recado novo" : "recados novos"}`
+            : "Nenhum recado novo"
+    }
+
+    dedicationFilterButtons.forEach(button => {
+        const active = button.dataset.dedicationFilter === dedicationFilter
+
+        button.classList.toggle("active",active)
+        button.setAttribute("aria-selected",String(active))
+    })
+
+    if (dedicationMarkAllButton) {
+        dedicationMarkAllButton.hidden = dedicationFilter !== "received"
+        dedicationMarkAllButton.disabled = unreadCount === 0 || !cloudReady || !navigator.onLine
+    }
+
+    renderDedicationPreview()
+
+    if (!dedicationList) return
+
+    if (!cloudMode) {
+        dedicationList.innerHTML = createEmptyState("Dedicatórias compartilhadas","Conecte o Dois Tons ao Supabase para usar esta caixa.","icon-heart")
+        return
+    }
+
+    const visibleItems = musicDedications.filter(item => dedicationFilter === "sent" ? item.sent : item.received)
+
+    dedicationList.innerHTML = visibleItems.length
+        ? visibleItems.map(item => createDedicationItem(item)).join("")
+        : createEmptyState(
+            dedicationFilter === "sent" ? "Nenhuma dedicatória enviada" : "Nenhuma dedicatória recebida",
+            dedicationFilter === "sent" ? "Abra uma música no player e toque em Dedicar." : "Os recados recebidos aparecem aqui.",
+            "icon-heart"
+        )
+}
+
+async function refreshMusicDedications({announce = false} = {}) {
+    if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return
+
+    const previousIds = new Set(musicDedications.map(item => item.id))
+
+    try {
+        musicDedications = await cloud.loadMusicDedications()
+        renderDedicationCenter()
+
+        const newReceived = musicDedications.some(item => item.received && !previousIds.has(item.id) && !item.read_at)
+
+        if (announce && newReceived) showToast("Nova dedicatória recebida.")
+    } catch (error) {
+        return
+    }
+}
+
+function scheduleDedicationRefresh(payload) {
+    clearTimeout(dedicationRefreshTimeout)
+
+    const announce = payload?.eventType === "INSERT" || payload?.event === "INSERT"
+
+    dedicationRefreshTimeout = setTimeout(() => refreshMusicDedications({announce}),300)
+}
+
+async function markDedicationRead(dedicationId) {
+    const item = musicDedications.find(entry => entry.id === dedicationId)
+
+    if (!item || !item.received || item.read_at || item.read) return true
+    if (!cloudMode || !cloudReady || !navigator.onLine) return false
+
+    try {
+        await cloud.markMusicDedications(dedicationId)
+        item.read = true
+        item.read_at = new Date().toISOString()
+        renderDedicationCenter()
+        return true
+    } catch (error) {
+        showToast("Não foi possível marcar o recado como lido.","warning")
+        return false
+    }
+}
+
+async function markAllDedicationsRead() {
+    if (!getDedicationUnreadCount()) return
+
+    if (!cloudMode || !cloudReady || !navigator.onLine) {
+        showToast("Conecte-se à internet para marcar as dedicatórias como lidas.","warning")
+        return
+    }
+
+    try {
+        await cloud.markMusicDedications()
+        const readAt = new Date().toISOString()
+
+        musicDedications.forEach(item => {
+            if (!item.received || item.read_at) return
+
+            item.read = true
+            item.read_at = readAt
+        })
+
+        renderDedicationCenter()
+    } catch (error) {
+        showToast("Não foi possível atualizar as dedicatórias.","warning")
+    }
+}
+
+async function openDedicationItem(dedicationId,{keepModal = false} = {}) {
+    const item = musicDedications.find(entry => entry.id === dedicationId)
+
+    if (!item) return
+
+    await markDedicationRead(item.id)
+
+    const track = getDedicationTrack(item)
+
+    if (!track) {
+        showToast("A música desta dedicatória não está mais na biblioteca.","warning")
+        return
+    }
+
+    if (!keepModal) closeModal("dedication")
+
+    await selectTrack(track.id,false,{context:{type:"library",label:"Dedicatórias"}})
+    openSheet("player")
+}
+
+function updateDedicationCharacterCount() {
+    if (!dedicationCharacterCount || !dedicationMessageInput) return
+
+    dedicationCharacterCount.textContent = `${dedicationMessageInput.value.length}/500`
+}
+
+function resetDedicationCompose() {
+    dedicationComposeTrackId = ""
+
+    if (dedicationMessageInput) dedicationMessageInput.value = ""
+    if (dedicationMessageError) dedicationMessageError.textContent = ""
+    if (dedicationComposePreview) dedicationComposePreview.innerHTML = ""
+
+    updateDedicationCharacterCount()
+}
+
+function openDedicationCompose(trackId = currentTrackId) {
+    const track = tracks.find(item => item.id === trackId)
+    const partner = duoMembers.find(member => member.id !== currentProfile?.memberId)
+
+    if (!track) return
+
+    if (!cloudMode || !cloudReady || !navigator.onLine) {
+        showToast("Conecte-se à internet para enviar uma dedicatória.","warning")
+        return
+    }
+
+    if (!partner) {
+        showToast("O outro perfil ainda não entrou.","warning")
+        return
+    }
+
+    dedicationComposeTrackId = track.id
+
+    if (dedicationRecipient) dedicationRecipient.textContent = `Para ${partner.display_name}`
+    if (dedicationMessageInput) dedicationMessageInput.value = ""
+    if (dedicationMessageError) dedicationMessageError.textContent = ""
+    if (dedicationComposePreview) {
+        dedicationComposePreview.innerHTML = `
+            <span class="dedication-cover ${escapeAttribute(getCoverClass(track,track.coverIndex || 0))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+            <span><strong>${escapeHTML(track.title)}</strong><small>${escapeHTML(track.artist)} · ${escapeHTML(track.album || "Sem álbum")}</small></span>
+        `
+    }
+
+    updateDedicationCharacterCount()
+    closeSheet("player")
+    openModal("dedication-compose")
+    setTimeout(() => dedicationMessageInput?.focus(),120)
+}
+
+async function submitMusicDedication(event) {
+    event.preventDefault()
+
+    const track = tracks.find(item => item.id === dedicationComposeTrackId)
+    const message = dedicationMessageInput?.value.trim() || ""
+
+    if (!track) {
+        showToast("Escolha uma música para dedicar.","warning")
+        return
+    }
+
+    if (!message) {
+        if (dedicationMessageError) dedicationMessageError.textContent = "Escreva um recado antes de enviar."
+        dedicationMessageInput?.focus()
+        return
+    }
+
+    if (!cloudMode || !cloudReady || !navigator.onLine) {
+        showToast("Conecte-se à internet para enviar a dedicatória.","warning")
+        return
+    }
+
+    setButtonLoading(dedicationSubmitButton,true,"Enviando...")
+
+    try {
+        await cloud.sendMusicDedication(track.id,message)
+        await refreshMusicDedications()
+        closeModal("dedication-compose")
+        showToast("Dedicatória enviada.")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível enviar a dedicatória."),"warning")
+    } finally {
+        setButtonLoading(dedicationSubmitButton,false)
+    }
+}
+
+// histórico
+function createListeningSessionId() {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID()
+
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g,character => {
+        const random = Math.random() * 16 | 0
+        const value = character === "x" ? random : random & 0x3 | 0x8
+
+        return value.toString(16)
+    })
+}
+
+function formatListeningDuration(seconds) {
+    const safeSeconds = Math.max(0,Number(seconds || 0))
+    const totalMinutes = Math.round(safeSeconds / 60)
+
+    if (totalMinutes < 60) return `${totalMinutes} min`
+
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+
+    return minutes ? `${hours}h ${minutes}min` : `${hours}h`
+}
+
+function formatListeningHistoryDate(value) {
+    if (!value) return ""
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) return ""
+
+    return new Intl.DateTimeFormat("pt-BR",{
+        day:"2-digit",
+        month:"short",
+        hour:"2-digit",
+        minute:"2-digit"
+    }).format(date).replace(" de "," ")
+}
+
+function getListeningTrack(item) {
+    return tracks.find(track => track.id === item?.track_id) || null
+}
+
+function getListeningPlayThreshold(track) {
+    const duration = Number(track?.duration || 0)
+
+    if (duration > 0) return Math.max(2,Math.min(30,duration * 0.5))
+
+    return 10
+}
+
+function isQualifiedListeningEntry(item) {
+    const track = getListeningTrack(item)
+
+    return Boolean(track && Number(item?.listenedSeconds || item?.listened_seconds || 0) >= getListeningPlayThreshold(track))
+}
+
+function getListeningEntries({days = 30,filter = "all",qualified = false} = {}) {
+    const minimumDate = days > 0 ? Date.now() - days * 86400000 : 0
+
+    return listeningHistory.filter(item => {
+        const listenedAt = Date.parse(item.last_listened_at || item.started_at || "") || 0
+
+        if (minimumDate && listenedAt < minimumDate) return false
+        if (!getListeningTrack(item)) return false
+        if (qualified && !isQualifiedListeningEntry(item)) return false
+        if (filter === "me" && item.member_id !== currentProfile?.memberId) return false
+        if (filter === "partner" && item.member_id === currentProfile?.memberId) return false
+
+        return Number(item.listenedSeconds || item.listened_seconds || 0) >= 3
+    })
+}
+
+function getRecentlyPlayedTracks(limit = 4) {
+    const usedTrackIds = new Set()
+    const recentTracks = []
+
+    for (const item of getListeningEntries({days:0})) {
+        if (usedTrackIds.has(item.track_id)) continue
+
+        const track = getListeningTrack(item)
+
+        if (!track) continue
+
+        usedTrackIds.add(item.track_id)
+        recentTracks.push(track)
+
+        if (recentTracks.length >= limit) break
+    }
+
+    return recentTracks
+}
+
+function summarizeListening(entries) {
+    const trackTotals = new Map()
+    const artistTotals = new Map()
+    let seconds = 0
+    let plays = 0
+
+    entries.forEach(item => {
+        const track = getListeningTrack(item)
+        const listened = Number(item.listenedSeconds || item.listened_seconds || 0)
+
+        if (!track || listened <= 0) return
+
+        seconds += listened
+        if (isQualifiedListeningEntry(item)) plays += 1
+
+        const trackTotal = trackTotals.get(track.id) || {track,seconds:0,plays:0}
+        trackTotal.seconds += listened
+        if (isQualifiedListeningEntry(item)) trackTotal.plays += 1
+        trackTotals.set(track.id,trackTotal)
+
+        const artistKey = String(track.artist || "Artista desconhecido").trim() || "Artista desconhecido"
+        const artistTotal = artistTotals.get(artistKey) || {artist:artistKey,seconds:0,plays:0}
+        artistTotal.seconds += listened
+        if (isQualifiedListeningEntry(item)) artistTotal.plays += 1
+        artistTotals.set(artistKey,artistTotal)
+    })
+
+    const topTrack = [...trackTotals.values()].sort((first,second) => second.seconds - first.seconds)[0] || null
+    const topArtist = [...artistTotals.values()].sort((first,second) => second.seconds - first.seconds)[0] || null
+
+    return {seconds,plays,topTrack,topArtist}
+}
+
+// perfil musical
+function getMusicalProfilePartner() {
+    return duoMembers.find(member => member.id !== currentProfile?.memberId) || null
+}
+
+function getMusicalTasteMap(entries,type = "track") {
+    const totals = new Map()
+    let totalSeconds = 0
+
+    entries.forEach(item => {
+        const track = getListeningTrack(item)
+        const seconds = Number(item.listenedSeconds || item.listened_seconds || 0)
+
+        if (!track || seconds <= 0) return
+
+        const key = type === "artist"
+            ? String(track.artist || "Artista desconhecido").trim().toLocaleLowerCase("pt-BR")
+            : track.id
+        const current = totals.get(key) || {
+            key,
+            label:type === "artist" ? track.artist || "Artista desconhecido" : track.title,
+            track,
+            seconds:0
+        }
+
+        current.seconds += seconds
+        totals.set(key,current)
+        totalSeconds += seconds
+    })
+
+    totals.forEach(item => {
+        item.weight = totalSeconds > 0 ? item.seconds / totalSeconds : 0
+    })
+
+    return {totals,totalSeconds}
+}
+
+function getWeightedTasteOverlap(firstMap,secondMap) {
+    const keys = new Set([...firstMap.keys(),...secondMap.keys()])
+    let intersection = 0
+    let union = 0
+
+    keys.forEach(key => {
+        const first = Number(firstMap.get(key)?.weight || 0)
+        const second = Number(secondMap.get(key)?.weight || 0)
+
+        intersection += Math.min(first,second)
+        union += Math.max(first,second)
+    })
+
+    return union > 0 ? intersection / union : 0
+}
+
+function getMusicalProfileHeadline(score) {
+    if (!Number.isFinite(score)) return "Ainda sem dados suficientes"
+    if (score >= 85) return "Muito parecido"
+    if (score >= 70) return "Bem parecido"
+    if (score >= 50) return "Vários pontos em comum"
+    if (score >= 30) return "Alguns pontos em comum"
+
+    return "Gostos bem diferentes"
+}
+
+function getCommonTasteItems(firstTaste,secondTaste,limit = 5) {
+    return [...firstTaste.totals.values()]
+        .filter(item => secondTaste.totals.has(item.key))
+        .map(item => {
+            const other = secondTaste.totals.get(item.key)
+
+            return {
+                ...item,
+                sharedScore:Math.min(Number(item.weight || 0),Number(other.weight || 0)) * 2 + Number(item.weight || 0) + Number(other.weight || 0),
+                combinedSeconds:Number(item.seconds || 0) + Number(other.seconds || 0)
+            }
+        })
+        .sort((first,second) => second.sharedScore - first.sharedScore || second.combinedSeconds - first.combinedSeconds)
+        .slice(0,limit)
+}
+
+function getDistinctiveTasteTracks(primaryTaste,secondaryTaste,limit = 4) {
+    return [...primaryTaste.totals.values()]
+        .map(item => {
+            const otherWeight = Number(secondaryTaste.totals.get(item.key)?.weight || 0)
+            const difference = Number(item.weight || 0) - otherWeight
+
+            return {...item,difference}
+        })
+        .filter(item => item.seconds >= 10 && item.difference > 0)
+        .sort((first,second) => second.difference - first.difference || second.seconds - first.seconds)
+        .slice(0,limit)
+}
+
+function getMusicalEvolution(entries,memberId,partnerMemberId,months = 6) {
+    const now = new Date()
+    const buckets = []
+    const bucketMap = new Map()
+
+    for (let offset = months - 1; offset >= 0; offset -= 1) {
+        const date = new Date(now.getFullYear(),now.getMonth() - offset,1)
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,"0")}`
+        const label = new Intl.DateTimeFormat("pt-BR",{month:"short"}).format(date).replace(".","")
+        const bucket = {key,label,me:0,partner:0}
+
+        buckets.push(bucket)
+        bucketMap.set(key,bucket)
+    }
+
+    entries.forEach(item => {
+        const date = new Date(item.last_listened_at || item.started_at || "")
+
+        if (Number.isNaN(date.getTime())) return
+
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,"0")}`
+        const bucket = bucketMap.get(key)
+
+        if (!bucket) return
+
+        const seconds = Number(item.listenedSeconds || item.listened_seconds || 0)
+
+        if (item.member_id === memberId) bucket.me += seconds
+        if (partnerMemberId && item.member_id === partnerMemberId) bucket.partner += seconds
+    })
+
+    return buckets
+}
+
+function getListeningEntriesSince(timestamp) {
+    return listeningHistory.filter(item => {
+        const listenedAt = Date.parse(item.last_listened_at || item.started_at || "") || 0
+
+        return listenedAt >= timestamp && getListeningTrack(item) && Number(item.listenedSeconds || item.listened_seconds || 0) >= 3
+    })
+}
+
+function getMostSharedTrack(entries,memberId,partnerMemberId) {
+    if (!memberId || !partnerMemberId) return null
+
+    const totals = getListeningTotalsByTrack(entries)
+
+    return [...totals.values()]
+        .filter(item => item.members.has(memberId) && item.members.has(partnerMemberId))
+        .map(item => ({
+            ...item,
+            sharedSeconds:Math.min(
+                Number(item.members.get(memberId)?.seconds || 0),
+                Number(item.members.get(partnerMemberId)?.seconds || 0)
+            )
+        }))
+        .sort((first,second) => second.sharedSeconds - first.sharedSeconds || second.seconds - first.seconds)[0] || null
+}
+
+function getMusicalProfileData() {
+    const currentMemberId = currentProfile?.memberId || ""
+    const partner = getMusicalProfilePartner()
+    const partnerMemberId = partner?.id || ""
+    const partnerName = partner?.display_name || "Outro perfil"
+    const periodEntries = getListeningEntries({days:90,qualified:true})
+    const personalEntries = periodEntries.filter(item => item.member_id === currentMemberId)
+    const partnerEntries = periodEntries.filter(item => partnerMemberId && item.member_id === partnerMemberId)
+    const personalTrackTaste = getMusicalTasteMap(personalEntries,"track")
+    const partnerTrackTaste = getMusicalTasteMap(partnerEntries,"track")
+    const personalArtistTaste = getMusicalTasteMap(personalEntries,"artist")
+    const partnerArtistTaste = getMusicalTasteMap(partnerEntries,"artist")
+    const enoughData = Boolean(
+        currentMemberId &&
+        partnerMemberId &&
+        personalTrackTaste.totalSeconds >= 30 &&
+        partnerTrackTaste.totalSeconds >= 30 &&
+        personalTrackTaste.totals.size >= 2 &&
+        partnerTrackTaste.totals.size >= 2
+    )
+    const trackOverlap = getWeightedTasteOverlap(personalTrackTaste.totals,partnerTrackTaste.totals)
+    const artistOverlap = getWeightedTasteOverlap(personalArtistTaste.totals,partnerArtistTaste.totals)
+    const score = enoughData ? Math.round((trackOverlap * 0.62 + artistOverlap * 0.38) * 100) : null
+    const commonTracks = getCommonTasteItems(personalTrackTaste,partnerTrackTaste,5)
+    const commonArtists = getCommonTasteItems(personalArtistTaste,partnerArtistTaste,6)
+    const personalTracks = getDistinctiveTasteTracks(personalTrackTaste,partnerTrackTaste,4)
+    const partnerTracks = getDistinctiveTasteTracks(partnerTrackTaste,personalTrackTaste,4)
+    const allEntries = getListeningEntries({days:0})
+    const evolution = getMusicalEvolution(allEntries,currentMemberId,partnerMemberId,6)
+    const currentYear = new Date().getFullYear()
+    const yearStart = new Date(currentYear,0,1).getTime()
+    const yearEntries = getListeningEntriesSince(yearStart)
+    const yearSummary = summarizeListening(yearEntries)
+    const yearSharedTrack = getMostSharedTrack(yearEntries,currentMemberId,partnerMemberId)
+
+    return {
+        partner,
+        partnerName,
+        score,
+        enoughData,
+        headline:getMusicalProfileHeadline(score),
+        personalTrackCount:personalTrackTaste.totals.size,
+        partnerTrackCount:partnerTrackTaste.totals.size,
+        commonTracks,
+        commonArtists,
+        personalTracks,
+        partnerTracks,
+        evolution,
+        currentYear,
+        yearSummary,
+        yearSharedTrack
+    }
+}
+
+function getMusicalProfileSummaryText(data) {
+    if (!data.partner) return "A comparação começa quando o outro perfil tiver histórico."
+    if (!data.enoughData) return "Ainda falta histórico nos dois perfis para calcular a comparação."
+
+    const commonArtist = data.commonArtists[0]?.label
+
+    return commonArtist
+        ? `Artista em comum: ${commonArtist}.`
+        : "Ainda há pouco histórico em comum."
+}
+
+function createMusicalProfileTrackItem(item,index) {
+    const track = item?.track
+
+    if (!track) return ""
+
+    return `
+        <button type="button" class="musical-profile-track" data-track-id="${escapeAttribute(track.id)}">
+            <span class="musical-profile-track-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+            <span>
+                <strong>${escapeHTML(track.title)}</strong>
+                <small>${escapeHTML(track.artist)}</small>
+            </span>
+        </button>
+    `
+}
+
+function renderMusicalEvolution(data) {
+    if (!musicalEvolutionChart) return
+
+    const maximum = Math.max(1,...data.evolution.flatMap(item => [item.me,item.partner]))
+
+    musicalEvolutionChart.innerHTML = data.evolution.map(item => {
+        const meHeight = item.me > 0 ? Math.max(5,Math.round(item.me / maximum * 100)) : 0
+        const partnerHeight = item.partner > 0 ? Math.max(5,Math.round(item.partner / maximum * 100)) : 0
+
+        return `
+            <div class="musical-evolution-month">
+                <div class="musical-evolution-bars" title="${escapeAttribute(currentProfile?.name || "Meu perfil")}: ${escapeAttribute(formatListeningDuration(item.me))} · ${escapeAttribute(data.partnerName)}: ${escapeAttribute(formatListeningDuration(item.partner))}">
+                    <i class="me" style="height:${meHeight}%"></i>
+                    <i class="partner" style="height:${partnerHeight}%"></i>
+                </div>
+                <span>${escapeHTML(item.label)}</span>
+            </div>
+        `
+    }).join("")
+}
+
+function renderMusicalProfileModal() {
+    if (!musicalProfileModal) return
+
+    const data = getMusicalProfileData()
+    const scoreText = Number.isFinite(data.score) ? `${data.score}%` : "—"
+    const summary = getMusicalProfileSummaryText(data)
+
+    musicalProfileModalRing?.style.setProperty("--compatibility",String(data.score || 0))
+    if (musicalProfileModalScore) musicalProfileModalScore.textContent = scoreText
+    if (musicalProfileModalHeadline) musicalProfileModalHeadline.textContent = data.headline
+    if (musicalProfileModalDescription) musicalProfileModalDescription.textContent = summary
+    if (musicalMeLabel) musicalMeLabel.textContent = `Mais a minha cara`
+    if (musicalPartnerLabel) musicalPartnerLabel.textContent = `Mais a cara de ${data.partnerName}`
+    if (musicalEvolutionPartnerLabel) musicalEvolutionPartnerLabel.textContent = data.partnerName
+
+    if (musicalCommonArtists) {
+        musicalCommonArtists.innerHTML = data.commonArtists.length
+            ? data.commonArtists.map(item => `<span>${escapeHTML(item.label)}</span>`).join("")
+            : `<small class="musical-profile-empty">Ainda sem artistas em comum suficientes.</small>`
+    }
+
+    if (musicalCommonTracks) {
+        musicalCommonTracks.innerHTML = data.commonTracks.length
+            ? data.commonTracks.map(createMusicalProfileTrackItem).join("")
+            : `<small class="musical-profile-empty">As músicas em comum aparecerão aqui.</small>`
+    }
+
+    if (musicalMeTracks) {
+        musicalMeTracks.innerHTML = data.personalTracks.length
+            ? data.personalTracks.map(createMusicalProfileTrackItem).join("")
+            : `<small class="musical-profile-empty">Meu lado do perfil ainda está em formação.</small>`
+    }
+
+    if (musicalPartnerTracks) {
+        musicalPartnerTracks.innerHTML = data.partnerTracks.length
+            ? data.partnerTracks.map(createMusicalProfileTrackItem).join("")
+            : `<small class="musical-profile-empty">O lado de ${escapeHTML(data.partnerName)} ainda está em formação.</small>`
+    }
+
+    renderMusicalEvolution(data)
+
+    if (musicalRetrospectiveKicker) musicalRetrospectiveKicker.textContent = `Retrospectiva ${data.currentYear}`
+    if (musicalRetrospectiveTitle) musicalRetrospectiveTitle.textContent = `Retrospectiva ${data.currentYear}`
+    if (musicalYearTime) musicalYearTime.textContent = formatListeningDuration(data.yearSummary.seconds)
+    if (musicalYearTrack) musicalYearTrack.textContent = data.yearSummary.topTrack?.track.title || "Ainda descobrindo"
+    if (musicalYearArtist) musicalYearArtist.textContent = data.yearSummary.topArtist?.artist || "Ainda descobrindo"
+    if (musicalYearSharedTrack) musicalYearSharedTrack.textContent = data.yearSharedTrack?.track.title || "Ainda descobrindo"
+}
+
+function renderMusicalProfile() {
+    const data = getMusicalProfileData()
+    const scoreText = Number.isFinite(data.score) ? `${data.score}%` : "—"
+
+    musicalCompatibilityRing?.style.setProperty("--compatibility",String(data.score || 0))
+    if (musicalCompatibilityValue) musicalCompatibilityValue.textContent = scoreText
+    if (musicalProfileHeadline) musicalProfileHeadline.textContent = data.headline
+    if (musicalProfileSummary) musicalProfileSummary.textContent = getMusicalProfileSummaryText(data)
+    if (musicalCommonArtist) musicalCommonArtist.textContent = data.commonArtists[0]?.label || "Ainda descobrindo"
+    if (musicalCommonTrack) musicalCommonTrack.textContent = data.commonTracks[0]?.track?.title || "Ainda descobrindo"
+    if (musicalProfileOptionDescription) {
+        musicalProfileOptionDescription.textContent = Number.isFinite(data.score)
+            ? `${data.score}% de compatibilidade nos últimos 90 dias`
+            : "Comparar o que a gente ouve"
+    }
+
+    if (musicalProfileModal?.classList.contains("open")) renderMusicalProfileModal()
+}
+
+function openMusicalProfile() {
+    renderMusicalProfileModal()
+    closeModal("profile")
+    openModal("musical-profile")
+}
+
+function getListeningTotalsByTrack(entries) {
+    const totals = new Map()
+
+    entries.forEach(item => {
+        const track = getListeningTrack(item)
+        const listened = Number(item.listenedSeconds || item.listened_seconds || 0)
+
+        if (!track || listened <= 0) return
+
+        const total = totals.get(track.id) || {
+            track,
+            seconds:0,
+            plays:0,
+            lastPlayed:0,
+            members:new Map()
+        }
+        const memberId = item.member_id || ""
+        const member = total.members.get(memberId) || {seconds:0,plays:0,lastPlayed:0}
+        const playedAt = Date.parse(item.last_listened_at || item.started_at || "") || 0
+        const qualified = isQualifiedListeningEntry(item)
+
+        total.seconds += listened
+        if (qualified) total.plays += 1
+        total.lastPlayed = Math.max(total.lastPlayed,playedAt)
+
+        member.seconds += listened
+        if (qualified) member.plays += 1
+        member.lastPlayed = Math.max(member.lastPlayed,playedAt)
+        total.members.set(memberId,member)
+        totals.set(track.id,total)
+    })
+
+    return totals
+}
+
+function getSmartMixNoise(trackId) {
+    const dateKey = new Date().toISOString().slice(0,10)
+    const value = `${dateKey}:${trackId}`
+    let hash = 2166136261
+
+    for (let index = 0; index < value.length; index += 1) {
+        hash ^= value.charCodeAt(index)
+        hash = Math.imul(hash,16777619)
+    }
+
+    return (hash >>> 0) / 4294967295
+}
+
+function selectDiverseSmartMixTracks(scoredTracks,limit = 12) {
+    const sorted = [...scoredTracks]
+        .filter(item => item?.track)
+        .sort((first,second) => second.score - first.score)
+    const selected = []
+    const deferred = []
+    const artistCounts = new Map()
+
+    sorted.forEach(item => {
+        const artist = String(item.track.artist || "Artista desconhecido").trim().toLocaleLowerCase("pt-BR")
+        const count = artistCounts.get(artist) || 0
+
+        if (selected.length < limit && count < 2) {
+            selected.push(item.track)
+            artistCounts.set(artist,count + 1)
+        } else {
+            deferred.push(item.track)
+        }
+    })
+
+    deferred.forEach(track => {
+        if (selected.length >= limit) return
+        if (selected.some(item => item.id === track.id)) return
+
+        selected.push(track)
+    })
+
+    return selected.slice(0,limit)
+}
+
+function getSmartMixes() {
+    const allEntries = getListeningEntries({days:90})
+    const qualifiedEntries = getListeningEntries({days:90,qualified:true})
+    const allTotals = getListeningTotalsByTrack(allEntries)
+    const personalTotals = getListeningTotalsByTrack(getListeningEntries({days:90,filter:"me"}))
+    const partnerTotals = getListeningTotalsByTrack(getListeningEntries({days:90,filter:"partner"}))
+    const currentMemberId = currentProfile?.memberId || ""
+    const partnerMemberId = duoMembers.find(member => member.id !== currentMemberId)?.id || ""
+    const now = Date.now()
+    const day = 86400000
+
+    const mostPlayed = selectDiverseSmartMixTracks(
+        tracks.map(track => {
+            const total = allTotals.get(track.id)
+
+            return {
+                track,
+                score:Number(total?.plays || 0) * 100000 + Number(total?.seconds || 0)
+            }
+        }).filter(item => item.score > 0),
+        12
+    )
+
+    const recent = tracks
+        .map(track => ({track,date:Date.parse(track.createdAt || "") || 0}))
+        .sort((first,second) => second.date - first.date)
+        .slice(0,12)
+        .map(item => item.track)
+
+    let discoveries = selectDiverseSmartMixTracks(
+        tracks.map(track => {
+            const personal = personalTotals.get(track.id)
+            const partner = partnerTotals.get(track.id)
+            const createdAt = Date.parse(track.createdAt || "") || 0
+            const ageDays = createdAt ? Math.max(0,(now - createdAt) / day) : 365
+            const neverReallyHeard = Number(personal?.plays || 0) === 0
+
+            return {
+                track,
+                score:(neverReallyHeard ? 100000 : 0)
+                    + Number(partner?.plays || 0) * 5000
+                    + Number(partner?.seconds || 0) * 4
+                    + (track.sharedBy ? 3500 : 0)
+                    + Math.max(0,2200 - ageDays * 35)
+                    - Number(personal?.seconds || 0)
+            }
+        }),
+        12
+    )
+
+    if (!discoveries.length) discoveries = recent.slice(0,12)
+
+    let onlyOurs = selectDiverseSmartMixTracks(
+        tracks.map(track => {
+            const total = allTotals.get(track.id)
+            const mine = total?.members.get(currentMemberId)
+            const partner = partnerMemberId ? total?.members.get(partnerMemberId) : null
+            const sharedListening = Boolean(mine?.plays && partner?.plays)
+
+            return {
+                track,
+                score:sharedListening
+                    ? 100000 + Math.min(Number(mine.seconds || 0),Number(partner.seconds || 0)) * 8 + Number(total?.plays || 0) * 2000
+                    : 0
+            }
+        }).filter(item => item.score > 0),
+        12
+    )
+
+    if (!onlyOurs.length) {
+        onlyOurs = selectDiverseSmartMixTracks(
+            tracks.map(track => {
+                const partner = partnerTotals.get(track.id)
+                const personal = personalTotals.get(track.id)
+
+                return {
+                    track,
+                    score:Number(partner?.seconds || 0) * 5
+                        + Number(personal?.seconds || 0) * 2
+                        + (track.sharedBy ? 2500 : 0)
+                        + (track.favorite ? 1800 : 0)
+                }
+            }).filter(item => item.score > 0),
+            12
+        )
+    }
+
+    const artistAffinity = new Map()
+
+    qualifiedEntries
+        .filter(item => item.member_id === currentMemberId)
+        .forEach(item => {
+            const track = getListeningTrack(item)
+
+            if (!track) return
+
+            const artist = String(track.artist || "Artista desconhecido").trim().toLocaleLowerCase("pt-BR")
+            const current = artistAffinity.get(artist) || 0
+
+            artistAffinity.set(artist,current + Number(item.listenedSeconds || item.listened_seconds || 0))
+        })
+
+    const automatic = selectDiverseSmartMixTracks(
+        tracks.map(track => {
+            const personal = personalTotals.get(track.id)
+            const partner = partnerTotals.get(track.id)
+            const combined = allTotals.get(track.id)
+            const artist = String(track.artist || "Artista desconhecido").trim().toLocaleLowerCase("pt-BR")
+            const lastPlayed = Number(personal?.lastPlayed || 0)
+            const recentlyPlayedPenalty = lastPlayed && now - lastPlayed < day ? 4500 : 0
+            const createdAt = Date.parse(track.createdAt || "") || 0
+            const recentAddition = createdAt && now - createdAt < 30 * day ? 1000 : 0
+
+            return {
+                track,
+                score:Number(personal?.seconds || 0) * 2.2
+                    + Number(personal?.plays || 0) * 2400
+                    + Number(partner?.seconds || 0) * 0.8
+                    + Number(combined?.plays || 0) * 500
+                    + Number(artistAffinity.get(artist) || 0) * 0.25
+                    + (track.favorite ? 4200 : 0)
+                    + (track.sharedBy ? 1800 : 0)
+                    + recentAddition
+                    + getSmartMixNoise(track.id) * 2600
+                    - recentlyPlayedPenalty
+            }
+        }),
+        14
+    )
+
+    return [
+        {
+            key:"automatic",
+            kicker:"Hoje",
+            title:"Mix do dia",
+            description:"Uma seleção baseada nas favoritas e no que a gente tem ouvido.",
+            icon:"icon-shuffle",
+            tracks:automatic.length ? automatic : recent
+        },
+        {
+            key:"ours",
+            kicker:"Em comum",
+            title:"Em comum",
+            description:"Músicas que aparecem no histórico dos dois perfis.",
+            icon:"icon-users",
+            tracks:onlyOurs.length ? onlyOurs : mostPlayed
+        },
+        {
+            key:"top",
+            kicker:"Nos últimos 90 dias",
+            title:"Mais ouvidas",
+            description:"As músicas com mais tempo ouvido e reproduções.",
+            icon:"icon-history",
+            tracks:mostPlayed.length ? mostPlayed : recent
+        },
+        {
+            key:"recent",
+            kicker:"Adicionadas recentemente",
+            title:"Recentes",
+            description:"As músicas adicionadas mais recentemente.",
+            icon:"icon-music",
+            tracks:recent
+        },
+        {
+            key:"discoveries",
+            kicker:"Pouco ouvidas",
+            title:"Descobertas",
+            description:"Músicas ainda pouco ouvidas, levando em conta o histórico dos dois perfis.",
+            icon:"icon-search",
+            tracks:discoveries
+        }
+    ]
+}
+
+function getSmartMixByKey(key = activeSmartMixKey) {
+    return getSmartMixes().find(mix => mix.key === key) || null
+}
+
+function createSmartMixArtwork(mix) {
+    const artworkTracks = mix.tracks.slice(0,4)
+
+    if (!artworkTracks.length) {
+        return `<span class="smart-mix-artwork-empty"><svg aria-hidden="true"><use href="#${mix.icon}"></use></svg></span>`
+    }
+
+    return artworkTracks.map((track,index) => `
+        <span class="smart-mix-artwork-tile ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+    `).join("")
+}
+
+function createSmartMixCard(mix) {
+    const count = mix.tracks.length
+    const countLabel = count === 1 ? "1 música" : `${count} músicas`
+
+    return `
+        <button type="button" class="smart-mix-card" data-smart-mix="${escapeAttribute(mix.key)}">
+            <span class="smart-mix-artwork">${createSmartMixArtwork(mix)}</span>
+            <span class="smart-mix-card-information">
+                <small>${escapeHTML(mix.kicker)}</small>
+                <strong>${escapeHTML(mix.title)}</strong>
+                <span>${escapeHTML(countLabel)}</span>
+            </span>
+        </button>
+    `
+}
+
+function renderSmartMixes() {
+    if (!smartMixGrid) return
+
+    const mixes = getSmartMixes().filter(mix => mix.tracks.length)
+
+    smartMixGrid.innerHTML = mixes.length
+        ? mixes.map(createSmartMixCard).join("")
+        : createEmptyState("Ainda sem mixes","Os mixes aparecem depois que houver histórico suficiente.","icon-shuffle")
+}
+
+function renderSmartMixModal() {
+    const mix = getSmartMixByKey()
+
+    if (!mix) return false
+
+    const count = mix.tracks.length
+    const countLabel = count === 1 ? "1 música" : `${count} músicas`
+    const playableCount = getPlayableTracks(mix.tracks).length
+
+    smartMixModalKicker.textContent = mix.kicker
+    smartMixModalTitle.textContent = mix.title
+    smartMixModalDescription.textContent = mix.description
+    smartMixModalMeta.textContent = `${countLabel} · montado a partir do histórico`
+    smartMixTrackList.innerHTML = count
+        ? mix.tracks.map(createTrackItem).join("")
+        : createEmptyState("Nada por aqui ainda","Continue ouvindo músicas para formar este mix.",mix.icon)
+    smartMixPlayButton.disabled = !playableCount
+    smartMixSaveButton.disabled = !count || cloudMode && (!cloudReady || !navigator.onLine)
+
+    return true
+}
+
+function openSmartMix(key) {
+    activeSmartMixKey = key
+
+    if (!renderSmartMixModal()) {
+        showToast("Este mix ainda não tem músicas suficientes.","warning")
+        return
+    }
+
+    openModal("smart-mix")
+}
+
+function playActiveSmartMix() {
+    const mix = getSmartMixByKey()
+    const playableTracks = mix ? getPlayableTracks(mix.tracks) : []
+
+    if (!mix || !playableTracks.length) {
+        showToast("Nenhuma música deste mix está disponível para reprodução.","warning")
+        return
+    }
+
+    closeModal("smart-mix")
+    selectTrack(playableTracks[0].id,true,{
+        context:{
+            type:"collection",
+            label:mix.title,
+            trackIds:mix.tracks.map(track => track.id)
+        }
+    })
+}
+
+function saveActiveSmartMixAsPlaylist() {
+    const mix = getSmartMixByKey()
+
+    if (!mix?.tracks.length) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para salvar este mix como playlist.","warning")
+        return
+    }
+
+    pendingPlaylistQueueIds = mix.tracks.map(track => track.id)
+    closeModal("smart-mix")
+    openPlaylistModal("",pendingPlaylistQueueIds)
+}
+
+function renderListeningOverview() {
+    const recentTracks = getRecentlyPlayedTracks(4)
+    const monthEntries = getListeningEntries({days:30})
+    const personalEntries = monthEntries.filter(item => item.member_id === currentProfile?.memberId)
+    const combined = summarizeListening(monthEntries)
+    const personal = summarizeListening(personalEntries)
+
+    if (recentlyPlayedList) {
+        recentlyPlayedList.innerHTML = recentTracks.length
+            ? recentTracks.map(createTrackItem).join("")
+            : createEmptyState("Ainda sem histórico","As músicas reproduzidas aparecem aqui.","icon-history")
+    }
+
+    if (listeningTotalTime) listeningTotalTime.textContent = formatListeningDuration(combined.seconds)
+    if (listeningPersonalTime) listeningPersonalTime.textContent = `Meu perfil: ${formatListeningDuration(personal.seconds)}`
+    if (listeningTotalPlays) listeningTotalPlays.textContent = String(combined.plays)
+    if (listeningPersonalPlays) listeningPersonalPlays.textContent = `Meu perfil: ${personal.plays}`
+
+    if (listeningTopTrack) listeningTopTrack.textContent = combined.topTrack?.track.title || "Ainda descobrindo"
+    if (listeningTopTrackDetail) {
+        listeningTopTrackDetail.textContent = combined.topTrack
+            ? `${combined.topTrack.track.artist} · ${formatListeningDuration(combined.topTrack.seconds)}`
+            : "A música mais ouvida aparece aqui depois de algumas reproduções."
+    }
+
+    if (listeningTopArtist) listeningTopArtist.textContent = combined.topArtist?.artist || "Ainda descobrindo"
+    if (listeningTopArtistDetail) {
+        listeningTopArtistDetail.textContent = combined.topArtist
+            ? `${formatListeningDuration(combined.topArtist.seconds)} ouvidos nos últimos 30 dias`
+            : "O artista mais ouvido aparece aqui."
+    }
+}
+
+function createListeningHistoryItem(item,index) {
+    const track = getListeningTrack(item)
+
+    if (!track) return ""
+
+    const listened = Number(item.listenedSeconds || item.listened_seconds || 0)
+    const ownerLabel = item.member_id === currentProfile?.memberId ? currentProfile?.name || "Meu perfil" : item.memberName || "Outro perfil"
+
+    return `
+        <button type="button" class="listening-history-item" data-track-id="${escapeAttribute(track.id)}">
+            <span class="listening-history-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+            <span class="listening-history-information">
+                <strong>${escapeHTML(track.title)}</strong>
+                <span>${escapeHTML(track.artist)} · ${escapeHTML(ownerLabel)}</span>
+                <small>${escapeHTML(formatListeningHistoryDate(item.last_listened_at || item.started_at))}</small>
+            </span>
+            <span class="listening-history-duration">${escapeHTML(formatListeningDuration(listened))}</span>
+        </button>
+    `
+}
+
+function renderListeningHistory() {
+    if (!listeningHistoryList) return
+
+    const entries = getListeningEntries({days:0,filter:listeningHistoryFilter}).slice(0,80)
+
+    listeningHistoryList.innerHTML = entries.length
+        ? entries.map(createListeningHistoryItem).join("")
+        : createEmptyState("Nenhuma reprodução por aqui","O histórico será criado conforme as músicas forem tocadas.","icon-history")
+
+    historyFilterButtons.forEach(button => {
+        const active = button.dataset.historyFilter === listeningHistoryFilter
+        button.classList.toggle("active",active)
+        button.setAttribute("aria-selected",String(active))
+    })
+}
+
+function getPendingListeningRecords() {
+    try {
+        const records = JSON.parse(localStorage.getItem(listeningPendingStorageKey) || "[]")
+
+        return Array.isArray(records) ? records : []
+    } catch (error) {
+        return []
+    }
+}
+
+function savePendingListeningRecords(records) {
+    try {
+        localStorage.setItem(listeningPendingStorageKey,JSON.stringify(records.slice(-500)))
+    } catch (error) {
+        return
+    }
+}
+
+function queuePendingListeningRecord(record) {
+    const records = getPendingListeningRecords()
+    const existingIndex = records.findIndex(item => item.sessionId === record.sessionId && item.memberId === record.memberId)
+
+    if (existingIndex >= 0) {
+        records[existingIndex] = {
+            ...records[existingIndex],
+            ...record,
+            listenedSeconds:Math.max(Number(records[existingIndex].listenedSeconds || 0),Number(record.listenedSeconds || 0)),
+            completed:Boolean(records[existingIndex].completed || record.completed)
+        }
+    } else {
+        records.push(record)
+    }
+
+    savePendingListeningRecords(records)
+}
+
+function removePendingListeningRecord(record) {
+    const records = getPendingListeningRecords().filter(item => {
+        if (item.sessionId !== record.sessionId || item.memberId !== record.memberId) return true
+
+        const pendingSeconds = Number(item.listenedSeconds || 0)
+        const persistedSeconds = Number(record.listenedSeconds || 0)
+        const hasNewerProgress = pendingSeconds > persistedSeconds
+        const hasNewerCompletion = Boolean(item.completed) && !record.completed
+
+        return hasNewerProgress || hasNewerCompletion
+    })
+
+    savePendingListeningRecords(records)
+}
+
+async function persistListeningSnapshot(snapshot) {
+    if (!snapshot?.trackId || Number(snapshot.listenedSeconds || 0) < 3) return false
+
+    const record = {
+        duoId:snapshot.duoId || currentProfile?.duoId,
+        memberId:snapshot.memberId || currentProfile?.memberId,
+        trackId:snapshot.trackId,
+        sessionId:snapshot.sessionId,
+        listenedSeconds:Math.max(0,Math.round(Number(snapshot.listenedSeconds || 0))),
+        completed:Boolean(snapshot.completed)
+    }
+    const persistenceKey = `${record.memberId}:${record.sessionId}`
+
+    // grava localmente antes de sincronizar
+    queuePendingListeningRecord(record)
+
+    if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return false
+    if (listeningPersistingSessions.has(persistenceKey)) return false
+
+    listeningPersistingSessions.add(persistenceKey)
+
+    try {
+        await cloud.recordListeningProgress(record.trackId,record.sessionId,record.listenedSeconds,record.completed)
+        removePendingListeningRecord(record)
+        scheduleListeningHistoryRefresh()
+        return true
+    } catch (error) {
+        return false
+    } finally {
+        listeningPersistingSessions.delete(persistenceKey)
+    }
+}
+
+function startListeningSession(trackId) {
+    if (!trackId || !currentProfile || !cloudMode) return
+
+    if (listeningSession?.trackId === trackId) {
+        listeningSession.lastPosition = Number(audioPlayer.currentTime || 0)
+        listeningSession.lastTimestamp = Date.now()
+        return
+    }
+
+    if (listeningSession) finishListeningSession({completed:false})
+
+    listeningSession = {
+        duoId:currentProfile.duoId,
+        memberId:currentProfile.memberId,
+        trackId,
+        sessionId:createListeningSessionId(),
+        listenedSeconds:0,
+        lastSentSeconds:0,
+        lastPosition:Number(audioPlayer.currentTime || 0),
+        lastTimestamp:Date.now(),
+        completed:false
+    }
+}
+
+function updateListeningSessionProgress() {
+    if (!listeningSession || listeningSession.trackId !== currentTrackId) return
+
+    const now = Date.now()
+    const currentPosition = Number(audioPlayer.currentTime || 0)
+    const previousPosition = Number(listeningSession.lastPosition || 0)
+    const elapsed = Math.max(0,(now - Number(listeningSession.lastTimestamp || now)) / 1000)
+    const positionDelta = currentPosition - previousPosition
+
+    if (isPlaying && positionDelta > 0 && positionDelta <= elapsed + 3) {
+        listeningSession.listenedSeconds += positionDelta
+    }
+
+    listeningSession.lastPosition = currentPosition
+    listeningSession.lastTimestamp = now
+}
+
+async function flushListeningSession({force = false} = {}) {
+    if (!listeningSession) return false
+
+    updateListeningSessionProgress()
+
+    const listenedSeconds = Number(listeningSession.listenedSeconds || 0)
+
+    if (!force && listenedSeconds - Number(listeningSession.lastSentSeconds || 0) < 30) return false
+    if (listenedSeconds < 3) return false
+
+    const snapshot = {...listeningSession,listenedSeconds}
+    const persisted = await persistListeningSnapshot(snapshot)
+
+    if (persisted && listeningSession?.sessionId === snapshot.sessionId) {
+        listeningSession.lastSentSeconds = listenedSeconds
+    }
+
+    return persisted
+}
+
+function finishListeningSession({completed = false} = {}) {
+    if (!listeningSession) return
+
+    updateListeningSessionProgress()
+
+    const snapshot = {
+        ...listeningSession,
+        completed:Boolean(completed),
+        listenedSeconds:Number(listeningSession.listenedSeconds || 0)
+    }
+
+    listeningSession = null
+    persistListeningSnapshot(snapshot)
+}
+
+function startListeningProgressTracker() {
+    if (listeningProgressInterval) return
+
+    listeningProgressInterval = setInterval(() => {
+        updateListeningSessionProgress()
+        flushListeningSession()
+    },5000)
+}
+
+async function syncPendingListeningRecords() {
+    if (listeningSyncingPending || !cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return false
+
+    const ownRecords = getPendingListeningRecords()
+        .filter(record => record.duoId === currentProfile.duoId && record.memberId === currentProfile.memberId)
+
+    if (!ownRecords.length) return false
+
+    listeningSyncingPending = true
+    let synchronizedCount = 0
+
+    try {
+        for (const record of ownRecords) {
+            try {
+                await cloud.recordListeningProgress(record.trackId,record.sessionId,record.listenedSeconds,record.completed)
+                removePendingListeningRecord(record)
+                synchronizedCount += 1
+            } catch (error) {
+                continue
+            }
+        }
+
+        if (synchronizedCount) scheduleListeningHistoryRefresh()
+
+        return Boolean(synchronizedCount)
+    } finally {
+        listeningSyncingPending = false
+    }
+}
+
+async function refreshListeningHistory() {
+    if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return
+
+    try {
+        const recentHistory = await cloud.loadListeningHistory(250)
+        const historyById = new Map(listeningHistory.map(item => [item.id,item]))
+
+        recentHistory.forEach(item => historyById.set(item.id,item))
+
+        listeningHistory = [...historyById.values()]
+            .sort((first,second) => new Date(second.last_listened_at || second.started_at || 0) - new Date(first.last_listened_at || first.started_at || 0))
+            .slice(0,10000)
+
+        renderListeningOverview()
+        renderMusicalProfile()
+        renderSmartMixes()
+        renderListeningHistory()
+
+        if (smartMixModal?.classList.contains("open")) renderSmartMixModal()
+    } catch (error) {
+        return
+    }
+}
+
+function scheduleListeningHistoryRefresh() {
+    clearTimeout(listeningHistoryRefreshTimeout)
+    listeningHistoryRefreshTimeout = setTimeout(refreshListeningHistory,500)
+}
+
 function renderHome() {
     const favoriteTracks = tracks.filter(track => track.favorite).slice(0,4)
     const sharedTracks = tracks.filter(track => track.sharedBy).slice(0,3)
 
+    renderListeningOverview()
+    renderMusicalProfile()
+    renderSmartMixes()
+    renderDedicationPreview()
+
     favoritesGrid.innerHTML = favoriteTracks.length
         ? favoriteTracks.map(createAlbumCard).join("")
-        : createEmptyState("Nenhuma favorita","Marque as músicas que fazem parte dos momentos de vocês.","icon-heart")
+        : createEmptyState("Nenhuma favorita","As músicas marcadas como favoritas aparecem aqui.","icon-heart")
 
     sharedTrackList.innerHTML = sharedTracks.length
         ? sharedTracks.map(createTrackItem).join("")
-        : createEmptyState("Nada por aqui","As músicas enviadas entre vocês aparecerão nesta seção.","icon-send")
+        : createEmptyState("Nada por aqui","As músicas recebidas aparecem aqui.","icon-send")
 }
 
 function getLibraryModeLabel(mode = activeLibraryMode) {
@@ -2048,7 +4046,7 @@ function matchesLibraryOwner(track) {
 }
 
 function getLibrarySearchQuery() {
-    return String(librarySearchInput?.value || "").trim().toLocaleLowerCase("pt-BR")
+    return normalizeSearchText(librarySearchInput?.value || "")
 }
 
 function sortLibraryTracks(sourceTracks) {
@@ -2171,7 +4169,7 @@ function createPlaylistCard(playlist,index) {
     const playlistTracks = playlist.trackIds.map(trackId => tracks.find(track => track.id === trackId)).filter(Boolean)
     const count = playlistTracks.length
     const label = count === 1 ? "1 música" : `${count} músicas`
-    const creator = playlist.createdByName ? `por ${playlist.createdByName}` : "de vocês"
+    const creator = playlist.createdByName ? `por ${playlist.createdByName}` : "compartilhada"
     const artworkTracks = playlistTracks.slice(0,4)
     const artwork = artworkTracks.length
         ? artworkTracks.map((track,coverIndex) => `
@@ -2305,7 +4303,7 @@ function renderLibraryCollections() {
 
         libraryCollectionGrid.innerHTML = groups.length
             ? groups.map((group,index) => createLibraryCollectionCard(group,index,"album")).join("")
-            : createEmptyState("Nenhum álbum encontrado","Os álbuns são criados automaticamente a partir das músicas do catálogo.","icon-library")
+            : createEmptyState("Nenhum álbum encontrado","Os álbuns são agrupados pelos dados das músicas.","icon-library")
         libraryCollectionGrid.hidden = false
         return groups.length
     }
@@ -2315,7 +4313,7 @@ function renderLibraryCollections() {
 
         libraryCollectionGrid.innerHTML = groups.length
             ? groups.map((group,index) => createLibraryCollectionCard(group,index,"artist")).join("")
-            : createEmptyState("Nenhum artista encontrado","Os artistas são organizados automaticamente a partir do catálogo.","icon-users")
+            : createEmptyState("Nenhum artista encontrado","Os artistas são agrupados pelos dados das músicas.","icon-users")
         libraryCollectionGrid.hidden = false
         return groups.length
     }
@@ -2411,27 +4409,216 @@ function renderLibrary() {
         )
 }
 
+function getSearchDiscoveryTracks(limit = 5) {
+    const mixes = getSmartMixes()
+    const automatic = mixes.find(mix => mix.key === "automatic")?.tracks || []
+    const discoveries = mixes.find(mix => mix.key === "discoveries")?.tracks || []
+    const recent = mixes.find(mix => mix.key === "recent")?.tracks || []
+    const selected = []
+    const used = new Set()
+
+    for (const track of [...automatic,...discoveries,...recent,...tracks]) {
+        if (!track || used.has(track.id)) continue
+
+        used.add(track.id)
+        selected.push(track)
+
+        if (selected.length >= limit) break
+    }
+
+    return selected
+}
+
+function getSearchDiscoveryArtists(limit = 4) {
+    const discoveryTracks = getSearchDiscoveryTracks(12)
+    const priorityArtists = new Map()
+
+    discoveryTracks.forEach((track,index) => {
+        const key = getArtistKey(track)
+        if (!priorityArtists.has(key)) priorityArtists.set(key,index)
+    })
+
+    return getArtistGroups()
+        .map(group => ({group,priority:priorityArtists.has(group.key) ? priorityArtists.get(group.key) : 9999}))
+        .sort((first,second) => first.priority - second.priority || second.group.tracks.length - first.group.tracks.length)
+        .slice(0,limit)
+        .map(item => item.group)
+}
+
+function getSearchDiscoveryAlbums(limit = 4) {
+    const discoveryTracks = getSearchDiscoveryTracks(12)
+    const priorityAlbums = new Map()
+
+    discoveryTracks.forEach((track,index) => {
+        const key = getAlbumKey(track)
+        if (!priorityAlbums.has(key)) priorityAlbums.set(key,index)
+    })
+
+    return getAlbumGroups()
+        .map(group => ({group,priority:priorityAlbums.has(group.key) ? priorityAlbums.get(group.key) : 9999}))
+        .sort((first,second) => first.priority - second.priority || second.group.tracks.length - first.group.tracks.length)
+        .slice(0,limit)
+        .map(item => item.group)
+}
+
+function renderSearchLanding() {
+    const recentSearches = getRecentSearches()
+    const discoveryTracks = getSearchDiscoveryTracks()
+    const discoveryArtists = getSearchDiscoveryArtists()
+    const discoveryAlbums = getSearchDiscoveryAlbums()
+
+    if (searchRecentSection) searchRecentSection.hidden = !recentSearches.length
+    if (searchRecentList) {
+        searchRecentList.innerHTML = recentSearches.map(search => `
+            <button type="button" data-recent-search="${escapeAttribute(search)}">
+                <svg aria-hidden="true"><use href="#icon-history"></use></svg>
+                <span>${escapeHTML(search)}</span>
+            </button>
+        `).join("")
+    }
+
+    if (searchDiscoveryTrackList) {
+        searchDiscoveryTrackList.innerHTML = discoveryTracks.length
+            ? discoveryTracks.map(createTrackItem).join("")
+            : createEmptyState("A descoberta começa aqui","Adicione músicas à biblioteca para receber sugestões.","icon-music")
+    }
+
+    if (searchDiscoveryArtistGrid) {
+        searchDiscoveryArtistGrid.innerHTML = discoveryArtists.map((group,index) => createLibraryCollectionCard(group,index,"artist")).join("")
+    }
+
+    if (searchDiscoveryAlbumGrid) {
+        searchDiscoveryAlbumGrid.innerHTML = discoveryAlbums.map((group,index) => createLibraryCollectionCard(group,index,"album")).join("")
+    }
+
+    if (searchDiscoveryArtistsSection) searchDiscoveryArtistsSection.hidden = !discoveryArtists.length
+    if (searchDiscoveryAlbumsSection) searchDiscoveryAlbumsSection.hidden = !discoveryAlbums.length
+}
+
+function createSearchResultHeading(title,count,description = "") {
+    const countLabel = count === 1 ? "1 resultado" : `${count} resultados`
+
+    return `
+        <header class="search-result-heading">
+            <div>
+                <span>${escapeHTML(countLabel)}</span>
+                <h3>${escapeHTML(title)}</h3>
+            </div>
+            ${description ? `<p>${escapeHTML(description)}</p>` : ""}
+        </header>
+    `
+}
+
+function createSearchTrackResults(tracksResult,{limit = 0} = {}) {
+    const visibleTracks = limit > 0 ? tracksResult.slice(0,limit) : tracksResult
+
+    if (!visibleTracks.length) return ""
+
+    return `
+        <section class="search-result-section">
+            ${createSearchResultHeading("Músicas",tracksResult.length,"Ordenadas pelo melhor resultado")}
+            <div class="track-list">${visibleTracks.map(createTrackItem).join("")}</div>
+        </section>
+    `
+}
+
+function createSearchArtistResults(groups,{limit = 0} = {}) {
+    const visibleGroups = limit > 0 ? groups.slice(0,limit) : groups
+
+    if (!visibleGroups.length) return ""
+
+    return `
+        <section class="search-result-section">
+            ${createSearchResultHeading("Artistas",groups.length)}
+            <div class="library-collection-grid search-entity-grid">
+                ${visibleGroups.map((group,index) => createLibraryCollectionCard(group,index,"artist")).join("")}
+            </div>
+        </section>
+    `
+}
+
+function createSearchAlbumResults(groups,{limit = 0} = {}) {
+    const visibleGroups = limit > 0 ? groups.slice(0,limit) : groups
+
+    if (!visibleGroups.length) return ""
+
+    return `
+        <section class="search-result-section">
+            ${createSearchResultHeading("Álbuns",groups.length)}
+            <div class="library-collection-grid search-entity-grid">
+                ${visibleGroups.map((group,index) => createLibraryCollectionCard(group,index,"album")).join("")}
+            </div>
+        </section>
+    `
+}
+
+function createSearchPlaylistResults(playlistResults,{limit = 0} = {}) {
+    const visiblePlaylists = limit > 0 ? playlistResults.slice(0,limit) : playlistResults
+
+    if (!visiblePlaylists.length) return ""
+
+    return `
+        <section class="search-result-section">
+            ${createSearchResultHeading("Playlists",playlistResults.length)}
+            <div class="playlist-grid search-playlist-grid">
+                ${visiblePlaylists.map(createPlaylistCard).join("")}
+            </div>
+        </section>
+    `
+}
+
 function renderSearch(query = "") {
-    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR")
+    const normalizedQuery = normalizeSearchText(query)
 
     clearSearchButton.hidden = !normalizedQuery
     searchIntroduction.hidden = Boolean(normalizedQuery)
+    searchModeTabs.hidden = !normalizedQuery
+
+    searchModeButtons.forEach(button => {
+        button.classList.toggle("active",button.dataset.searchMode === activeSearchMode)
+    })
 
     if (!normalizedQuery) {
         searchResults.innerHTML = ""
+        renderSearchLanding()
         return
     }
 
-    const matchingTracks = tracks.filter(track => getTrackSearchText(track).includes(normalizedQuery))
-    const resultsLabel = matchingTracks.length === 1 ? "1 resultado" : `${matchingTracks.length} resultados`
+    const matchingTracks = getRankedSearchTracks(query)
+    const matchingArtists = getRankedSearchArtists(query)
+    const matchingAlbums = getRankedSearchAlbums(query)
+    const matchingPlaylists = getRankedSearchPlaylists(query)
+    const totalResults = matchingTracks.length + matchingArtists.length + matchingAlbums.length + matchingPlaylists.length
 
-    searchResults.innerHTML = matchingTracks.length
-        ? `<p class="results-label">${resultsLabel}</p><div class="track-list">${matchingTracks.map(createTrackItem).join("")}</div>`
-        : createEmptyState("Nenhum resultado","Tente buscar outro título, artista, álbum ou momento.")
+    let content = ""
+
+    if (activeSearchMode === "all") {
+        content = [
+            createSearchTrackResults(matchingTracks,{limit:8}),
+            createSearchArtistResults(matchingArtists,{limit:6}),
+            createSearchAlbumResults(matchingAlbums,{limit:6}),
+            createSearchPlaylistResults(matchingPlaylists,{limit:4})
+        ].filter(Boolean).join("")
+    }
+
+    if (activeSearchMode === "tracks") content = createSearchTrackResults(matchingTracks)
+    if (activeSearchMode === "artists") content = createSearchArtistResults(matchingArtists)
+    if (activeSearchMode === "albums") content = createSearchAlbumResults(matchingAlbums)
+    if (activeSearchMode === "playlists") content = createSearchPlaylistResults(matchingPlaylists)
+
+    const summary = activeSearchMode === "all" && totalResults
+        ? `<p class="search-results-summary">${totalResults === 1 ? "1 resultado encontrado" : `${totalResults} resultados encontrados`} para <strong>${escapeHTML(query.trim())}</strong></p>`
+        : ""
+
+    searchResults.innerHTML = content
+        ? `${summary}${content}`
+        : createEmptyState("Nenhum resultado","A busca encontra título, artista, álbum e playlist, mesmo sem acentos ou com pequenos erros.")
 }
 
 function renderApplicationData() {
     renderHome()
+    renderActivityCenter()
+    renderDedicationCenter()
     renderPlaylists()
     updateLibraryFilters()
     renderLibrary()
@@ -2441,6 +4628,20 @@ function renderApplicationData() {
 }
 
 document.addEventListener("click",event => {
+    const dedicationItemButton = event.target.closest("[data-open-dedication]")
+
+    if (dedicationItemButton) {
+        openDedicationItem(dedicationItemButton.dataset.openDedication)
+        return
+    }
+
+    const activityItemButton = event.target.closest("[data-open-activity]")
+
+    if (activityItemButton) {
+        openActivityItem(activityItemButton.dataset.openActivity)
+        return
+    }
+
     const downloadButton = event.target.closest("[data-download-track]")
 
     if (downloadButton) {
@@ -2476,9 +4677,17 @@ document.addEventListener("click",event => {
         return
     }
 
+    const smartMixButton = event.target.closest("[data-smart-mix]")
+
+    if (smartMixButton) {
+        openSmartMix(smartMixButton.dataset.smartMix)
+        return
+    }
+
     const trackButton = event.target.closest("[data-track-id]")
 
     if (trackButton) {
+        if (trackButton.closest("#search-results")) saveRecentSearch(searchInput.value)
         selectTrack(trackButton.dataset.trackId,true,{context:getPlaybackContextFromElement(trackButton)})
         return
     }
@@ -2486,11 +4695,22 @@ document.addEventListener("click",event => {
     const collectionButton = event.target.closest("[data-library-entity-type]")
 
     if (collectionButton) {
+        const collectionType = collectionButton.dataset.libraryEntityType
+        const fromSearch = Boolean(collectionButton.closest("#search-results") || collectionButton.closest("#search-introduction"))
+
+        if (collectionButton.closest("#search-results")) saveRecentSearch(searchInput.value)
+
         activePlaylistId = ""
+        activeLibraryMode = collectionType === "album" ? "albums" : "artists"
+        activeLibraryFilter = "all"
         activeLibraryEntity = {
-            type:collectionButton.dataset.libraryEntityType,
+            type:collectionType,
             key:decodeURIComponent(collectionButton.dataset.libraryEntityKey || "")
         }
+
+        if (fromSearch) openView("library")
+
+        updateLibraryFilters()
         renderLibrary()
         return
     }
@@ -2498,6 +4718,7 @@ document.addEventListener("click",event => {
     const playlistButton = event.target.closest("[data-playlist-id]")
 
     if (playlistButton) {
+        if (playlistButton.closest("#search-results")) saveRecentSearch(searchInput.value)
         activeLibraryEntity = null
         activeLibraryMode = "playlists"
         activeLibraryFilter = "all"
@@ -2579,15 +4800,45 @@ libraryOwnerSelect?.addEventListener("change",() => {
 
 searchInput?.addEventListener("input",() => renderSearch(searchInput.value))
 
+searchInput?.addEventListener("keydown",event => {
+    if (event.key !== "Enter") return
+
+    saveRecentSearch(searchInput.value)
+    renderSearch(searchInput.value)
+})
+
 clearSearchButton?.addEventListener("click",() => {
     searchInput.value = ""
+    activeSearchMode = "all"
     renderSearch("")
+    searchInput.focus()
+})
+
+searchModeButtons.forEach(button => {
+    button.addEventListener("click",() => {
+        activeSearchMode = button.dataset.searchMode || "all"
+        renderSearch(searchInput.value)
+    })
+})
+
+clearRecentSearchesButton?.addEventListener("click",clearRecentSearches)
+
+searchRecentList?.addEventListener("click",event => {
+    const button = event.target.closest("[data-recent-search]")
+
+    if (!button) return
+
+    searchInput.value = button.dataset.recentSearch || ""
+    activeSearchMode = "all"
+    renderSearch(searchInput.value)
     searchInput.focus()
 })
 
 suggestionButtons.forEach(button => {
     button.addEventListener("click",() => {
         searchInput.value = button.dataset.searchSuggestion
+        activeSearchMode = "all"
+        saveRecentSearch(searchInput.value)
         renderSearch(searchInput.value)
         searchInput.focus()
     })
@@ -2676,7 +4927,7 @@ function updatePlaybackModeInterface() {
 
 function toggleShuffle() {
     if (jamActive) {
-        showToast("Durante uma Jam, a ordem permanece igual nos dois aparelhos.","warning")
+        showToast("Durante a Jam, a ordem fica igual nos dois aparelhos.","warning")
         return
     }
 
@@ -2904,9 +5155,43 @@ function prepareAudioTrack(track) {
     return true
 }
 
+async function refreshTrackCloudAssets(track) {
+    if (!track || !cloudMode || !cloudReady || !navigator.onLine || !cloud?.createPrivateUrl) return track
+
+    if (track.audioPath) {
+        try {
+            const source = await cloud.createPrivateUrl(track.audioPath)
+
+            if (source) {
+                track.cloudSource = source
+                if (!track.downloaded) track.source = source
+            }
+        } catch (error) {
+            // usa a URL atual como último recurso
+        }
+    }
+
+    if (track.coverPath) {
+        try {
+            const coverImage = await cloud.createPrivateUrl(track.coverPath)
+
+            if (coverImage) {
+                track.cloudCoverImage = coverImage
+                if (!track.downloaded || !String(track.coverImage || "").startsWith("blob:")) track.coverImage = coverImage
+            }
+        } catch (error) {
+            // mantém a capa que já está em memória
+        }
+    }
+
+    return track
+}
+
 async function playTrack(options = {}) {
     const track = getCurrentTrack()
     const syncJam = options.syncJam !== false
+
+    if (track && cloudMode && cloudReady && navigator.onLine) await refreshTrackCloudAssets(track)
 
     if (cloudMode && !navigator.onLine && track && !track.downloaded) {
         isPlaying = false
@@ -2946,6 +5231,7 @@ async function playTrack(options = {}) {
 function pauseTrack(options = {}) {
     const syncJam = options.syncJam !== false
 
+    updateListeningSessionProgress()
     audioPlayer.pause()
     isPlaying = false
     updatePlayerInterface()
@@ -2981,6 +5267,9 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
     }
 
     const changedTrack = selectedTrack.id !== currentTrackId
+
+    if (changedTrack) finishListeningSession({completed:false})
+
     currentTrackId = selectedTrack.id
 
     if (changedTrack) {
@@ -3009,6 +5298,8 @@ function getJamSequence() {
 
 function changeTrack(direction,options = {}) {
     const automatic = options.automatic === true
+
+    if (automatic) finishListeningSession({completed:true})
 
     if (automatic && repeatMode === "one" && !jamActive) {
         catalogEndHandledTrackId = ""
@@ -3056,7 +5347,7 @@ function changeTrack(direction,options = {}) {
                 updatePlayerInterface()
                 schedulePlaybackStateSave()
             } else {
-                showToast(direction > 0 ? "Fim da fila." : "Você está no início da fila.","warning")
+                showToast(direction > 0 ? "Fim da fila." : "Início da fila.","warning")
             }
             return
         }
@@ -3100,7 +5391,7 @@ async function toggleFavorite() {
         }
     }
 
-    showToast(track.favorite ? "Música adicionada às favoritas de vocês." : "Música removida das favoritas.")
+    showToast(track.favorite ? "Música adicionada aos favoritos." : "Música removida das favoritas.")
 }
 
 async function sendCurrentTrack() {
@@ -3109,7 +5400,7 @@ async function sendCurrentTrack() {
     if (!track) return
 
     if (!cloudMode) {
-        track.sharedBy = track.sharedBy || "Enviada por você"
+        track.sharedBy = track.sharedBy || `Enviada por ${currentProfile?.name || "meu perfil"}`
         renderApplicationData()
         showToast("Envio simulado neste aparelho.","warning")
         return
@@ -3123,7 +5414,7 @@ async function sendCurrentTrack() {
     try {
         await cloud.shareTrack(track.id)
         await loadCloudApplicationData()
-        showToast("Música enviada para a outra pessoa.")
+        showToast("Música enviada.")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível enviar a música."),"warning")
     }
@@ -3137,6 +5428,7 @@ shuffleButton?.addEventListener("click",toggleShuffle)
 repeatButton?.addEventListener("click",cycleRepeatMode)
 favoriteButton?.addEventListener("click",toggleFavorite)
 sendCurrentTrackButton?.addEventListener("click",sendCurrentTrack)
+dedicateCurrentTrackButton?.addEventListener("click",() => openDedicationCompose(currentTrackId))
 downloadCurrentTrackButton?.addEventListener("click",() => toggleTrackDownload(currentTrackId))
 addCurrentToPlaylistButton?.addEventListener("click",() => {
     closeSheet("player")
@@ -3174,11 +5466,14 @@ trackProgress?.addEventListener("change",() => {
 
 audioPlayer?.addEventListener("play",() => {
     isPlaying = true
+    startListeningSession(currentTrackId)
     updatePlayerInterface()
     updateMediaSessionPosition(true)
 })
 
 audioPlayer?.addEventListener("pause",() => {
+    updateListeningSessionProgress()
+    flushListeningSession({force:true})
     isPlaying = false
     updatePlayerInterface()
     updateMediaSessionPosition(true)
@@ -3190,6 +5485,7 @@ audioPlayer?.addEventListener("pause",() => {
 })
 
 audioPlayer?.addEventListener("timeupdate",() => {
+    updateListeningSessionProgress()
     updateProgressInterface()
     finishTrackAtValidatedDuration()
 
@@ -3227,7 +5523,33 @@ audioPlayer?.addEventListener("ratechange",() => updateMediaSessionPosition(true
 
 audioPlayer?.addEventListener("ended",() => changeTrack(1,{automatic:true}))
 
-// gerenciamento das musicas
+openMusicalProfileButton?.addEventListener("click",openMusicalProfile)
+openMusicalProfileCard?.addEventListener("click",openMusicalProfile)
+musicalProfileOptionButton?.addEventListener("click",openMusicalProfile)
+musicalProfileModal?.addEventListener("click",event => {
+    if (event.target.closest("[data-track-id]")) closeModal("musical-profile")
+})
+
+openListeningHistoryButton?.addEventListener("click",() => {
+    listeningHistoryFilter = "all"
+    renderListeningHistory()
+    openModal("listening-history")
+})
+
+openRecentHistoryButton?.addEventListener("click",() => {
+    listeningHistoryFilter = "all"
+    renderListeningHistory()
+    openModal("listening-history")
+})
+
+historyFilterButtons.forEach(button => {
+    button.addEventListener("click",() => {
+        listeningHistoryFilter = button.dataset.historyFilter || "all"
+        renderListeningHistory()
+    })
+})
+
+// edição de músicas
 function resetTrackManager() {
     if (managedCoverPreviewUrl) URL.revokeObjectURL(managedCoverPreviewUrl)
 
@@ -3242,10 +5564,10 @@ function resetTrackManager() {
 }
 
 function getTrackOwnerLabel(track) {
-    if (!cloudMode) return "Música desta demonstração"
-    if (canManageTrack(track)) return "Adicionada por você"
+    if (!cloudMode) return "Música do modo local"
+    if (canManageTrack(track)) return `Adicionada por ${currentProfile?.name || "meu perfil"}`
 
-    return track.addedByName ? `Adicionada por ${track.addedByName}` : "Adicionada pela outra pessoa"
+    return track.addedByName ? `Adicionada por ${track.addedByName}` : "Adicionada em outro perfil"
 }
 
 function updateTrackManagerCoverPreview(track) {
@@ -3289,7 +5611,7 @@ function openTrackManager(trackId) {
     trackManagerOwner.textContent = getTrackOwnerLabel(track)
     trackManagerInformation.textContent = cloudMode
         ? "Título, artista, álbum e capa serão sincronizados nos aparelhos conectados."
-        : "As alterações desta demonstração permanecem somente nesta página."
+        : "As alterações do modo local ficam somente neste aparelho."
 
     setCoverElement(trackManagerCover,track)
     updateTrackManagerCoverPreview(track)
@@ -3298,7 +5620,7 @@ function openTrackManager(trackId) {
 
     trackManagerRemoveCoverButton.disabled = !hasCover
     trackDeleteButton.disabled = jamActive
-    if (jamActive) trackManagerInformation.textContent = "Durante uma Jam você pode editar os dados, mas a exclusão fica bloqueada até a Jam terminar."
+    if (jamActive) trackManagerInformation.textContent = "Durante a Jam, os dados podem ser editados, mas a exclusão fica bloqueada até o fim."
 
     openModal("track-manager")
 }
@@ -3357,7 +5679,7 @@ function markTrackCoverForRemoval() {
     managedCoverRemoved = true
     trackManagerRemoveCoverButton.disabled = true
     updateTrackManagerCoverPreview(track)
-    showToast("A capa será removida quando você salvar as alterações.")
+    showToast("A capa será removida ao salvar.")
 }
 
 async function handleTrackManagerMetadataLookup() {
@@ -3480,7 +5802,7 @@ async function handleTrackManagerSubmit(event) {
 
             closeModal("track-manager")
             await loadCloudApplicationData()
-            showToast("Informações da música atualizadas nos dois aparelhos.")
+            showToast("Música atualizada.")
             return
         }
 
@@ -3497,7 +5819,7 @@ async function handleTrackManagerSubmit(event) {
         closeModal("track-manager")
         renderApplicationData()
         updatePlayerInterface()
-        showToast("Música atualizada nesta demonstração.","warning")
+        showToast("Música atualizada no modo local.","warning")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível atualizar a música."),"warning")
     } finally {
@@ -3600,7 +5922,7 @@ async function confirmTrackDeletion() {
         closeModal("track-manager")
         renderApplicationData()
         updatePlayerInterface()
-        showToast("Música removida desta demonstração.","warning")
+        showToast("Música removida do modo local.","warning")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível excluir a música."),"warning")
     } finally {
@@ -3617,7 +5939,7 @@ trackDeleteButton?.addEventListener("click",openTrackDeleteConfirmation)
 trackDeleteCancelButton?.addEventListener("click",closeTrackDeleteConfirmation)
 trackDeleteConfirmButton?.addEventListener("click",confirmTrackDeletion)
 
-// paineis e modais
+// modais e painéis
 function getSheet(name) {
     const sheetMap = {
         player:playerSheet,
@@ -3656,6 +5978,12 @@ function getModal(name) {
         catalog:catalogModal,
         playlist:playlistModal,
         "playlist-manager":playlistManagerModal,
+        "listening-history":listeningHistoryModal,
+        "smart-mix":smartMixModal,
+        "musical-profile":musicalProfileModal,
+        activity:activityModal,
+        dedication:dedicationModal,
+        "dedication-compose":dedicationComposeModal,
         profile:profileModal,
         install:installModal
     }
@@ -3684,6 +6012,7 @@ function closeModal(name) {
 
     if (name === "track-manager") resetTrackManager()
     if (name === "playlist-manager") resetPlaylistManager()
+    if (name === "dedication-compose") resetDedicationCompose()
 
     modal.classList.remove("open")
     modal.setAttribute("aria-hidden","true")
@@ -3705,8 +6034,12 @@ function closeAllOverlays() {
 
     resetTrackManager()
     resetPlaylistManager()
+    resetDedicationCompose()
     setOverlayState()
 }
+
+smartMixPlayButton?.addEventListener("click",playActiveSmartMix)
+smartMixSaveButton?.addEventListener("click",saveActiveSmartMixAsPlaylist)
 
 openPlayerButton?.addEventListener("click",() => openSheet("player"))
 openQueueButton?.addEventListener("click",() => {
@@ -3731,6 +6064,45 @@ saveQueuePlaylistButton?.addEventListener("click",() => {
 })
 uploadButton?.addEventListener("click",() => openModal("upload"))
 profileButton?.addEventListener("click",() => openModal("profile"))
+activityButton?.addEventListener("click",() => {
+    openModal("activity")
+    refreshActivityNotifications()
+})
+activityProfileOptionButton?.addEventListener("click",() => {
+    closeModal("profile")
+    openModal("activity")
+    refreshActivityNotifications()
+})
+activityMarkAllButton?.addEventListener("click",markAllActivitiesRead)
+openDedicationsButton?.addEventListener("click",() => {
+    dedicationFilter = "received"
+    renderDedicationCenter()
+    openModal("dedication")
+})
+dedicationProfileOptionButton?.addEventListener("click",() => {
+    closeModal("profile")
+    dedicationFilter = "received"
+    renderDedicationCenter()
+    openModal("dedication")
+})
+dedicationMarkAllButton?.addEventListener("click",markAllDedicationsRead)
+dedicationFilterButtons.forEach(button => {
+    button.addEventListener("click",() => {
+        dedicationFilter = button.dataset.dedicationFilter || "received"
+        renderDedicationCenter()
+    })
+})
+dedicationForm?.addEventListener("submit",submitMusicDedication)
+dedicationMessageInput?.addEventListener("input",() => {
+    if (dedicationMessageError) dedicationMessageError.textContent = ""
+    updateDedicationCharacterCount()
+})
+activityFilterButtons.forEach(button => {
+    button.addEventListener("click",() => {
+        activityFilter = button.dataset.activityFilter || "all"
+        renderActivityCenter()
+    })
+})
 
 openUploadButtons.forEach(button => {
     button.addEventListener("click",() => openModal("upload"))
@@ -3781,7 +6153,7 @@ document.addEventListener("keydown",event => {
     closeAllOverlays()
 })
 
-// upload
+// adicionar e importar
 function getFileTitle(fileName) {
     return fileName.replace(/\.[^/.]+$/,"").replaceAll(/[_-]+/g," ").trim()
 }
@@ -3928,17 +6300,20 @@ function getBrowserAudioDuration(file) {
         const previewAudio = document.createElement("audio")
         const objectUrl = URL.createObjectURL(file)
         let finished = false
+        let timeout = null
 
         const finish = duration => {
             if (finished) return
 
             finished = true
+            clearTimeout(timeout)
             previewAudio.removeAttribute("src")
             previewAudio.load()
             URL.revokeObjectURL(objectUrl)
             resolve(Number.isFinite(duration) && duration > 0 ? duration : 0)
         }
 
+        timeout = setTimeout(() => finish(0),12000)
         previewAudio.preload = "metadata"
         previewAudio.addEventListener("loadedmetadata",() => finish(previewAudio.duration),{once:true})
         previewAudio.addEventListener("error",() => finish(0),{once:true})
@@ -4443,7 +6818,7 @@ function renderCatalogQueue() {
     catalogList.innerHTML = catalogItems.length
         ? catalogItems.map(item => {
             const coverStyle = item.coverUrl
-                ? `style="background-image:url('${escapeAttribute(item.coverUrl)}')"`
+                ? `style="background-image:url('${escapeAttribute(escapeCSSUrl(item.coverUrl))}')"`
                 : ""
             const information = item.artist
                 ? `${escapeHTML(item.artist)} · ${escapeHTML(item.album)}`
@@ -4506,7 +6881,7 @@ function clearCatalogQueue() {
     catalogFolderInput.value = ""
     updateCatalogProgress(
         "Nenhuma música selecionada",
-        "Você pode adicionar novos arquivos à lista antes de importar.",
+        "Mais arquivos podem ser adicionados antes de começar.",
         0,
         0
     )
@@ -4525,7 +6900,7 @@ function removeCatalogItem(itemId) {
     if (!catalogItems.length) {
         updateCatalogProgress(
             "Nenhuma música selecionada",
-            "Você pode adicionar novos arquivos à lista antes de importar.",
+            "Mais arquivos podem ser adicionados antes de começar.",
             0,
             0
         )
@@ -4735,7 +7110,7 @@ async function analyzeCatalogFiles(fileList) {
         readyCount ? `${readyCount} ${readyCount === 1 ? "música pronta" : "músicas prontas"}` : "Nenhuma música nova encontrada",
         duplicateCount
             ? `${duplicateCount} ${duplicateCount === 1 ? "duplicata será ignorada" : "duplicatas serão ignoradas"}. Confira a lista antes de importar.`
-            : "Confira a lista e inicie o envio para a nuvem.",
+            : "Confira a lista e inicie a importação.",
         newItems.length,
         newItems.length
     )
@@ -4833,7 +7208,7 @@ async function importCatalog() {
     if (catalogCancelRequested) {
         updateCatalogProgress(
             "Importação interrompida",
-            `${importedItems} ${importedItems === 1 ? "música foi salva" : "músicas foram salvas"}. Você pode continuar quando quiser.`,
+            `${importedItems} ${importedItems === 1 ? "música foi salva" : "músicas foram salvas"}.`,
             completedItems,
             importableItems.length
         )
@@ -4906,17 +7281,22 @@ async function handleUploadSubmit(event) {
         return
     }
 
-    setButtonLoading(uploadSubmitButton,true,"Enviando para a nuvem...")
+    setButtonLoading(uploadSubmitButton,true,"Enviando...")
 
     try {
-        const [duration,fileHash] = await Promise.all([
-            getAudioDuration(audioFile),
-            createFileFingerprint(audioFile)
-        ])
+        // processa em sequência para poupar memória
+        const duration = await getAudioDuration(audioFile)
+        const fileHash = await createFileFingerprint(audioFile)
+        const signature = createCatalogSignature({title,artist,album,duration})
+        const looseSignature = createCatalogLooseSignature({title,artist,duration})
+        const duplicate = tracks.some(track => {
+            if (track.fileHash && track.fileHash === fileHash) return true
 
-        if (tracks.some(track => track.fileHash && track.fileHash === fileHash)) {
-            throw new Error("Esta música já existe na biblioteca.")
-        }
+            return createCatalogSignature(track) === signature
+                || createCatalogLooseSignature(track) === looseSignature
+        })
+
+        if (duplicate) throw new Error("Esta música já existe na biblioteca.")
 
         const createdTrack = await cloud.uploadTrack({
             audioFile,
@@ -4935,7 +7315,7 @@ async function handleUploadSubmit(event) {
         resetUploadForm()
         await loadCloudApplicationData()
         await selectTrack(createdTrack.id,true)
-        showToast("Música salva na nuvem dos dois.")
+        showToast("Música adicionada à biblioteca.")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível enviar o arquivo."),"warning")
     } finally {
@@ -5073,14 +7453,14 @@ async function handlePlaylistSubmit(event) {
                 id:createId("playlist"),
                 title,
                 description,
-                createdByName:currentProfile?.name || "Você",
+                createdByName:currentProfile?.name || "Meu perfil",
                 createdAt:now,
                 updatedAt:now,
                 trackIds,
                 items:trackIds.map((trackId,position) => ({
                     trackId,
                     position,
-                    addedByName:currentProfile?.name || "Você",
+                    addedByName:currentProfile?.name || "Meu perfil",
                     createdAt:now
                 }))
             })
@@ -5096,7 +7476,7 @@ async function handlePlaylistSubmit(event) {
             ? "Playlist criada com a música atual."
             : createdFromQueue
                 ? "Fila salva como playlist."
-                : "Playlist criada para vocês.")
+                : "Playlist criada.")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível criar a playlist."),"warning")
     } finally {
@@ -5138,7 +7518,7 @@ async function toggleTrackInPlaylist(playlistId) {
                 {
                     trackId:pendingPlaylistTrackId,
                     position:playlist.trackIds.length - 1,
-                    addedByName:currentProfile?.name || "Você",
+                    addedByName:currentProfile?.name || "Meu perfil",
                     createdAt:now
                 }
             ]
@@ -5177,7 +7557,7 @@ function renderPlaylistActivity() {
     if (!playlistActivityList) return
 
     if (!cloudMode) {
-        playlistActivityList.innerHTML = '<p class="playlist-activity-empty">O histórico compartilhado aparece quando o Dois Tons está conectado ao Supabase.</p>'
+        playlistActivityList.innerHTML = '<p class="playlist-activity-empty">O histórico da playlist aparece quando há conexão com o Supabase.</p>'
         return
     }
 
@@ -5191,7 +7571,7 @@ function renderPlaylistActivity() {
             <article class="playlist-activity-item">
                 <span class="playlist-activity-avatar">${escapeHTML(getInitials(item.actorName || "DT"))}</span>
                 <span>
-                    <strong>${escapeHTML(item.actorName || "Sua pessoa")}</strong>
+                    <strong>${escapeHTML(item.actorName || "Outro perfil")}</strong>
                     <p>${escapeHTML(getPlaylistActivityText(item))}</p>
                     <small>${escapeHTML(formatPlaylistDate(item.created_at))}</small>
                 </span>
@@ -5262,7 +7642,7 @@ async function handlePlaylistManagerSubmit(event) {
         }
 
         closeModal("playlist-manager")
-        showToast("Playlist atualizada para vocês.")
+        showToast("Playlist atualizada.")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível atualizar a playlist."),"warning")
     } finally {
@@ -5398,7 +7778,7 @@ playlistPicker?.addEventListener("click",event => {
     toggleTrackInPlaylist(button.dataset.togglePlaylistTrack)
 })
 
-// jam
+// Jam
 function generateJamCode() {
     const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
     let code = ""
@@ -5422,16 +7802,16 @@ function updateJamInterface() {
     createJamButton.disabled = jamOffline
 
     if (jamActive) {
-        jamRoomTitle.textContent = "Vocês estão na mesma batida."
+        jamRoomTitle.textContent = "Jam conectada."
         jamRoomDescription.textContent = cloudMode
-            ? `Jam ${jamInviteCode}. Reproduzir, pausar, trocar ou avançar atualiza os dois aparelhos.`
+            ? `Jam ${jamInviteCode}. Reproduzir, pausar, trocar ou avançar mantém os dois aparelhos sincronizados.`
             : `Convite ${jamInviteCode}. Esta Jam é apenas uma demonstração local.`
         createJamButton.innerHTML = '<svg aria-hidden="true"><use href="#icon-close"></use></svg><span>Encerrar Jam</span>'
         return
     }
 
     if (availableJam) {
-        jamRoomTitle.textContent = "Uma Jam está esperando por você."
+        jamRoomTitle.textContent = "Há uma Jam disponível."
         jamRoomDescription.textContent = `Sala ${jamSession.invite_code}. Entre para acompanhar a música no mesmo instante.`
         createJamButton.innerHTML = '<svg aria-hidden="true"><use href="#icon-users"></use></svg><span>Entrar na Jam</span>'
         return
@@ -5439,13 +7819,13 @@ function updateJamInterface() {
 
     if (jamOffline) {
         jamRoomTitle.textContent = "A Jam precisa de internet."
-        jamRoomDescription.textContent = "As músicas baixadas continuam funcionando offline. Reconecte-se para sincronizar os dois aparelhos."
+        jamRoomDescription.textContent = "Os downloads continuam funcionando offline. A Jam volta a sincronizar quando a conexão retorna."
         createJamButton.innerHTML = '<svg aria-hidden="true"><use href="#icon-users"></use></svg><span>Jam indisponível</span>'
         return
     }
 
-    jamRoomTitle.textContent = "Criem uma Jam para dois."
-    jamRoomDescription.textContent = "A música começa nos dois aparelhos e os controles permanecem sincronizados."
+    jamRoomTitle.textContent = "Vamos criar uma Jam?"
+    jamRoomDescription.textContent = "A reprodução fica sincronizada nos dois aparelhos."
     createJamButton.innerHTML = '<svg aria-hidden="true"><use href="#icon-users"></use></svg><span>Criar uma Jam</span>'
 }
 
@@ -5517,6 +7897,8 @@ async function applyRemoteJamState(remoteJam,options = {}) {
 
         const track = getCurrentTrack()
 
+        if (track && cloudReady && navigator.onLine) await refreshTrackCloudAssets(track)
+
         if (!track || track.id !== remoteJam.current_track_id || !prepareAudioTrack(track)) {
             updateJamInterface()
             return
@@ -5547,7 +7929,7 @@ async function handleRemoteJamState(remoteJam) {
     if (!remoteJam?.active) {
         pauseTrack({syncJam:false})
         deactivateLocalJam()
-        showToast("A outra pessoa encerrou a Jam.")
+        showToast("A Jam foi encerrada.")
         return
     }
 
@@ -5561,10 +7943,15 @@ async function handleRemoteJamState(remoteJam) {
 function correctJamDrift() {
     if (!cloudMode || !jamActive || !jamSession?.is_playing || !isPlaying) return
 
+    const track = getCurrentTrack()
     const expectedPosition = cloud.getExpectedJamPosition(jamSession)
-    const drift = expectedPosition - audioPlayer.currentTime
+    const duration = getTrackPlaybackDuration(track)
+    const safePosition = duration > 0
+        ? Math.min(expectedPosition,Math.max(0,duration - 0.1))
+        : Math.max(0,expectedPosition)
+    const drift = safePosition - audioPlayer.currentTime
 
-    if (Math.abs(drift) > 0.7) audioPlayer.currentTime = expectedPosition
+    if (Math.abs(drift) > 0.7) audioPlayer.currentTime = safePosition
 }
 
 async function toggleJam() {
@@ -5578,7 +7965,7 @@ async function toggleJam() {
     }
 
     if (!cloudReady || !navigator.onLine) {
-        showToast("A Jam precisa de internet para manter os dois aparelhos sincronizados.","warning")
+        showToast("A Jam precisa de internet para manter os aparelhos sincronizados.","warning")
         return
     }
 
@@ -5589,7 +7976,7 @@ async function toggleJam() {
             await cloud.endJam(jamSession.id)
             pauseTrack({syncJam:false})
             deactivateLocalJam()
-            showToast("Jam encerrada nos dois aparelhos.")
+            showToast("Jam encerrada.")
             return
         }
 
@@ -5604,7 +7991,7 @@ async function toggleJam() {
         startJamSynchronization()
         updateJamInterface()
         await applyRemoteJamState(jamSession,{silent:false})
-        showToast("Jam conectada. Os controles agora valem para os dois.")
+        showToast("Jam conectada. Os controles agora ficam sincronizados.")
     } catch (error) {
         showToast(getErrorMessage(error,"Não foi possível abrir a Jam."),"warning")
     } finally {
@@ -5616,7 +8003,7 @@ async function toggleJam() {
 async function copyJamInvite() {
     if (!jamInviteCode) return
 
-    const invitation = `Abra o Dois Tons e entre na nossa Jam ${jamInviteCode}`
+    const invitation = `Abra o Dois Tons e entre na Jam ${jamInviteCode}`
 
     if (navigator.share) {
         try {
@@ -5640,6 +8027,8 @@ copyJamCodeButton?.addEventListener("click",copyJamInvite)
 
 document.addEventListener("visibilitychange",async () => {
     if (document.visibilityState !== "visible") {
+        updateListeningSessionProgress()
+        flushListeningSession({force:true})
         savePlaybackState()
         updateMediaSessionPosition(true)
         return
@@ -5659,7 +8048,7 @@ document.addEventListener("visibilitychange",async () => {
     }
 })
 
-// instalacao
+// instalação
 function isStandaloneMode() {
     return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true
 }
@@ -5767,7 +8156,7 @@ function handleServiceWorkerControllerChange() {
 
     if (isPlaying) {
         pendingServiceWorkerReload = true
-        showToast("Uma atualização do Dois Tons foi instalada. Ela será aplicada quando você reabrir o app.")
+        showToast("Atualização instalada. Ela será aplicada ao reabrir o app.")
         return
     }
 
@@ -5843,7 +8232,10 @@ window.addEventListener("online",async () => {
         return
     }
 
-    if (cloudMode && currentProfile) scheduleCloudRefresh()
+    if (cloudMode && currentProfile) {
+        scheduleCloudRefresh()
+        syncPendingListeningRecords()
+    }
 
     renderApplicationData()
     updatePlayerInterface()
@@ -5866,12 +8258,14 @@ window.addEventListener("offline",() => {
 window.addEventListener("pageshow",() => refreshAfterForeground())
 window.addEventListener("focus",() => refreshAfterForeground())
 window.addEventListener("pagehide",() => {
+    updateListeningSessionProgress()
+    flushListeningSession({force:true})
     savePlaybackState()
     updateMediaSessionPosition(true)
 })
 window.addEventListener("unload",releaseOfflineObjectUrls)
 
-// inicializacao
+// inicialização
 async function initializeOfflineMode() {
     if (!offline) return false
 
@@ -5890,8 +8284,8 @@ async function initializeCloudMode() {
     cloudMode = Boolean(cloud?.isConfigured())
 
     if (!cloudMode) {
-        accessNote.textContent = "Modo de demonstração: os dados ficam somente neste aparelho até você preencher a configuração do Supabase."
-        uploadInformation.textContent = "No modo de demonstração, o arquivo fica disponível somente enquanto o aplicativo estiver aberto."
+        accessNote.textContent = "Modo local: os dados ficam somente neste aparelho enquanto o Supabase não estiver configurado."
+        uploadInformation.textContent = "No modo local, o arquivo fica disponível somente enquanto o app estiver aberto."
         updateConnectionInterface()
         return false
     }
@@ -5900,7 +8294,7 @@ async function initializeCloudMode() {
 
     if (!navigator.onLine) {
         cloudReady = false
-        accessNote.textContent = "Sem internet. Se este aparelho já tiver downloads, o modo offline será aberto automaticamente."
+        accessNote.textContent = "Sem internet. Os downloads deste aparelho continuam disponíveis."
         updateConnectionInterface()
         return false
     }
@@ -5909,7 +8303,7 @@ async function initializeCloudMode() {
         await cloud.initialize()
         cloudReady = true
         accessNote.textContent = "O código é verificado com segurança e nunca fica salvo neste aparelho."
-        uploadInformation.textContent = "O áudio e a capa serão salvos no espaço privado e aparecerão nos dois aparelhos."
+        uploadInformation.textContent = "O áudio e a capa serão salvos no storage privado e aparecerão nos dois aparelhos."
         updateConnectionInterface()
 
         return true
@@ -5926,6 +8320,7 @@ async function initializeApp() {
     updateRuntimeInterface()
     configureSheetGestures()
     configureMediaSessionActions()
+    startListeningProgressTracker()
     registerServiceWorker()
     updateJamInterface()
     updatePlaybackModeInterface()
@@ -5947,7 +8342,7 @@ async function initializeApp() {
                 return
             }
         } catch (error) {
-            accessNote.textContent = "Sua sessão expirou. Digite novamente o nome e o código da sala."
+            accessNote.textContent = "A sessão expirou. Entre novamente com o nome e o código."
         }
     }
 

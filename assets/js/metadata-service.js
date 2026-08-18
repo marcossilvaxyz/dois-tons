@@ -1,10 +1,5 @@
-// ======================================================
-// dois tons - metadata service
-// informacoes publicas e capas do catalogo
-// ======================================================
-
 window.DoisTonsMetadata = (() => {
-    // configuracoes
+    // endpoints e limites
     const musicBrainzBaseUrl = "https://musicbrainz.org/ws/2"
     const coverArtBaseUrl = "https://coverartarchive.org"
     const minimumRequestInterval = 1100
@@ -19,7 +14,7 @@ window.DoisTonsMetadata = (() => {
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g,"")
             .toLocaleLowerCase("pt-BR")
-            .replace(/[^a-z0-9]+/g," ")
+            .replace(/[^\p{L}\p{N}]+/gu," ")
             .replace(/\s+/g," ")
             .trim()
     }
@@ -32,7 +27,7 @@ window.DoisTonsMetadata = (() => {
                 "musica sem titulo",
                 "artista desconhecido",
                 "album desconhecido",
-                "adicionada por voce",
+                "adicionada pelo meu perfil",
                 "adicionada ao dois tons"
             ].includes(normalized)
     }
@@ -70,7 +65,11 @@ window.DoisTonsMetadata = (() => {
             : []
 
         return credits
-            .map(credit => credit?.name || credit?.artist?.name || "")
+            .map(credit => {
+                const name = credit?.name || credit?.artist?.name || ""
+
+                return name ? `${name}${credit?.joinphrase || ""}` : ""
+            })
             .filter(Boolean)
             .join("")
             .trim()

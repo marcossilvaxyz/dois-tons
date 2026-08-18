@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#f4e8d7">
-    <meta name="description" content="Dois Tons — uma experiência musical privada e compartilhada para duas pessoas.">
+    <meta name="description" content="Dois Tons — nossas músicas, do nosso jeito.">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="format-detection" content="telephone=no">
@@ -19,12 +19,11 @@
 
     <title>Dois Tons</title>
 
-    <!-- ícones e manifesto -->
+    <!-- arquivos do app -->
     <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
     <link rel="manifest" href="manifest.webmanifest">
 
-    <!-- estilos -->
     <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
@@ -150,6 +149,10 @@
             <path d="M5.5 17a8 8 0 1 0-.7-8.7L4 12"></path>
             <path d="M12 7v5l3 2"></path>
         </symbol>
+        <symbol id="icon-bell" viewBox="0 0 24 24">
+            <path d="M18 9a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"></path>
+            <path d="M10 21h4"></path>
+        </symbol>
     </svg>
 
     <!-- acesso -->
@@ -162,20 +165,20 @@
                 <span></span>
                 <span></span>
             </div>
-            <p class="access-eyebrow">Uma sala para duas pessoas</p>
+            <p class="access-eyebrow">Só nosso</p>
             <h1 id="access-title">Dois Tons</h1>
-            <p class="access-description">Suas músicas, seus momentos e uma Jam particular para vocês.</p>
+            <p class="access-description">Um lugar pra guardar o que a gente gosta e ouvir junto.</p>
 
             <form class="access-form" id="access-form" novalidate>
                 <div class="form-group">
-                    <label for="display-name">Como podemos chamar você?</label>
+                    <label for="display-name">Nome do perfil</label>
                     <input
                         type="text"
                         id="display-name"
                         name="display-name"
                         maxlength="24"
                         autocomplete="nickname"
-                        placeholder="Seu nome"
+                        placeholder="Nome"
                         required
                     >
                     <span class="field-message" id="name-message"></span>
@@ -192,7 +195,7 @@
                             minlength="8"
                             maxlength="64"
                             autocomplete="one-time-code"
-                            placeholder="Digite o código de vocês"
+                            placeholder="Nosso código"
                             required
                         >
                     </div>
@@ -205,19 +208,23 @@
                 </button>
             </form>
 
-            <p class="preview-note" id="access-note">Conecte o projeto ao Supabase para ativar a sala privada entre os dois aparelhos.</p>
+            <p class="preview-note" id="access-note">Depois de conectar ao Supabase, tudo fica sincronizado nos dois aparelhos.</p>
         </div>
     </section>
 
-    <!-- aplicativo -->
+    <!-- app -->
     <div class="app-shell" id="app-shell" hidden>
         <!-- cabeçalho -->
         <header class="app-header">
             <div>
                 <p class="app-brand">Dois Tons <span class="connection-dot" id="connection-dot" aria-label="Status da nuvem"></span></p>
-                <h1 id="greeting-title">Música para esta tarde.</h1>
+                <h1 id="greeting-title">Boa tarde.</h1>
             </div>
             <div class="header-actions">
+                <button type="button" class="header-button activity-button" id="activity-button" aria-label="Abrir atividades">
+                    <svg aria-hidden="true"><use href="#icon-bell"></use></svg>
+                    <span class="activity-badge" id="activity-badge" hidden>0</span>
+                </button>
                 <button type="button" class="header-button" id="upload-button" aria-label="Adicionar música">
                     <svg aria-hidden="true"><use href="#icon-upload"></use></svg>
                 </button>
@@ -227,7 +234,7 @@
             </div>
         </header>
 
-        <!-- conteúdo -->
+        <!-- conteúdo principal -->
         <main class="app-content">
             <!-- início -->
             <section class="app-view active" id="home-view" data-view="home" aria-labelledby="home-title">
@@ -235,17 +242,100 @@
 
                 <article class="jam-feature">
                     <div class="jam-feature-decoration"></div>
-                    <div class="jam-status"><span></span>Sala para dois</div>
-                    <h3>Compartilhem esta canção.</h3>
-                    <p>Uma Jam feita para o ritmo de vocês.</p>
+                    <div class="jam-status"><span></span>Jam</div>
+                    <h3>Pra gente ouvir junto.</h3>
+                    <p>Mesmo longe, dá pra ouvir a mesma música ao mesmo tempo.</p>
                     <button type="button" class="jam-feature-button" data-open-view="jam" aria-label="Criar uma Jam">
                         <svg aria-hidden="true"><use href="#icon-play"></use></svg>
                     </button>
                 </article>
 
+                <section class="content-section listening-overview-section" aria-labelledby="listening-overview-title">
+                    <header class="section-heading">
+                        <div>
+                            <span class="section-kicker">Nos últimos 30 dias</span>
+                            <h2 id="listening-overview-title">O que a gente ouviu</h2>
+                        </div>
+                        <button type="button" class="text-button" id="open-listening-history">Ver histórico</button>
+                    </header>
+                    <div class="listening-stat-grid" id="listening-stat-grid">
+                        <article class="listening-stat-card">
+                            <span>Tempo ouvido</span>
+                            <strong id="listening-total-time">0 min</strong>
+                            <small id="listening-personal-time">Meu perfil: 0 min</small>
+                        </article>
+                        <article class="listening-stat-card">
+                            <span>Reproduções</span>
+                            <strong id="listening-total-plays">0</strong>
+                            <small id="listening-personal-plays">Meu perfil: 0</small>
+                        </article>
+                        <article class="listening-stat-card listening-stat-wide">
+                            <span>Música mais ouvida</span>
+                            <strong id="listening-top-track">Ainda descobrindo</strong>
+                            <small id="listening-top-track-detail">A música mais ouvida aparece aqui depois de algumas reproduções.</small>
+                        </article>
+                        <article class="listening-stat-card listening-stat-wide">
+                            <span>Artista mais ouvido</span>
+                            <strong id="listening-top-artist">Ainda descobrindo</strong>
+                            <small id="listening-top-artist-detail">O artista mais ouvido aparece aqui.</small>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="content-section musical-profile-section" aria-labelledby="musical-profile-section-title">
+                    <header class="section-heading">
+                        <div>
+                            <span class="section-kicker">Últimos 90 dias</span>
+                            <h2 id="musical-profile-section-title">Nosso perfil musical</h2>
+                        </div>
+                        <button type="button" class="text-button" id="open-musical-profile">Ver perfil</button>
+                    </header>
+
+                    <button type="button" class="musical-profile-preview" id="open-musical-profile-card">
+                        <span class="musical-compatibility-ring" id="musical-compatibility-ring" style="--compatibility: 0">
+                            <strong id="musical-compatibility-value">—</strong>
+                            <small>sintonia</small>
+                        </span>
+                        <span class="musical-profile-preview-copy">
+                            <small>Compatibilidade musical</small>
+                            <strong id="musical-profile-headline">Ainda sem dados suficientes</strong>
+                            <span id="musical-profile-summary">A comparação aparece quando os dois perfis tiverem histórico suficiente.</span>
+                        </span>
+                    </button>
+
+                    <div class="musical-profile-highlight-grid">
+                        <article class="musical-profile-highlight">
+                            <span>Artista em comum</span>
+                            <strong id="musical-common-artist">Ainda descobrindo</strong>
+                        </article>
+                        <article class="musical-profile-highlight">
+                            <span>Música em comum</span>
+                            <strong id="musical-common-track">Ainda descobrindo</strong>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="content-section smart-mixes-section" aria-labelledby="smart-mixes-title">
+                    <header class="section-heading">
+                        <div>
+                            <span class="section-kicker">Com base no nosso histórico</span>
+                            <h2 id="smart-mixes-title">Nossos mixes</h2>
+                        </div>
+                    </header>
+                    <div class="smart-mix-grid" id="smart-mix-grid"></div>
+                </section>
+
+                <section class="content-section" aria-labelledby="recently-played-title">
+                    <header class="section-heading">
+                        <h2 id="recently-played-title">Tocadas recentemente</h2>
+                        <button type="button" class="text-button" id="open-recent-history">Ver histórico</button>
+                    </header>
+                    <div class="track-list" id="recently-played-list"></div>
+                </section>
+
                 <section class="content-section" aria-labelledby="favorites-title">
                     <header class="section-heading">
-                        <h2 id="favorites-title">Favoritas de vocês</h2>
+                        <h2 id="favorites-title">Favoritas</h2>
                         <button type="button" class="text-button" data-library-filter="favorites">Ver coleção</button>
                     </header>
                     <div class="album-grid" id="favorites-grid"></div>
@@ -253,36 +343,98 @@
 
                 <section class="content-section" aria-labelledby="shared-title">
                     <header class="section-heading">
-                        <h2 id="shared-title">Enviadas para você</h2>
+                        <h2 id="shared-title">Recebidas</h2>
                         <button type="button" class="text-button" data-library-filter="shared">Ver todas</button>
                     </header>
                     <div class="track-list" id="shared-track-list"></div>
+                </section>
+
+                <section class="content-section dedication-preview-section" aria-labelledby="dedication-preview-title">
+                    <header class="section-heading">
+                        <div>
+                            <span class="section-kicker">Recados nas músicas</span>
+                            <h2 id="dedication-preview-title">Dedicatórias</h2>
+                        </div>
+                        <button type="button" class="text-button" id="open-dedications">Ver todas</button>
+                    </header>
+                    <div class="dedication-preview-list" id="dedication-preview-list"></div>
                 </section>
             </section>
 
             <!-- buscar -->
             <section class="app-view" id="search-view" data-view="search" aria-labelledby="search-title">
                 <header class="view-heading">
-                    <p class="view-eyebrow">Encontre o próximo momento</p>
+                    <p class="view-eyebrow">Procure na biblioteca</p>
                     <h2 id="search-title">Buscar</h2>
                 </header>
 
                 <label class="search-field" for="search-input">
                     <svg aria-hidden="true"><use href="#icon-search"></use></svg>
-                    <input type="search" id="search-input" placeholder="Música, artista ou álbum" autocomplete="off">
+                    <input type="search" id="search-input" placeholder="Música, artista, álbum ou playlist" autocomplete="off" enterkeyhint="search">
                     <button type="button" id="clear-search" aria-label="Limpar busca" hidden>
                         <svg aria-hidden="true"><use href="#icon-close"></use></svg>
                     </button>
                 </label>
 
+                <div class="search-mode-tabs" id="search-mode-tabs" hidden>
+                    <button type="button" class="active" data-search-mode="all">Tudo</button>
+                    <button type="button" data-search-mode="tracks">Músicas</button>
+                    <button type="button" data-search-mode="artists">Artistas</button>
+                    <button type="button" data-search-mode="albums">Álbuns</button>
+                    <button type="button" data-search-mode="playlists">Playlists</button>
+                </div>
+
                 <div class="search-introduction" id="search-introduction">
-                    <p>Experimente buscar por</p>
+                    <div class="search-suggestion-heading">
+                        <p>Sugestões</p>
+                    </div>
                     <div class="suggestion-list">
                         <button type="button" data-search-suggestion="outono">Outono</button>
                         <button type="button" data-search-suggestion="calma">Calma</button>
                         <button type="button" data-search-suggestion="mar">Mar</button>
                         <button type="button" data-search-suggestion="compartilhada">Compartilhadas</button>
                     </div>
+
+                    <section class="search-recent-section" id="search-recent-section" hidden aria-labelledby="search-recent-title">
+                        <header class="search-discovery-heading">
+                            <div>
+                                <span>Recentes</span>
+                                <h3 id="search-recent-title">Buscas recentes</h3>
+                            </div>
+                            <button type="button" class="text-button" id="clear-recent-searches">Limpar</button>
+                        </header>
+                        <div class="search-recent-list" id="search-recent-list"></div>
+                    </section>
+
+                    <section class="search-discovery-section" aria-labelledby="search-for-you-title">
+                        <header class="search-discovery-heading">
+                            <div>
+                                <span>Do nosso histórico</span>
+                                <h3 id="search-for-you-title">Sugestões</h3>
+                            </div>
+                        </header>
+                        <div class="track-list search-discovery-track-list" id="search-discovery-track-list"></div>
+                    </section>
+
+                    <section class="search-discovery-section" id="search-discovery-artists-section" aria-labelledby="search-artists-title">
+                        <header class="search-discovery-heading">
+                            <div>
+                                <span>Na biblioteca</span>
+                                <h3 id="search-artists-title">Artistas</h3>
+                            </div>
+                        </header>
+                        <div class="library-collection-grid search-entity-grid" id="search-discovery-artist-grid"></div>
+                    </section>
+
+                    <section class="search-discovery-section" id="search-discovery-albums-section" aria-labelledby="search-albums-title">
+                        <header class="search-discovery-heading">
+                            <div>
+                                <span>Na biblioteca</span>
+                                <h3 id="search-albums-title">Álbuns</h3>
+                            </div>
+                        </header>
+                        <div class="library-collection-grid search-entity-grid" id="search-discovery-album-grid"></div>
+                    </section>
                 </div>
 
                 <div class="search-results" id="search-results" aria-live="polite"></div>
@@ -292,7 +444,7 @@
             <section class="app-view" id="library-view" data-view="library" aria-labelledby="library-title">
                 <header class="view-heading library-heading">
                     <div>
-                        <p class="view-eyebrow">Tudo o que pertence a vocês</p>
+                        <p class="view-eyebrow">Músicas, álbuns e playlists</p>
                         <h2 id="library-title">Biblioteca</h2>
                     </div>
                     <div class="library-actions">
@@ -353,15 +505,15 @@
                         <span>Adicionadas por</span>
                         <select id="library-owner-filter">
                             <option value="all">Ambos</option>
-                            <option value="me">Você</option>
-                            <option value="partner">Sua pessoa</option>
+                            <option value="me">Meu perfil</option>
+                            <option value="partner">Outro perfil</option>
                         </select>
                     </label>
                 </div>
 
                 <section class="playlist-section" id="playlist-section" aria-labelledby="playlist-section-title" hidden>
                     <header class="section-heading">
-                        <h2 id="playlist-section-title">Playlists de vocês</h2>
+                        <h2 id="playlist-section-title">Playlists</h2>
                         <button type="button" class="text-button" id="create-playlist-button">Criar</button>
                     </header>
                     <div class="playlist-grid" id="playlist-grid"></div>
@@ -422,7 +574,7 @@
             <!-- jam -->
             <section class="app-view" id="jam-view" data-view="jam" aria-labelledby="jam-title">
                 <header class="view-heading">
-                    <p class="view-eyebrow">Escutem juntos, onde estiverem</p>
+                    <p class="view-eyebrow">Ouvir junto</p>
                     <h2 id="jam-title">Jam</h2>
                 </header>
 
@@ -432,9 +584,9 @@
                         <span class="jam-person jam-person-two" id="jam-person-two">2</span>
                         <span class="jam-orbit-line"></span>
                     </div>
-                    <p class="jam-room-label">Sua sala particular</p>
-                    <h3 id="jam-room-title">Criem uma Jam para dois.</h3>
-                    <p id="jam-room-description">A música começa nos dois aparelhos e os controles permanecem sincronizados.</p>
+                    <p class="jam-room-label">Jam</p>
+                    <h3 id="jam-room-title">Criar uma Jam</h3>
+                    <p id="jam-room-description">A reprodução fica sincronizada nos dois aparelhos.</p>
                     <button type="button" class="primary-button" id="create-jam-button">
                         <svg aria-hidden="true"><use href="#icon-users"></use></svg>
                         Criar uma Jam
@@ -448,8 +600,8 @@
                 <aside class="jam-information">
                     <svg aria-hidden="true"><use href="#icon-lock"></use></svg>
                     <div>
-                        <h3>Somente vocês</h3>
-                        <p>A sala usa o código compartilhado e não aparece publicamente.</p>
+                        <h3>Sala privada</h3>
+                        <p>O acesso fica restrito aos dois perfis cadastrados.</p>
                     </div>
                 </aside>
             </section>
@@ -460,8 +612,8 @@
             <button type="button" class="mini-player-main" id="open-player" aria-label="Abrir player completo">
                 <span class="mini-cover cover-rose" id="mini-cover"></span>
                 <span class="mini-information">
-                    <strong id="mini-title">Entrelinhas</strong>
-                    <span id="mini-artist">Céu de Outono</span>
+                    <strong id="mini-title">Nenhuma música</strong>
+                    <span id="mini-artist">Escolha uma música</span>
                 </span>
             </button>
             <button type="button" class="mini-control" id="mini-play-button" aria-label="Reproduzir">
@@ -517,8 +669,8 @@
 
             <div class="player-track-information">
                 <div>
-                    <h2 id="player-title">Entrelinhas</h2>
-                    <p id="player-artist">Céu de Outono</p>
+                    <h2 id="player-title">Nenhuma música</h2>
+                    <p id="player-artist">Escolha uma música</p>
                 </div>
                 <button type="button" class="favorite-button" id="favorite-button" aria-label="Adicionar aos favoritos" aria-pressed="false">
                     <svg aria-hidden="true"><use href="#icon-heart"></use></svg>
@@ -557,6 +709,10 @@
                 <button type="button" id="send-current-track">
                     <svg aria-hidden="true"><use href="#icon-send"></use></svg>
                     Enviar
+                </button>
+                <button type="button" id="dedicate-current-track">
+                    <svg aria-hidden="true"><use href="#icon-heart"></use></svg>
+                    Dedicar
                 </button>
                 <button type="button" id="add-current-to-playlist">
                     <svg aria-hidden="true"><use href="#icon-playlist"></use></svg>
@@ -604,7 +760,7 @@
                 <div class="queue-section-heading">
                     <div>
                         <p>A seguir</p>
-                        <strong id="queue-next-title">Sua sequência</strong>
+                        <strong id="queue-next-title">Próximas músicas</strong>
                     </div>
                     <span id="queue-count">0 músicas</span>
                 </div>
@@ -626,7 +782,7 @@
         <div class="modal-card">
             <header class="modal-header">
                 <div>
-                    <p>Biblioteca particular</p>
+                    <p>Nova música</p>
                     <h2 id="upload-title">Adicionar música</h2>
                 </div>
                 <button type="button" data-close-modal="upload" aria-label="Fechar">
@@ -671,7 +827,7 @@
                     <input type="file" id="cover-file" accept="image/*">
                 </label>
 
-                <p class="upload-information" id="upload-information">Com a nuvem configurada, o áudio e a capa ficam disponíveis nos dois aparelhos.</p>
+                <p class="upload-information" id="upload-information">O áudio e a capa ficam disponíveis nos dois aparelhos.</p>
 
                 <button type="submit" class="primary-button" id="upload-submit-button">
                     <span>Adicionar à biblioteca</span>
@@ -692,7 +848,7 @@
         <div class="modal-card track-manager-modal-card">
             <header class="modal-header">
                 <div>
-                    <p>Gerenciamento do catálogo</p>
+                    <p>Dados da música</p>
                     <h2 id="track-manager-title">Editar música</h2>
                 </div>
                 <button type="button" data-close-modal="track-manager" aria-label="Fechar">
@@ -752,7 +908,7 @@
             <section class="track-danger-zone">
                 <div>
                     <strong>Excluir da biblioteca</strong>
-                    <p>Remove a música da nuvem, playlists, favoritos e compartilhamentos. Downloads desta faixa neste aparelho também serão removidos.</p>
+                    <p>Apaga a música da biblioteca, playlists, favoritos e compartilhamentos. O download deste aparelho também é removido.</p>
                 </div>
                 <button type="button" class="danger-button" id="track-delete-button">
                     <svg aria-hidden="true"><use href="#icon-trash"></use></svg>
@@ -775,7 +931,7 @@
         <div class="modal-card catalog-modal-card">
             <header class="modal-header">
                 <div>
-                    <p>Biblioteca particular</p>
+                    <p>Nova música</p>
                     <h2 id="catalog-title">Importar catálogo</h2>
                 </div>
                 <button type="button" data-close-modal="catalog" aria-label="Fechar">
@@ -783,14 +939,14 @@
                 </button>
             </header>
 
-            <p class="catalog-description">Selecione várias músicas ou uma pasta. O Dois Tons identificará as informações e as capas antes de enviar tudo para a nuvem.</p>
+            <p class="catalog-description">Escolha várias músicas ou uma pasta. As informações são lidas antes do envio.</p>
 
             <label class="metadata-toggle" for="catalog-online-metadata">
                 <input type="checkbox" id="catalog-online-metadata" checked>
                 <span class="metadata-toggle-control" aria-hidden="true"><span></span></span>
                 <span>
-                    <strong>Completar informações pela internet</strong>
-                    <small>Busca título, artista, álbum e capa no MusicBrainz e Cover Art Archive quando o arquivo estiver incompleto.</small>
+                    <strong>Buscar dados que estiverem faltando</strong>
+                    <small>Usa MusicBrainz e Cover Art Archive quando título, artista, álbum ou capa estiverem faltando.</small>
                 </span>
             </label>
 
@@ -824,7 +980,7 @@
                 <div class="catalog-progress-heading">
                     <div>
                         <strong id="catalog-progress-title">Nenhuma música selecionada</strong>
-                        <span id="catalog-progress-description">Você pode adicionar novos arquivos à lista antes de importar.</span>
+                        <span id="catalog-progress-description">Mais arquivos podem ser adicionados antes de começar.</span>
                     </div>
                     <span id="catalog-progress-value">0%</span>
                 </div>
@@ -862,7 +1018,7 @@
         <div class="modal-card compact-modal">
             <header class="modal-header">
                 <div>
-                    <p>Feitas pelos dois</p>
+                    <p>Compartilhadas</p>
                     <h2 id="playlist-modal-title">Playlists</h2>
                 </div>
                 <button type="button" data-close-modal="playlist" aria-label="Fechar">
@@ -875,11 +1031,11 @@
             <form class="playlist-form" id="playlist-form" novalidate>
                 <div class="form-group">
                     <label for="playlist-title">Nova playlist</label>
-                    <input type="text" id="playlist-title" maxlength="60" placeholder="Ex.: Nosso outono" required>
+                    <input type="text" id="playlist-title" maxlength="60" placeholder="Ex.: No carro" required>
                 </div>
                 <div class="form-group">
                     <label for="playlist-description">Descrição <span class="optional-label">opcional</span></label>
-                    <input type="text" id="playlist-description" maxlength="160" placeholder="Ex.: músicas para ouvir juntos">
+                    <input type="text" id="playlist-description" maxlength="160" placeholder="Ex.: músicas que sempre voltam">
                 </div>
                 <button type="submit" class="secondary-button" id="playlist-submit-button">
                     <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
@@ -895,7 +1051,7 @@
         <div class="modal-card compact-modal playlist-manager-card">
             <header class="modal-header">
                 <div>
-                    <p>Feita pelos dois</p>
+                    <p>Playlist compartilhada</p>
                     <h2 id="playlist-manager-title">Gerenciar playlist</h2>
                 </div>
                 <button type="button" data-close-modal="playlist-manager" aria-label="Fechar">
@@ -910,7 +1066,7 @@
                 </div>
                 <div class="form-group">
                     <label for="playlist-manager-description">Descrição <span class="optional-label">opcional</span></label>
-                    <input type="text" id="playlist-manager-description" maxlength="160" placeholder="Um pequeno contexto para vocês">
+                    <input type="text" id="playlist-manager-description" maxlength="160" placeholder="Um pequeno contexto para nós">
                 </div>
                 <p class="playlist-manager-meta" id="playlist-manager-meta"></p>
                 <button type="submit" class="primary-button" id="playlist-manager-submit">
@@ -922,7 +1078,7 @@
             <section class="playlist-activity-section" aria-labelledby="playlist-activity-title">
                 <header>
                     <div>
-                        <span>Histórico compartilhado</span>
+                        <span>Histórico da playlist</span>
                         <h3 id="playlist-activity-title">Atividade recente</h3>
                     </div>
                     <svg aria-hidden="true"><use href="#icon-history"></use></svg>
@@ -948,13 +1104,256 @@
         </div>
     </section>
 
+    <!-- histórico -->
+    <section class="modal" id="listening-history-modal" aria-hidden="true" aria-labelledby="listening-history-title">
+        <div class="modal-backdrop" data-close-modal="listening-history"></div>
+        <div class="modal-card listening-history-modal-card">
+            <header class="modal-heading">
+                <div>
+                    <p>O que já tocou</p>
+                    <h2 id="listening-history-title">Histórico de reprodução</h2>
+                </div>
+                <button type="button" data-close-modal="listening-history" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <div class="history-filter-list" role="tablist" aria-label="Filtrar histórico">
+                <button type="button" class="active" data-history-filter="all" role="tab" aria-selected="true">Ambos</button>
+                <button type="button" data-history-filter="me" role="tab" aria-selected="false">Meu perfil</button>
+                <button type="button" data-history-filter="partner" role="tab" aria-selected="false">Outro perfil</button>
+            </div>
+
+            <div class="listening-history-list" id="listening-history-list"></div>
+        </div>
+    </section>
+
+    <!-- mix -->
+    <section class="modal" id="smart-mix-modal" aria-hidden="true" aria-labelledby="smart-mix-modal-title">
+        <div class="modal-backdrop" data-close-modal="smart-mix"></div>
+        <div class="modal-card smart-mix-modal-card">
+            <header class="modal-heading">
+                <div>
+                    <p id="smart-mix-modal-kicker">Criado a partir do histórico</p>
+                    <h2 id="smart-mix-modal-title">Mix do dia</h2>
+                </div>
+                <button type="button" data-close-modal="smart-mix" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <p class="smart-mix-modal-description" id="smart-mix-modal-description"></p>
+            <p class="smart-mix-modal-meta" id="smart-mix-modal-meta"></p>
+
+            <div class="smart-mix-modal-actions">
+                <button type="button" class="primary-button" id="smart-mix-play-button">
+                    <svg aria-hidden="true"><use href="#icon-play"></use></svg>
+                    <span>Reproduzir</span>
+                </button>
+                <button type="button" class="secondary-button" id="smart-mix-save-button">
+                    <svg aria-hidden="true"><use href="#icon-playlist"></use></svg>
+                    <span>Salvar como playlist</span>
+                </button>
+            </div>
+
+            <div class="track-list smart-mix-track-list" id="smart-mix-track-list"></div>
+        </div>
+    </section>
+
+    <!-- perfil musical -->
+    <section class="modal" id="musical-profile-modal" aria-hidden="true" aria-labelledby="musical-profile-title">
+        <div class="modal-backdrop" data-close-modal="musical-profile"></div>
+        <div class="modal-card musical-profile-modal-card">
+            <header class="modal-heading">
+                <div>
+                    <p>O que a gente ouve</p>
+                    <h2 id="musical-profile-title">Nosso perfil musical</h2>
+                </div>
+                <button type="button" data-close-modal="musical-profile" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <section class="musical-profile-hero">
+                <span class="musical-compatibility-ring large" id="musical-profile-modal-ring" style="--compatibility: 0">
+                    <strong id="musical-profile-modal-score">—</strong>
+                    <small>sintonia</small>
+                </span>
+                <div>
+                    <span>Compatibilidade musical</span>
+                    <h3 id="musical-profile-modal-headline">Ainda sem dados suficientes</h3>
+                    <p id="musical-profile-modal-description">A comparação aparece quando os dois perfis têm histórico suficiente.</p>
+                    <small>Cálculo baseado nas músicas e artistas ouvidos nos últimos 90 dias.</small>
+                </div>
+            </section>
+
+            <section class="musical-profile-block" aria-labelledby="musical-common-title">
+                <header>
+                    <span>Em comum</span>
+                    <h3 id="musical-common-title">Em comum</h3>
+                </header>
+                <div class="musical-common-grid">
+                    <div>
+                        <strong>Artistas</strong>
+                        <div class="musical-tag-list" id="musical-common-artists"></div>
+                    </div>
+                    <div>
+                        <strong>Músicas</strong>
+                        <div class="musical-profile-track-list" id="musical-common-tracks"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="musical-profile-block" aria-labelledby="musical-personalities-title">
+                <header>
+                    <span>Por perfil</span>
+                    <h3 id="musical-personalities-title">Preferências</h3>
+                </header>
+                <div class="musical-personality-grid">
+                    <article>
+                        <span id="musical-me-label">Mais ouvidas no meu perfil</span>
+                        <div class="musical-profile-track-list" id="musical-me-tracks"></div>
+                    </article>
+                    <article>
+                        <span id="musical-partner-label">Mais ouvidas no outro perfil</span>
+                        <div class="musical-profile-track-list" id="musical-partner-tracks"></div>
+                    </article>
+                </div>
+            </section>
+
+            <section class="musical-profile-block" aria-labelledby="musical-evolution-title">
+                <header>
+                    <span>Últimos seis meses</span>
+                    <h3 id="musical-evolution-title">Evolução do tempo ouvido</h3>
+                </header>
+                <div class="musical-evolution-legend">
+                    <span><i></i>Meu perfil</span>
+                    <span><i></i><b id="musical-evolution-partner-label">Outro perfil</b></span>
+                </div>
+                <div class="musical-evolution-chart" id="musical-evolution-chart"></div>
+            </section>
+
+            <section class="musical-profile-block musical-retrospective-block" aria-labelledby="musical-retrospective-title">
+                <header>
+                    <span id="musical-retrospective-kicker">Retrospectiva</span>
+                    <h3 id="musical-retrospective-title">Retrospectiva do ano</h3>
+                </header>
+                <div class="musical-retrospective-grid">
+                    <article>
+                        <span>Tempo ouvido</span>
+                        <strong id="musical-year-time">0 min</strong>
+                    </article>
+                    <article>
+                        <span>Música do ano</span>
+                        <strong id="musical-year-track">Ainda descobrindo</strong>
+                    </article>
+                    <article>
+                        <span>Artista do ano</span>
+                        <strong id="musical-year-artist">Ainda descobrindo</strong>
+                    </article>
+                    <article>
+                        <span>Mais ouvida pelos dois</span>
+                        <strong id="musical-year-shared-track">Ainda descobrindo</strong>
+                    </article>
+                </div>
+            </section>
+        </div>
+    </section>
+
+    <!-- atividades -->
+    <section class="modal" id="activity-modal" aria-hidden="true" aria-labelledby="activity-title">
+        <div class="modal-backdrop" data-close-modal="activity"></div>
+        <div class="modal-card activity-modal-card">
+            <header class="modal-heading">
+                <div>
+                    <p>Novidades</p>
+                    <h2 id="activity-title">Atividades</h2>
+                </div>
+                <button type="button" data-close-modal="activity" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <div class="activity-toolbar">
+                <div class="activity-filter-list" role="tablist" aria-label="Filtrar atividades">
+                    <button type="button" class="active" data-activity-filter="all" role="tab" aria-selected="true">Todas</button>
+                    <button type="button" data-activity-filter="unread" role="tab" aria-selected="false">Não lidas</button>
+                </div>
+                <button type="button" class="text-button" id="activity-mark-all">Marcar tudo como lido</button>
+            </div>
+
+            <div class="activity-list" id="activity-list"></div>
+        </div>
+    </section>
+
+    <!-- dedicatórias -->
+    <section class="modal" id="dedication-modal" aria-hidden="true" aria-labelledby="dedication-title">
+        <div class="modal-backdrop" data-close-modal="dedication"></div>
+        <div class="modal-card dedication-modal-card">
+            <header class="modal-heading">
+                <div>
+                    <p>Recados nas músicas</p>
+                    <h2 id="dedication-title">Dedicatórias</h2>
+                </div>
+                <button type="button" data-close-modal="dedication" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <div class="dedication-toolbar">
+                <div class="dedication-filter-list" role="tablist" aria-label="Filtrar dedicatórias">
+                    <button type="button" class="active" data-dedication-filter="received" role="tab" aria-selected="true">Recebidas</button>
+                    <button type="button" data-dedication-filter="sent" role="tab" aria-selected="false">Enviadas</button>
+                </div>
+                <button type="button" class="text-button" id="dedication-mark-all">Marcar como lidas</button>
+            </div>
+
+            <div class="dedication-list" id="dedication-list"></div>
+        </div>
+    </section>
+
+    <!-- enviar dedicatória -->
+    <section class="modal" id="dedication-compose-modal" aria-hidden="true" aria-labelledby="dedication-compose-title">
+        <div class="modal-backdrop" data-close-modal="dedication-compose"></div>
+        <div class="modal-card compact-modal dedication-compose-card">
+            <header class="modal-header">
+                <div>
+                    <p>Nova dedicatória</p>
+                    <h2 id="dedication-compose-title">Dedicar música</h2>
+                </div>
+                <button type="button" data-close-modal="dedication-compose" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <div class="dedication-compose-preview" id="dedication-compose-preview"></div>
+            <p class="dedication-recipient" id="dedication-recipient">Destinatário: outro perfil</p>
+
+            <form id="dedication-form">
+                <div class="form-group">
+                    <label for="dedication-message">Recado</label>
+                    <textarea id="dedication-message" maxlength="500" rows="5" placeholder="Essa música me lembrou de..." required></textarea>
+                    <div class="dedication-message-footer">
+                        <span class="field-message" id="dedication-message-error"></span>
+                        <small id="dedication-character-count">0/500</small>
+                    </div>
+                </div>
+
+                <button type="submit" class="primary-button dedication-submit-button" id="dedication-submit-button">
+                    <span>Enviar dedicatória</span>
+                    <svg aria-hidden="true"><use href="#icon-send"></use></svg>
+                </button>
+            </form>
+        </div>
+    </section>
+
     <!-- perfil -->
     <section class="modal" id="profile-modal" aria-hidden="true" aria-labelledby="profile-title">
         <div class="modal-backdrop" data-close-modal="profile"></div>
         <div class="modal-card compact-modal">
             <header class="modal-header">
                 <div>
-                    <p>Sua experiência</p>
+                    <p>Ajustes</p>
                     <h2 id="profile-title">Perfil</h2>
                 </div>
                 <button type="button" data-close-modal="profile" aria-label="Fechar">
@@ -964,8 +1363,26 @@
 
             <div class="profile-summary">
                 <span id="profile-modal-initials">DT</span>
-                <div><strong id="profile-name">Visitante</strong><small id="profile-connection">Modo de demonstração</small></div>
+                <div><strong id="profile-name">Visitante</strong><small id="profile-connection">Modo local</small></div>
             </div>
+
+            <button type="button" class="profile-option" id="musical-profile-option-button">
+                <span><svg aria-hidden="true"><use href="#icon-users"></use></svg></span>
+                <span><strong>Perfil musical</strong><small id="musical-profile-option-description">Comparar o que a gente ouve</small></span>
+                <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </button>
+
+            <button type="button" class="profile-option" id="activity-profile-option-button">
+                <span><svg aria-hidden="true"><use href="#icon-bell"></use></svg></span>
+                <span><strong>Atividades</strong><small id="activity-profile-description">Nenhuma atividade nova</small></span>
+                <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </button>
+
+            <button type="button" class="profile-option" id="dedication-profile-option-button">
+                <span><svg aria-hidden="true"><use href="#icon-heart"></use></svg></span>
+                <span><strong>Dedicatórias</strong><small id="dedication-profile-description">Nenhum recado novo</small></span>
+                <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
+            </button>
 
             <button type="button" class="profile-option theme-option" id="theme-toggle-button" aria-pressed="false">
                 <span><svg aria-hidden="true"><use id="theme-option-icon" href="#icon-moon"></use></svg></span>
@@ -981,7 +1398,7 @@
 
             <button type="button" class="profile-option" id="install-app-button">
                 <span><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>
-                <span><strong id="install-option-title">Instalar aplicativo</strong><small id="install-option-description">Adicionar à tela de início</small></span>
+                <span><strong id="install-option-title">Instalar aplicativo</strong><small id="install-option-description">Adicionar à Tela de Início</small></span>
                 <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
             </button>
 
@@ -999,7 +1416,7 @@
         <div class="modal-card compact-modal">
             <header class="modal-header">
                 <div>
-                    <p id="install-platform-label">PWA para iPhone</p>
+                    <p id="install-platform-label">No iPhone</p>
                     <h2 id="install-title">Instalar Dois Tons</h2>
                 </div>
                 <button type="button" data-close-modal="install" aria-label="Fechar">
@@ -1016,13 +1433,13 @@
         </div>
     </section>
 
-    <!-- notificações -->
+    <!-- mensagens rápidas -->
     <div class="toast" id="toast" role="status" aria-live="polite">
         <svg aria-hidden="true"><use href="#icon-check"></use></svg>
         <span id="toast-message"></span>
     </div>
 
-    <!-- javascript -->
+    <!-- scripts -->
     <script src="assets/js/supabase-config.js"></script>
     <script src="assets/js/offline-service.js"></script>
     <script src="assets/js/cloud-service.js"></script>
