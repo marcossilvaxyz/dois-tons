@@ -607,7 +607,7 @@ window.DoisTonsCloud = (() => {
     async function loadPlaylists() {
         requireMembership()
 
-        const [playlistResult,itemResult] = await Promise.all([
+        const [playlistResult,itemResult,memberResult,deviceResult] = await Promise.all([
             client
                 .from("playlists")
                 .select("id,title,description,created_by,created_at,updated_at")
@@ -615,19 +615,49 @@ window.DoisTonsCloud = (() => {
                 .order("updated_at",{ascending:false}),
             client
                 .from("playlist_tracks")
-                .select("playlist_id,track_id,position")
+                .select("playlist_id,track_id,position,added_by,created_at")
                 .eq("duo_id",currentDuoId)
-                .order("position",{ascending:true})
+                .order("position",{ascending:true}),
+            client
+                .from("duo_members")
+                .select("id,user_id,display_name")
+                .eq("duo_id",currentDuoId),
+            client
+                .from("duo_member_devices")
+                .select("member_id,user_id")
+                .eq("duo_id",currentDuoId)
         ])
-        const playlists = unwrap(playlistResult) || []
+        const playlistRows = unwrap(playlistResult) || []
         const items = unwrap(itemResult) || []
+        const members = unwrap(memberResult) || []
+        const devices = unwrap(deviceResult) || []
+        const memberById = new Map(members.map(member => [member.id,member]))
+        const memberNames = new Map(members.map(member => [member.user_id,member.display_name]))
 
-        return playlists.map(playlist => ({
-            ...playlist,
-            trackIds:items
+        devices.forEach(device => {
+            const member = memberById.get(device.member_id)
+
+            if (member) memberNames.set(device.user_id,member.display_name)
+        })
+
+        return playlistRows.map(playlist => {
+            const playlistItems = items
                 .filter(item => item.playlist_id === playlist.id)
-                .map(item => item.track_id)
-        }))
+                .map(item => ({
+                    trackId:item.track_id,
+                    position:Number(item.position || 0),
+                    addedBy:item.added_by || "",
+                    addedByName:memberNames.get(item.added_by) || "Sua pessoa",
+                    createdAt:item.created_at || ""
+                }))
+
+            return {
+                ...playlist,
+                createdByName:memberNames.get(playlist.created_by) || "Vocês",
+                items:playlistItems,
+                trackIds:playlistItems.map(item => item.trackId)
+            }
+        })
     }
 
     async function createPlaylist(title,description = "") {
@@ -645,6 +675,32 @@ window.DoisTonsCloud = (() => {
             .single()
 
         return unwrap(result)
+    }
+
+    async function updatePlaylist(playlistId,{title,description = ""}) {
+        requireMembership()
+
+        const result = await client
+            .from("playlists")
+            .update({title,description})
+            .eq("id",playlistId)
+            .eq("duo_id",currentDuoId)
+            .select("id,title,description,created_by,created_at,updated_at")
+            .single()
+
+        return unwrap(result)
+    }
+
+    async function deletePlaylist(playlistId) {
+        requireMembership()
+
+        const result = await client
+            .from("playlists")
+            .delete()
+            .eq("id",playlistId)
+            .eq("duo_id",currentDuoId)
+
+        unwrap(result)
     }
 
     async function addTrackToPlaylist(playlistId,trackId) {
@@ -666,6 +722,60 @@ window.DoisTonsCloud = (() => {
             .eq("track_id",trackId)
 
         unwrap(result)
+
+        unwrap(await client
+            .from("playlists")
+            .update({updated_at:new Date().toISOString()})
+            .eq("id",playlistId)
+            .eq("duo_id",currentDuoId))
+    }
+
+    async function movePlaylistTrack(playlistId,trackId,direction) {
+        requireMembership()
+
+        return unwrap(await client.rpc("move_playlist_track",{
+            p_playlist_id:playlistId,
+            p_track_id:trackId,
+            p_direction:direction
+        }))
+    }
+
+    async function loadPlaylistActivity(playlistId) {
+        requireMembership()
+
+        const [activityResult,memberResult,deviceResult] = await Promise.all([
+            client
+                .from("playlist_activity")
+                .select("id,playlist_id,actor_id,action,track_id,details,created_at")
+                .eq("duo_id",currentDuoId)
+                .eq("playlist_id",playlistId)
+                .order("created_at",{ascending:false})
+                .limit(20),
+            client
+                .from("duo_members")
+                .select("id,user_id,display_name")
+                .eq("duo_id",currentDuoId),
+            client
+                .from("duo_member_devices")
+                .select("member_id,user_id")
+                .eq("duo_id",currentDuoId)
+        ])
+        const rows = unwrap(activityResult) || []
+        const members = unwrap(memberResult) || []
+        const devices = unwrap(deviceResult) || []
+        const memberById = new Map(members.map(member => [member.id,member]))
+        const memberNames = new Map(members.map(member => [member.user_id,member.display_name]))
+
+        devices.forEach(device => {
+            const member = memberById.get(device.member_id)
+
+            if (member) memberNames.set(device.user_id,member.display_name)
+        })
+
+        return rows.map(row => ({
+            ...row,
+            actorName:memberNames.get(row.actor_id) || "Sua pessoa"
+        }))
     }
 
     // realtime da biblioteca
@@ -845,6 +955,7 @@ window.DoisTonsCloud = (() => {
         addTrackToPlaylist,
         createPlaylist,
         createPrivateUrl,
+        deletePlaylist,
         deleteTrack,
         disconnectRealtime,
         endJam,
@@ -857,8 +968,10 @@ window.DoisTonsCloud = (() => {
         getUserId,
         initialize,
         isConfigured,
+        loadPlaylistActivity,
         loadPlaylists,
         loadTracks,
+        movePlaylistTrack,
         removeTrackFromPlaylist,
         restoreProfile,
         setFavorite,
@@ -869,6 +982,7 @@ window.DoisTonsCloud = (() => {
         subscribeLibrary,
         synchronizeServerClock,
         unsubscribeJam,
+        updatePlaylist,
         updateTrack,
         updateTrackDuration,
         uploadTrack

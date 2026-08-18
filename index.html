@@ -141,6 +141,15 @@
         <symbol id="icon-down" viewBox="0 0 24 24">
             <path d="m6 9 6 6 6-6"></path>
         </symbol>
+        <symbol id="icon-edit" viewBox="0 0 24 24">
+            <path d="M4 20h4l11-11-4-4L4 16v4Z"></path>
+            <path d="m13.5 6.5 4 4"></path>
+        </symbol>
+        <symbol id="icon-history" viewBox="0 0 24 24">
+            <path d="M4 7v5h5"></path>
+            <path d="M5.5 17a8 8 0 1 0-.7-8.7L4 12"></path>
+            <path d="M12 7v5l3 2"></path>
+        </symbol>
     </svg>
 
     <!-- acesso -->
@@ -360,14 +369,23 @@
 
                 <div class="library-collection-grid" id="library-collection-grid" hidden></div>
 
-                <div class="playlist-context" id="playlist-context" hidden>
-                    <div>
+                <div class="playlist-context playlist-selected-context" id="playlist-context" hidden>
+                    <div class="playlist-context-information">
                         <span>Playlist selecionada</span>
                         <strong id="active-playlist-title"></strong>
+                        <small id="active-playlist-meta"></small>
                     </div>
-                    <button type="button" id="clear-playlist-filter" aria-label="Fechar playlist">
-                        <svg aria-hidden="true"><use href="#icon-close"></use></svg>
-                    </button>
+                    <div class="playlist-context-actions">
+                        <button type="button" id="organize-playlist-button" aria-label="Organizar playlist" aria-pressed="false">
+                            <svg aria-hidden="true"><use href="#icon-queue"></use></svg>
+                        </button>
+                        <button type="button" id="manage-playlist-button" aria-label="Editar playlist">
+                            <svg aria-hidden="true"><use href="#icon-edit"></use></svg>
+                        </button>
+                        <button type="button" id="clear-playlist-filter" aria-label="Fechar playlist">
+                            <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                        </button>
+                    </div>
                 </div>
 
                 <div class="playlist-context library-entity-context" id="library-entity-context" hidden>
@@ -635,6 +653,16 @@
                     </div>
                 </div>
 
+                <div class="form-group">
+                    <label for="track-album">Álbum</label>
+                    <input type="text" id="track-album" maxlength="100" placeholder="Nome do álbum">
+                </div>
+
+                <button type="button" class="secondary-button metadata-lookup-button" id="upload-metadata-button">
+                    <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+                    <span>Buscar informações e capa</span>
+                </button>
+
                 <label class="cover-picker" for="cover-file">
                     <span class="cover-preview" id="cover-preview">
                         <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
@@ -698,6 +726,11 @@
                     <input type="text" id="track-manager-album-input" maxlength="100" placeholder="Nome do álbum">
                 </div>
 
+                <button type="button" class="secondary-button metadata-lookup-button" id="track-manager-metadata-button">
+                    <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+                    <span>Buscar informações e capa</span>
+                </button>
+
                 <div class="track-cover-editor">
                     <label class="cover-picker" for="track-manager-cover-file">
                         <span class="cover-preview cover-rose" id="track-manager-cover-preview">
@@ -751,6 +784,15 @@
             </header>
 
             <p class="catalog-description">Selecione várias músicas ou uma pasta. O Dois Tons identificará as informações e as capas antes de enviar tudo para a nuvem.</p>
+
+            <label class="metadata-toggle" for="catalog-online-metadata">
+                <input type="checkbox" id="catalog-online-metadata" checked>
+                <span class="metadata-toggle-control" aria-hidden="true"><span></span></span>
+                <span>
+                    <strong>Completar informações pela internet</strong>
+                    <small>Busca título, artista, álbum e capa no MusicBrainz e Cover Art Archive quando o arquivo estiver incompleto.</small>
+                </span>
+            </label>
 
             <div class="catalog-selectors">
                 <label class="catalog-selector" for="catalog-files">
@@ -835,11 +877,74 @@
                     <label for="playlist-title">Nova playlist</label>
                     <input type="text" id="playlist-title" maxlength="60" placeholder="Ex.: Nosso outono" required>
                 </div>
+                <div class="form-group">
+                    <label for="playlist-description">Descrição <span class="optional-label">opcional</span></label>
+                    <input type="text" id="playlist-description" maxlength="160" placeholder="Ex.: músicas para ouvir juntos">
+                </div>
                 <button type="submit" class="secondary-button" id="playlist-submit-button">
                     <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
                     <span>Criar playlist</span>
                 </button>
             </form>
+        </div>
+    </section>
+
+    <!-- gerenciar playlist -->
+    <section class="modal" id="playlist-manager-modal" aria-hidden="true" aria-labelledby="playlist-manager-title">
+        <div class="modal-backdrop" data-close-modal="playlist-manager"></div>
+        <div class="modal-card compact-modal playlist-manager-card">
+            <header class="modal-header">
+                <div>
+                    <p>Feita pelos dois</p>
+                    <h2 id="playlist-manager-title">Gerenciar playlist</h2>
+                </div>
+                <button type="button" data-close-modal="playlist-manager" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <form class="playlist-manager-form" id="playlist-manager-form" novalidate>
+                <div class="form-group">
+                    <label for="playlist-manager-title-input">Nome</label>
+                    <input type="text" id="playlist-manager-title-input" maxlength="60" required>
+                </div>
+                <div class="form-group">
+                    <label for="playlist-manager-description">Descrição <span class="optional-label">opcional</span></label>
+                    <input type="text" id="playlist-manager-description" maxlength="160" placeholder="Um pequeno contexto para vocês">
+                </div>
+                <p class="playlist-manager-meta" id="playlist-manager-meta"></p>
+                <button type="submit" class="primary-button" id="playlist-manager-submit">
+                    <svg aria-hidden="true"><use href="#icon-check"></use></svg>
+                    <span>Salvar alterações</span>
+                </button>
+            </form>
+
+            <section class="playlist-activity-section" aria-labelledby="playlist-activity-title">
+                <header>
+                    <div>
+                        <span>Histórico compartilhado</span>
+                        <h3 id="playlist-activity-title">Atividade recente</h3>
+                    </div>
+                    <svg aria-hidden="true"><use href="#icon-history"></use></svg>
+                </header>
+                <div class="playlist-activity-list" id="playlist-activity-list">
+                    <p class="playlist-activity-empty">Abra uma playlist para ver a atividade.</p>
+                </div>
+            </section>
+
+            <div class="playlist-danger-zone">
+                <button type="button" class="danger-text-button" id="delete-playlist-button">
+                    <svg aria-hidden="true"><use href="#icon-trash"></use></svg>
+                    Excluir playlist
+                </button>
+                <div class="playlist-delete-confirmation" id="playlist-delete-confirmation" hidden>
+                    <p>Excluir esta playlist? As músicas continuam na Biblioteca.</p>
+                    <div>
+                        <button type="button" class="secondary-button" id="playlist-delete-cancel">Cancelar</button>
+                        <button type="button" class="primary-button danger-button" id="playlist-delete-confirm">Excluir</button>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -921,6 +1026,7 @@
     <script src="assets/js/supabase-config.js"></script>
     <script src="assets/js/offline-service.js"></script>
     <script src="assets/js/cloud-service.js"></script>
+    <script src="assets/js/metadata-service.js"></script>
     <script src="assets/js/script.js"></script>
 </body>
 </html>

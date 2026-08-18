@@ -51,6 +51,9 @@ const playlistSection = document.getElementById("playlist-section")
 const playlistGrid = document.getElementById("playlist-grid")
 const playlistContext = document.getElementById("playlist-context")
 const activePlaylistTitle = document.getElementById("active-playlist-title")
+const activePlaylistMeta = document.getElementById("active-playlist-meta")
+const organizePlaylistButton = document.getElementById("organize-playlist-button")
+const managePlaylistButton = document.getElementById("manage-playlist-button")
 const clearPlaylistFilterButton = document.getElementById("clear-playlist-filter")
 const createPlaylistButton = document.getElementById("create-playlist-button")
 const libraryEntityContext = document.getElementById("library-entity-context")
@@ -108,6 +111,8 @@ const audioFileDrop = document.getElementById("audio-file-drop")
 const audioFileTitle = document.getElementById("audio-file-title")
 const trackTitleInput = document.getElementById("track-title")
 const trackArtistInput = document.getElementById("track-artist")
+const trackAlbumInput = document.getElementById("track-album")
+const uploadMetadataButton = document.getElementById("upload-metadata-button")
 const coverFileInput = document.getElementById("cover-file")
 const coverPreview = document.getElementById("cover-preview")
 const trackManagerModal = document.getElementById("track-manager-modal")
@@ -119,6 +124,7 @@ const trackManagerOwner = document.getElementById("track-manager-owner")
 const trackManagerTitleInput = document.getElementById("track-manager-title-input")
 const trackManagerArtistInput = document.getElementById("track-manager-artist-input")
 const trackManagerAlbumInput = document.getElementById("track-manager-album-input")
+const trackManagerMetadataButton = document.getElementById("track-manager-metadata-button")
 const trackManagerCoverInput = document.getElementById("track-manager-cover-file")
 const trackManagerCoverPreview = document.getElementById("track-manager-cover-preview")
 const trackManagerRemoveCoverButton = document.getElementById("track-manager-remove-cover")
@@ -132,6 +138,7 @@ const catalogModal = document.getElementById("catalog-modal")
 const catalogModalCard = catalogModal?.querySelector(".catalog-modal-card")
 const catalogFileInput = document.getElementById("catalog-files")
 const catalogFolderInput = document.getElementById("catalog-folder")
+const catalogOnlineMetadataInput = document.getElementById("catalog-online-metadata")
 const catalogProgressTitle = document.getElementById("catalog-progress-title")
 const catalogProgressDescription = document.getElementById("catalog-progress-description")
 const catalogProgressValue = document.getElementById("catalog-progress-value")
@@ -146,7 +153,19 @@ const playlistModal = document.getElementById("playlist-modal")
 const playlistPicker = document.getElementById("playlist-picker")
 const playlistForm = document.getElementById("playlist-form")
 const playlistTitleInput = document.getElementById("playlist-title")
+const playlistDescriptionInput = document.getElementById("playlist-description")
 const playlistSubmitButton = document.getElementById("playlist-submit-button")
+const playlistManagerModal = document.getElementById("playlist-manager-modal")
+const playlistManagerForm = document.getElementById("playlist-manager-form")
+const playlistManagerTitleInput = document.getElementById("playlist-manager-title-input")
+const playlistManagerDescriptionInput = document.getElementById("playlist-manager-description")
+const playlistManagerMeta = document.getElementById("playlist-manager-meta")
+const playlistManagerSubmit = document.getElementById("playlist-manager-submit")
+const playlistActivityList = document.getElementById("playlist-activity-list")
+const deletePlaylistButton = document.getElementById("delete-playlist-button")
+const playlistDeleteConfirmation = document.getElementById("playlist-delete-confirmation")
+const playlistDeleteCancelButton = document.getElementById("playlist-delete-cancel")
+const playlistDeleteConfirmButton = document.getElementById("playlist-delete-confirm")
 const profileModal = document.getElementById("profile-modal")
 const installModal = document.getElementById("install-modal")
 const installAppButton = document.getElementById("install-app-button")
@@ -171,12 +190,15 @@ const toastMessage = document.getElementById("toast-message")
 // configuracoes
 const cloud = window.DoisTonsCloud
 const offline = window.DoisTonsOffline
+const metadata = window.DoisTonsMetadata
 const profileStorageKey = "dois-tons-profile"
 const accessStorageKey = "dois-tons-preview-access"
 const logoutStorageKey = "dois-tons-logged-out"
 const themeStorageKey = "dois-tons-theme"
 const playbackStorageKey = "dois-tons-playback"
 const offlineProfileStorageKey = "dois-tons-offline-profile"
+const durationValidationStorageKey = "dois-tons-duration-validation-v1"
+const metadataLookupStorageKey = "dois-tons-online-metadata"
 const availableCoverClasses = ["cover-rose","cover-sea","cover-sun","cover-plum","cover-forest"]
 const metadataLibraryUrl = "https://cdn.jsdelivr.net/npm/jsmediatags@3.9.7/dist/jsmediatags.min.js"
 const supportedAudioExtensions = ["mp3","m4a","mp4","aac","wav","ogg","oga","flac"]
@@ -264,6 +286,9 @@ let playbackStateRestored = false
 let playbackSaveTimeout = null
 let lastPlaybackProgressSave = 0
 let pendingPlaylistQueueIds = []
+let playlistOrganizing = false
+let playlistManagerPlaylistId = ""
+let playlistActivity = []
 let activeLibraryFilter = "all"
 let activeLibraryMode = "songs"
 let activeLibraryEntity = null
@@ -290,9 +315,12 @@ let cloudRefreshTimeout = null
 let seekPublishTimeout = null
 let deferredInstallPrompt = null
 let selectedCoverImage = ""
+let selectedOnlineCoverFile = null
+let selectedOnlineCoverPreviewUrl = ""
 let managedTrackId = ""
 let managedCoverRemoved = false
 let managedCoverPreviewUrl = ""
+let managedMetadataCoverFile = null
 let pendingPlaylistTrackId = ""
 let metadataLibraryPromise = null
 let catalogItems = []
@@ -304,6 +332,10 @@ let serviceWorkerReloading = false
 let pendingServiceWorkerReload = false
 let lastMediaSessionPositionUpdate = 0
 let lastForegroundRefresh = 0
+let durationValidationCache = null
+let durationValidationPromises = new Map()
+let validatedDurationTrackIds = new Set()
+let catalogEndHandledTrackId = ""
 
 // tema
 function getStoredTheme() {
@@ -408,7 +440,7 @@ function updateMediaSessionPosition(force = false) {
 
     if (!force && now - lastMediaSessionPositionUpdate < 900) return
 
-    const duration = Number.isFinite(audioPlayer.duration) ? audioPlayer.duration : Number(getCurrentTrack()?.duration || 0)
+    const duration = getTrackPlaybackDuration()
     const position = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
 
     if (!Number.isFinite(duration) || duration <= 0) return
@@ -547,6 +579,26 @@ function formatTime(seconds) {
     const remainingSeconds = Math.floor(seconds % 60).toString().padStart(2,"0")
 
     return `${minutes}:${remainingSeconds}`
+}
+
+function formatPlaylistDate(value) {
+    if (!value) return ""
+
+    const date = new Date(value)
+
+    if (Number.isNaN(date.getTime())) return ""
+
+    return new Intl.DateTimeFormat("pt-BR",{
+        day:"2-digit",
+        month:"short",
+        year:date.getFullYear() === new Date().getFullYear() ? undefined : "numeric"
+    }).format(date).replace(" de "," ")
+}
+
+function getPlaylistItem(playlist,trackId) {
+    return Array.isArray(playlist?.items)
+        ? playlist.items.find(item => item.trackId === trackId || item.track_id === trackId) || null
+        : null
 }
 
 function formatFileSize(bytes) {
@@ -855,6 +907,11 @@ async function saveOfflineLibrarySnapshot(sourceTracks,sourcePlaylists,sourceMem
         id:playlist.id,
         title:playlist.title,
         description:playlist.description || "",
+        createdBy:playlist.created_by || playlist.createdBy || "",
+        createdByName:playlist.createdByName || "",
+        createdAt:playlist.created_at || playlist.createdAt || "",
+        updatedAt:playlist.updated_at || playlist.updatedAt || "",
+        items:Array.isArray(playlist.items) ? playlist.items : [],
         trackIds:Array.isArray(playlist.trackIds) ? playlist.trackIds : []
     }))
     const snapshotMembers = sourceMembers.map(member => ({
@@ -1386,7 +1443,7 @@ function restorePlaybackState() {
 
         if (track?.source && Number(savedState.currentTime) > 0 && prepareAudioTrack(track)) {
             const restorePosition = () => {
-                const duration = Number.isFinite(audioPlayer.duration) ? audioPlayer.duration : track.duration || 0
+                const duration = getTrackPlaybackDuration(track)
                 audioPlayer.currentTime = duration
                     ? Math.min(Number(savedState.currentTime),Math.max(0,duration - 0.1))
                     : Number(savedState.currentTime)
@@ -1860,17 +1917,26 @@ function createTrackItem(track,index) {
     const offlineLabel = track.downloaded
         ? `<span class="track-offline-label" title="Disponível offline"><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>`
         : ""
-
-    return `
-        <div class="track-item-row ${currentClass}">
-            <button type="button" class="track-item ${currentClass}" data-track-id="${escapeAttribute(track.id)}">
-                <span class="track-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
-                <span class="track-information">
-                    <strong>${escapeHTML(track.title)}</strong>
-                    <span>${escapeHTML(track.artist)} · ${escapeHTML(track.album)}</span>
-                </span>
-                <span class="track-meta">${offlineLabel}${sharingLabel}</span>
-            </button>
+    const activePlaylist = activePlaylistId ? playlists.find(playlist => playlist.id === activePlaylistId) : null
+    const playlistItem = getPlaylistItem(activePlaylist,track.id)
+    const collaboratorLabel = activePlaylist && playlistItem?.addedByName
+        ? `<small class="playlist-track-credit">Adicionada por ${escapeHTML(playlistItem.addedByName)}</small>`
+        : ""
+    const organizerActions = activePlaylist && playlistOrganizing
+        ? `
+            <span class="track-item-actions playlist-order-actions">
+                <button type="button" data-playlist-move="up" data-playlist-track="${escapeAttribute(track.id)}" aria-label="Mover ${escapeAttribute(track.title)} para cima">
+                    <svg aria-hidden="true"><use href="#icon-up"></use></svg>
+                </button>
+                <button type="button" data-playlist-move="down" data-playlist-track="${escapeAttribute(track.id)}" aria-label="Mover ${escapeAttribute(track.title)} para baixo">
+                    <svg aria-hidden="true"><use href="#icon-down"></use></svg>
+                </button>
+                <button type="button" class="playlist-remove-track-button" data-playlist-remove="${escapeAttribute(track.id)}" aria-label="Remover ${escapeAttribute(track.title)} da playlist">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </span>
+        `
+        : `
             <span class="track-item-actions">
                 <button
                     type="button"
@@ -1894,6 +1960,20 @@ function createTrackItem(track,index) {
                     <svg aria-hidden="true"><use href="#icon-more"></use></svg>
                 </button>
             </span>
+        `
+
+    return `
+        <div class="track-item-row ${currentClass} ${activePlaylist && playlistOrganizing ? "organizing" : ""}">
+            <button type="button" class="track-item ${currentClass}" data-track-id="${escapeAttribute(track.id)}">
+                <span class="track-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+                <span class="track-information">
+                    <strong>${escapeHTML(track.title)}</strong>
+                    <span>${escapeHTML(track.artist)} · ${escapeHTML(track.album)}</span>
+                    ${collaboratorLabel}
+                </span>
+                <span class="track-meta">${offlineLabel}${sharingLabel}</span>
+            </button>
+            ${organizerActions}
         </div>
     `
 }
@@ -2091,6 +2171,7 @@ function createPlaylistCard(playlist,index) {
     const playlistTracks = playlist.trackIds.map(trackId => tracks.find(track => track.id === trackId)).filter(Boolean)
     const count = playlistTracks.length
     const label = count === 1 ? "1 música" : `${count} músicas`
+    const creator = playlist.createdByName ? `por ${playlist.createdByName}` : "de vocês"
     const artworkTracks = playlistTracks.slice(0,4)
     const artwork = artworkTracks.length
         ? artworkTracks.map((track,coverIndex) => `
@@ -2103,7 +2184,7 @@ function createPlaylistCard(playlist,index) {
             <span class="playlist-card-artwork">${artwork}</span>
             <span class="playlist-card-information">
                 <strong>${escapeHTML(playlist.title)}</strong>
-                <small>${label}</small>
+                <small>${label} · ${escapeHTML(creator)}</small>
             </span>
         </button>
     `
@@ -2130,6 +2211,23 @@ function renderPlaylists() {
 
     playlistContext.hidden = !selectedPlaylist
     activePlaylistTitle.textContent = selectedPlaylist?.title || ""
+
+    if (activePlaylistMeta) {
+        const creator = selectedPlaylist?.createdByName ? `Criada por ${selectedPlaylist.createdByName}` : "Playlist compartilhada"
+        const description = selectedPlaylist?.description?.trim()
+        activePlaylistMeta.textContent = selectedPlaylist
+            ? [description,creator].filter(Boolean).join(" · ")
+            : ""
+    }
+
+    if (organizePlaylistButton) {
+        const canOrganize = Boolean(selectedPlaylist && (!cloudMode || cloudReady && navigator.onLine))
+        organizePlaylistButton.disabled = !canOrganize
+        organizePlaylistButton.classList.toggle("active",playlistOrganizing && Boolean(selectedPlaylist))
+        organizePlaylistButton.setAttribute("aria-pressed",playlistOrganizing && selectedPlaylist ? "true" : "false")
+    }
+
+    if (managePlaylistButton) managePlaylistButton.disabled = !selectedPlaylist || cloudMode && (!cloudReady || !navigator.onLine)
 }
 
 function getFilteredLibraryTracks() {
@@ -2364,6 +2462,20 @@ document.addEventListener("click",event => {
         return
     }
 
+    const playlistMoveButton = event.target.closest("[data-playlist-move]")
+
+    if (playlistMoveButton) {
+        moveActivePlaylistTrack(playlistMoveButton.dataset.playlistTrack,playlistMoveButton.dataset.playlistMove)
+        return
+    }
+
+    const playlistRemoveButton = event.target.closest("[data-playlist-remove]")
+
+    if (playlistRemoveButton) {
+        removeTrackFromActivePlaylist(playlistRemoveButton.dataset.playlistRemove)
+        return
+    }
+
     const trackButton = event.target.closest("[data-track-id]")
 
     if (trackButton) {
@@ -2389,6 +2501,7 @@ document.addEventListener("click",event => {
         activeLibraryEntity = null
         activeLibraryMode = "playlists"
         activeLibraryFilter = "all"
+        playlistOrganizing = false
         activePlaylistId = playlistButton.dataset.playlistId
         openView("library")
         renderPlaylists()
@@ -2406,6 +2519,7 @@ libraryModeButtons.forEach(button => {
 
         activePlaylistId = ""
         activeLibraryEntity = null
+        playlistOrganizing = false
         activeLibraryMode = mode
         activeLibraryFilter = mode === "favorites"
             ? "favorites"
@@ -2423,6 +2537,7 @@ filterButtons.forEach(button => {
     button.addEventListener("click",() => {
         activePlaylistId = ""
         activeLibraryEntity = null
+        playlistOrganizing = false
         activeLibraryMode = "songs"
         activeLibraryFilter = button.dataset.filter
         renderPlaylists()
@@ -2434,6 +2549,7 @@ filterButtons.forEach(button => {
 clearPlaylistFilterButton?.addEventListener("click",() => {
     activePlaylistId = ""
     activeLibraryEntity = null
+    playlistOrganizing = false
     activeLibraryMode = "playlists"
     activeLibraryFilter = "all"
     renderPlaylists()
@@ -2747,7 +2863,7 @@ function updatePlayerInterface() {
 
 function updateProgressInterface() {
     const track = getCurrentTrack()
-    const duration = Number.isFinite(audioPlayer.duration) ? audioPlayer.duration : track?.duration || 0
+    const duration = getTrackPlaybackDuration(track)
     const position = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
     const progress = duration ? Math.min((position / duration) * 100,100) : 0
 
@@ -2775,7 +2891,7 @@ function prepareAudioTrack(track) {
 
         if (restorePosition > 0) {
             audioPlayer.addEventListener("loadedmetadata",() => {
-                const duration = Number.isFinite(audioPlayer.duration) ? audioPlayer.duration : track.duration || 0
+                const duration = getTrackPlaybackDuration(track)
 
                 audioPlayer.currentTime = duration
                     ? Math.min(restorePosition,Math.max(0,duration - 0.1))
@@ -2851,6 +2967,7 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
     const selectedTrack = tracks.find(track => track.id === trackId)
 
     if (!selectedTrack) return
+    if (shouldPlay) catalogEndHandledTrackId = ""
 
     if (options.context) {
         playbackContext = options.context
@@ -2867,6 +2984,7 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
     currentTrackId = selectedTrack.id
 
     if (changedTrack) {
+        catalogEndHandledTrackId = ""
         audioPlayer.pause()
         audioPlayer.removeAttribute("src")
         audioPlayer.dataset.trackId = ""
@@ -2893,6 +3011,7 @@ function changeTrack(direction,options = {}) {
     const automatic = options.automatic === true
 
     if (automatic && repeatMode === "one" && !jamActive) {
+        catalogEndHandledTrackId = ""
         audioPlayer.currentTime = 0
         playTrack()
         return
@@ -3038,11 +3157,11 @@ playLibraryButton?.addEventListener("click",() => {
 })
 
 trackProgress?.addEventListener("input",() => {
-    const duration = audioPlayer.duration
+    const duration = getTrackPlaybackDuration()
 
     trackProgress.style.setProperty("--range-progress",`${trackProgress.value}%`)
 
-    if (!Number.isFinite(duration)) return
+    if (!Number.isFinite(duration) || duration <= 0) return
 
     audioPlayer.currentTime = (Number(trackProgress.value) / 100) * duration
     updateProgressInterface()
@@ -3072,6 +3191,7 @@ audioPlayer?.addEventListener("pause",() => {
 
 audioPlayer?.addEventListener("timeupdate",() => {
     updateProgressInterface()
+    finishTrackAtValidatedDuration()
 
     if (Date.now() - lastPlaybackProgressSave > 4000) {
         lastPlaybackProgressSave = Date.now()
@@ -3081,12 +3201,19 @@ audioPlayer?.addEventListener("timeupdate",() => {
 
 audioPlayer?.addEventListener("loadedmetadata",() => {
     const track = getCurrentTrack()
+    const browserDuration = Number(audioPlayer.duration || 0)
 
-    if (track && Number.isFinite(audioPlayer.duration)) {
-        track.duration = audioPlayer.duration
+    catalogEndHandledTrackId = ""
 
-        if (cloudMode && cloudReady && navigator.onLine && track.cloud) {
-            cloud.updateTrackDuration(track.id,audioPlayer.duration).catch(() => {})
+    if (track) {
+        if (isMp3Track(track)) {
+            validateTrackDuration(track).catch(() => {})
+        } else if ((!track.duration || Number(track.duration) <= 0) && Number.isFinite(browserDuration) && browserDuration > 0) {
+            track.duration = browserDuration
+
+            if (cloudMode && cloudReady && navigator.onLine && track.cloud) {
+                cloud.updateTrackDuration(track.id,browserDuration).catch(() => {})
+            }
         }
     }
 
@@ -3107,6 +3234,7 @@ function resetTrackManager() {
     managedTrackId = ""
     managedCoverRemoved = false
     managedCoverPreviewUrl = ""
+    managedMetadataCoverFile = null
     trackManagerForm?.reset()
 
     if (trackDeleteConfirmation) trackDeleteConfirmation.hidden = true
@@ -3181,6 +3309,8 @@ function handleTrackManagerCoverSelection() {
 
     if (!track) return
 
+    managedMetadataCoverFile = null
+
     if (managedCoverPreviewUrl) {
         URL.revokeObjectURL(managedCoverPreviewUrl)
         managedCoverPreviewUrl = ""
@@ -3215,6 +3345,9 @@ function markTrackCoverForRemoval() {
 
     if (!track) return
 
+
+    managedMetadataCoverFile = null
+
     if (managedCoverPreviewUrl) {
         URL.revokeObjectURL(managedCoverPreviewUrl)
         managedCoverPreviewUrl = ""
@@ -3225,6 +3358,53 @@ function markTrackCoverForRemoval() {
     trackManagerRemoveCoverButton.disabled = true
     updateTrackManagerCoverPreview(track)
     showToast("A capa será removida quando você salvar as alterações.")
+}
+
+async function handleTrackManagerMetadataLookup() {
+    const track = tracks.find(item => item.id === managedTrackId)
+
+    if (!track) return
+
+    setButtonLoading(trackManagerMetadataButton,true,"Buscando informações...")
+
+    try {
+        const result = await findOnlineMetadata({
+            title:trackManagerTitleInput.value.trim() || track.title,
+            artist:trackManagerArtistInput.value.trim() || track.artist,
+            album:trackManagerAlbumInput.value.trim() || track.album,
+            duration:track.duration
+        })
+
+        if (!result) {
+            showToast("Não encontramos uma correspondência confiável para esta música.","warning")
+            return
+        }
+
+        trackManagerTitleInput.value = limitText(result.title,80,track.title)
+        trackManagerArtistInput.value = limitText(result.artist,80,track.artist)
+        trackManagerAlbumInput.value = limitText(result.album,100,track.album || "Álbum desconhecido")
+
+        if (metadata?.downloadCover) {
+            const coverFile = await metadata.downloadCover(result,{maximumSize:maximumCoverFileSize})
+
+            if (coverFile) {
+                if (managedCoverPreviewUrl) URL.revokeObjectURL(managedCoverPreviewUrl)
+
+                trackManagerCoverInput.value = ""
+                managedMetadataCoverFile = coverFile
+                managedCoverRemoved = false
+                managedCoverPreviewUrl = URL.createObjectURL(coverFile)
+                trackManagerRemoveCoverButton.disabled = false
+                updateTrackManagerCoverPreview(track)
+            }
+        }
+
+        showToast("Informações encontradas. Confira e salve as alterações.")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível buscar as informações."),"warning")
+    } finally {
+        setButtonLoading(trackManagerMetadataButton,false)
+    }
 }
 
 async function updateDownloadedTrackAfterEdit(track,changes,coverFile) {
@@ -3262,7 +3442,7 @@ async function handleTrackManagerSubmit(event) {
         artist:trackManagerArtistInput.value.trim(),
         album:trackManagerAlbumInput.value.trim() || "Álbum desconhecido"
     }
-    const coverFile = trackManagerCoverInput.files[0] || null
+    const coverFile = trackManagerCoverInput.files[0] || managedMetadataCoverFile || null
 
     if (!changes.title || !changes.artist) {
         showToast("Preencha pelo menos o título e o artista.","warning")
@@ -3429,6 +3609,7 @@ async function confirmTrackDeletion() {
     }
 }
 
+trackManagerMetadataButton?.addEventListener("click",handleTrackManagerMetadataLookup)
 trackManagerCoverInput?.addEventListener("change",handleTrackManagerCoverSelection)
 trackManagerRemoveCoverButton?.addEventListener("click",markTrackCoverForRemoval)
 trackManagerForm?.addEventListener("submit",handleTrackManagerSubmit)
@@ -3474,6 +3655,7 @@ function getModal(name) {
         "track-manager":trackManagerModal,
         catalog:catalogModal,
         playlist:playlistModal,
+        "playlist-manager":playlistManagerModal,
         profile:profileModal,
         install:installModal
     }
@@ -3501,6 +3683,7 @@ function closeModal(name) {
     }
 
     if (name === "track-manager") resetTrackManager()
+    if (name === "playlist-manager") resetPlaylistManager()
 
     modal.classList.remove("open")
     modal.setAttribute("aria-hidden","true")
@@ -3521,6 +3704,7 @@ function closeAllOverlays() {
     })
 
     resetTrackManager()
+    resetPlaylistManager()
     setOverlayState()
 }
 
@@ -3602,8 +3786,27 @@ function getFileTitle(fileName) {
     return fileName.replace(/\.[^/.]+$/,"").replaceAll(/[_-]+/g," ").trim()
 }
 
+function clearSelectedOnlineCover() {
+    if (selectedOnlineCoverPreviewUrl) URL.revokeObjectURL(selectedOnlineCoverPreviewUrl)
+
+    selectedOnlineCoverFile = null
+    selectedOnlineCoverPreviewUrl = ""
+}
+
+function setUploadCoverPreviewFile(file) {
+    if (!file) return
+
+    clearSelectedOnlineCover()
+    selectedOnlineCoverFile = file
+    selectedOnlineCoverPreviewUrl = URL.createObjectURL(file)
+    selectedCoverImage = selectedOnlineCoverPreviewUrl
+    coverPreview.classList.add("has-image")
+    coverPreview.style.backgroundImage = `url("${selectedOnlineCoverPreviewUrl}")`
+}
+
 function resetUploadForm() {
     uploadForm.reset()
+    clearSelectedOnlineCover()
     selectedCoverImage = ""
     audioFileDrop.classList.remove("has-file")
     audioFileTitle.textContent = "Escolher arquivo de áudio"
@@ -3614,23 +3817,36 @@ function resetUploadForm() {
 function handleAudioFileSelection() {
     const file = audioFileInput.files[0]
 
+    clearSelectedOnlineCover()
+    selectedCoverImage = ""
+    coverFileInput.value = ""
+    coverPreview.classList.remove("has-image")
+    coverPreview.style.removeProperty("background-image")
+
     if (!file) {
         audioFileDrop.classList.remove("has-file")
         audioFileTitle.textContent = "Escolher arquivo de áudio"
         return
     }
 
+    const fileMetadata = getFileNameMetadata(file)
+
     audioFileDrop.classList.add("has-file")
     audioFileTitle.textContent = file.name
 
-    if (!trackTitleInput.value.trim()) trackTitleInput.value = getFileTitle(file.name)
+    if (!trackTitleInput.value.trim()) trackTitleInput.value = fileMetadata.title || getFileTitle(file.name)
+    if (!trackArtistInput.value.trim() && fileMetadata.artist) trackArtistInput.value = fileMetadata.artist
+    if (!trackAlbumInput.value.trim() && fileMetadata.album) trackAlbumInput.value = fileMetadata.album
 }
 
 function handleCoverFileSelection() {
     const file = coverFileInput.files[0]
 
+    clearSelectedOnlineCover()
+
     if (!file) {
         selectedCoverImage = ""
+        coverPreview.classList.remove("has-image")
         coverPreview.style.removeProperty("background-image")
         return
     }
@@ -3646,13 +3862,81 @@ function handleCoverFileSelection() {
     reader.readAsDataURL(file)
 }
 
-function getAudioDuration(file) {
+async function findOnlineMetadata({title,artist,album,duration}) {
+    if (!metadata?.searchTrack) return null
+    if (!navigator.onLine) throw new Error("Conecte-se à internet para buscar informações.")
+
+    return metadata.searchTrack({title,artist,album,duration})
+}
+
+async function handleUploadMetadataLookup() {
+    const audioFile = audioFileInput.files[0]
+
+    if (!audioFile) {
+        showToast("Escolha o arquivo de áudio antes de buscar as informações.","warning")
+        return
+    }
+
+    setButtonLoading(uploadMetadataButton,true,"Buscando informações...")
+
+    try {
+        const fileMetadata = getFileNameMetadata(audioFile)
+        const [embeddedMetadata,duration] = await Promise.all([
+            readEmbeddedMetadata(audioFile),
+            getAudioDuration(audioFile)
+        ])
+        const currentTitle = trackTitleInput.value.trim() || limitText(embeddedMetadata.title,80,fileMetadata.title || getFileTitle(audioFile.name))
+        const currentArtist = trackArtistInput.value.trim() || limitText(embeddedMetadata.artist,80,fileMetadata.artist || "")
+        const currentAlbum = trackAlbumInput.value.trim() || limitText(embeddedMetadata.album,100,fileMetadata.album || "")
+
+        trackTitleInput.value = currentTitle
+        if (currentArtist) trackArtistInput.value = currentArtist
+        if (currentAlbum) trackAlbumInput.value = currentAlbum
+
+        const result = await findOnlineMetadata({
+            title:currentTitle,
+            artist:currentArtist,
+            album:currentAlbum,
+            duration
+        })
+
+        if (!result) {
+            showToast("Não encontramos uma correspondência confiável para esta música.","warning")
+            return
+        }
+
+        trackTitleInput.value = limitText(result.title,80,currentTitle)
+        trackArtistInput.value = limitText(result.artist,80,currentArtist || "Artista desconhecido")
+        trackAlbumInput.value = limitText(result.album,100,currentAlbum || "Álbum desconhecido")
+
+        if (!coverFileInput.files[0] && metadata?.downloadCover) {
+            const coverFile = await metadata.downloadCover(result,{maximumSize:maximumCoverFileSize})
+
+            if (coverFile) setUploadCoverPreviewFile(coverFile)
+        }
+
+        showToast("Informações encontradas. Confira antes de adicionar à biblioteca.")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível buscar as informações."),"warning")
+    } finally {
+        setButtonLoading(uploadMetadataButton,false)
+    }
+}
+
+function getBrowserAudioDuration(file) {
     return new Promise(resolve => {
         const previewAudio = document.createElement("audio")
         const objectUrl = URL.createObjectURL(file)
+        let finished = false
+
         const finish = duration => {
+            if (finished) return
+
+            finished = true
+            previewAudio.removeAttribute("src")
+            previewAudio.load()
             URL.revokeObjectURL(objectUrl)
-            resolve(Number.isFinite(duration) ? duration : 0)
+            resolve(Number.isFinite(duration) && duration > 0 ? duration : 0)
         }
 
         previewAudio.preload = "metadata"
@@ -3660,6 +3944,327 @@ function getAudioDuration(file) {
         previewAudio.addEventListener("error",() => finish(0),{once:true})
         previewAudio.src = objectUrl
     })
+}
+
+function isMp3File(file) {
+    const mimeType = String(file?.type || "").toLocaleLowerCase("pt-BR")
+
+    return getFileExtension(file?.name) === "mp3"
+        || mimeType === "audio/mpeg"
+        || mimeType === "audio/mp3"
+}
+
+function isMp3Track(track) {
+    if (!track) return false
+
+    const mimeType = String(track.mimeType || "").toLocaleLowerCase("pt-BR")
+    const audioPath = String(track.audioPath || "").toLocaleLowerCase("pt-BR")
+
+    return mimeType === "audio/mpeg"
+        || mimeType === "audio/mp3"
+        || audioPath.endsWith(".mp3")
+}
+
+function getMpegFrameInformation(bytes,offset) {
+    if (offset + 4 > bytes.length) return null
+
+    const first = bytes[offset]
+    const second = bytes[offset + 1]
+    const third = bytes[offset + 2]
+
+    if (first !== 0xff || (second & 0xe0) !== 0xe0) return null
+
+    const versionBits = (second >> 3) & 0x03
+    const layerBits = (second >> 1) & 0x03
+    const bitrateIndex = (third >> 4) & 0x0f
+    const sampleRateIndex = (third >> 2) & 0x03
+    const padding = (third >> 1) & 0x01
+
+    if (versionBits === 1 || layerBits === 0 || bitrateIndex === 0 || bitrateIndex === 15 || sampleRateIndex === 3) return null
+
+    const version = versionBits === 3 ? 1 : versionBits === 2 ? 2 : 2.5
+    const layer = layerBits === 3 ? 1 : layerBits === 2 ? 2 : 3
+    const mpegOneBitrates = {
+        1:[0,32,64,96,128,160,192,224,256,288,320,352,384,416,448],
+        2:[0,32,48,56,64,80,96,112,128,160,192,224,256,320,384],
+        3:[0,32,40,48,56,64,80,96,112,128,160,192,224,256,320]
+    }
+    const mpegTwoBitrates = {
+        1:[0,32,48,56,64,80,96,112,128,144,160,176,192,224,256],
+        2:[0,8,16,24,32,40,48,56,64,80,96,112,128,144,160],
+        3:[0,8,16,24,32,40,48,56,64,80,96,112,128,144,160]
+    }
+    const bitrate = (version === 1 ? mpegOneBitrates : mpegTwoBitrates)[layer][bitrateIndex] * 1000
+    const baseSampleRate = [44100,48000,32000][sampleRateIndex]
+    const sampleRate = version === 1 ? baseSampleRate : version === 2 ? baseSampleRate / 2 : baseSampleRate / 4
+    const samplesPerFrame = layer === 1 ? 384 : layer === 2 ? 1152 : version === 1 ? 1152 : 576
+    let frameLength = 0
+
+    if (layer === 1) frameLength = Math.floor((12 * bitrate / sampleRate + padding) * 4)
+    else if (layer === 3 && version !== 1) frameLength = Math.floor(72 * bitrate / sampleRate + padding)
+    else frameLength = Math.floor(144 * bitrate / sampleRate + padding)
+
+    if (!Number.isFinite(frameLength) || frameLength < 4) return null
+
+    return {
+        version,
+        layer,
+        bitrate,
+        sampleRate,
+        samplesPerFrame,
+        frameLength
+    }
+}
+
+function getId3v2Offset(bytes) {
+    if (bytes.length < 10) return 0
+    if (bytes[0] !== 0x49 || bytes[1] !== 0x44 || bytes[2] !== 0x33) return 0
+
+    const size = (bytes[6] & 0x7f) * 0x200000
+        + (bytes[7] & 0x7f) * 0x4000
+        + (bytes[8] & 0x7f) * 0x80
+        + (bytes[9] & 0x7f)
+    const footerSize = bytes[5] & 0x10 ? 10 : 0
+
+    return Math.min(bytes.length,10 + size + footerSize)
+}
+
+function getMp3FrameDurationFromBuffer(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer)
+
+    if (bytes.length < 8) return 0
+
+    const startOffset = getId3v2Offset(bytes)
+    let endOffset = bytes.length
+
+    if (endOffset >= 128
+        && bytes[endOffset - 128] === 0x54
+        && bytes[endOffset - 127] === 0x41
+        && bytes[endOffset - 126] === 0x47) {
+        endOffset -= 128
+    }
+
+    let firstFrameOffset = -1
+    let firstFrame = null
+    const searchLimit = Math.min(endOffset - 8,startOffset + 1024 * 1024)
+
+    for (let offset = startOffset; offset <= searchLimit; offset += 1) {
+        const frame = getMpegFrameInformation(bytes,offset)
+
+        if (!frame) continue
+
+        const nextFrame = getMpegFrameInformation(bytes,offset + frame.frameLength)
+
+        if (!nextFrame) continue
+        if (nextFrame.version !== frame.version || nextFrame.layer !== frame.layer || nextFrame.sampleRate !== frame.sampleRate) continue
+
+        firstFrameOffset = offset
+        firstFrame = frame
+        break
+    }
+
+    if (firstFrameOffset < 0 || !firstFrame) return 0
+
+    let offset = firstFrameOffset
+    let duration = 0
+    let frameCount = 0
+    let invalidBytes = 0
+
+    while (offset + 4 <= endOffset) {
+        const frame = getMpegFrameInformation(bytes,offset)
+
+        if (!frame
+            || frame.version !== firstFrame.version
+            || frame.layer !== firstFrame.layer
+            || frame.sampleRate !== firstFrame.sampleRate
+            || offset + frame.frameLength > endOffset) {
+            invalidBytes += 1
+
+            if (frameCount >= 8 && invalidBytes > 16) break
+            if (invalidBytes > 4096) break
+
+            offset += 1
+            continue
+        }
+
+        duration += frame.samplesPerFrame / frame.sampleRate
+        frameCount += 1
+        invalidBytes = 0
+        offset += frame.frameLength
+    }
+
+    return frameCount >= 8 && Number.isFinite(duration) && duration > 0 ? duration : 0
+}
+
+async function getMp3FrameDuration(file) {
+    if (!isMp3File(file)) return 0
+
+    try {
+        return getMp3FrameDurationFromBuffer(await file.arrayBuffer())
+    } catch (error) {
+        return 0
+    }
+}
+
+async function getAudioDuration(file) {
+    if (isMp3File(file)) {
+        const frameDuration = await getMp3FrameDuration(file)
+
+        if (frameDuration > 0) return frameDuration
+    }
+
+    return getBrowserAudioDuration(file)
+}
+
+function getDurationValidationCache() {
+    if (durationValidationCache) return durationValidationCache
+
+    try {
+        const stored = JSON.parse(localStorage.getItem(durationValidationStorageKey) || "{}")
+
+        durationValidationCache = stored && typeof stored === "object" ? stored : {}
+    } catch (error) {
+        durationValidationCache = {}
+    }
+
+    return durationValidationCache
+}
+
+function getDurationValidationKey(track) {
+    return [track?.id || "",track?.fileHash || "",Number(track?.fileSize || 0)].join(":")
+}
+
+function readValidatedDuration(track) {
+    const key = getDurationValidationKey(track)
+    const duration = Number(getDurationValidationCache()[key] || 0)
+
+    return Number.isFinite(duration) && duration > 0 ? duration : 0
+}
+
+function storeValidatedDuration(track,duration) {
+    if (!track?.id || !Number.isFinite(duration) || duration <= 0) return
+
+    const cache = getDurationValidationCache()
+
+    cache[getDurationValidationKey(track)] = Math.round(duration * 1000) / 1000
+
+    try {
+        localStorage.setItem(durationValidationStorageKey,JSON.stringify(cache))
+    } catch (error) {
+        return
+    }
+}
+
+function getTrackPlaybackDuration(track = getCurrentTrack()) {
+    const catalogDuration = Number(track?.duration || 0)
+
+    if (catalogDuration > 0) return catalogDuration
+    if (Number.isFinite(audioPlayer?.duration) && audioPlayer.duration > 0) return audioPlayer.duration
+
+    return 0
+}
+
+async function applyValidatedTrackDuration(track,duration,{persist = true} = {}) {
+    if (!track?.id || !Number.isFinite(duration) || duration <= 0) return false
+
+    const previousDuration = Number(track.duration || 0)
+    const changed = !previousDuration || Math.abs(previousDuration - duration) > 1
+
+    track.duration = duration
+    validatedDurationTrackIds.add(track.id)
+    storeValidatedDuration(track,duration)
+
+    if (persist && changed && cloudMode && cloudReady && navigator.onLine && track.cloud) {
+        try {
+            await cloud.updateTrackDuration(track.id,duration)
+        } catch (error) {
+            console.warn("Não foi possível corrigir a duração da música na nuvem.",error)
+        }
+    }
+
+    if (changed && track.downloaded && offlineReady && currentProfile?.duoId && offline?.updateDownloadMetadata) {
+        try {
+            const updatedRecord = await offline.updateDownloadMetadata({
+                duoId:currentProfile.duoId,
+                track
+            })
+
+            if (updatedRecord) offlineDownloads.set(track.id,updatedRecord)
+        } catch (error) {
+            console.warn("Não foi possível corrigir a duração da cópia offline.",error)
+        }
+    }
+
+    if (changed && offlineReady && currentProfile?.duoId) {
+        saveOfflineLibrarySnapshot(tracks,playlists,duoMembers).catch(() => {})
+    }
+
+    if (track.id === currentTrackId) {
+        updateProgressInterface()
+        updateMediaSessionPosition(true)
+    }
+
+    if (changed) renderApplicationData()
+
+    return changed
+}
+
+async function validateTrackDuration(track) {
+    if (!track?.id || !isMp3Track(track)) return Number(track?.duration || 0)
+
+    const cachedDuration = readValidatedDuration(track)
+
+    if (cachedDuration > 0) {
+        await applyValidatedTrackDuration(track,cachedDuration)
+        return cachedDuration
+    }
+
+    if (durationValidationPromises.has(track.id)) return durationValidationPromises.get(track.id)
+
+    const validationPromise = (async () => {
+        const source = track.cloudSource || track.source
+
+        if (!source) return Number(track.duration || 0)
+
+        try {
+            const response = await fetch(source,{cache:"no-store"})
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`)
+
+            const blob = await response.blob()
+            const audioFile = new File([blob],`${track.title || "musica"}.mp3`,{type:track.mimeType || blob.type || "audio/mpeg"})
+            const duration = await getMp3FrameDuration(audioFile)
+
+            if (duration > 0) {
+                await applyValidatedTrackDuration(track,duration)
+                return duration
+            }
+        } catch (error) {
+            console.warn("Não foi possível validar a duração desta música.",error)
+        }
+
+        return Number(track.duration || 0)
+    })().finally(() => durationValidationPromises.delete(track.id))
+
+    durationValidationPromises.set(track.id,validationPromise)
+
+    return validationPromise
+}
+
+function finishTrackAtValidatedDuration() {
+    const track = getCurrentTrack()
+
+    if (!track || !validatedDurationTrackIds.has(track.id)) return
+
+    const duration = Number(track.duration || 0)
+    const position = Number(audioPlayer.currentTime || 0)
+
+    if (!duration || !Number.isFinite(position) || position < duration + 1.25) return
+    if (catalogEndHandledTrackId === track.id) return
+
+    catalogEndHandledTrackId = track.id
+    audioPlayer.pause()
+    changeTrack(1,{automatic:true})
 }
 
 function loadMetadataLibrary() {
@@ -3846,7 +4451,8 @@ function renderCatalogQueue() {
             const details = [
                 item.duration ? formatTime(item.duration) : "",
                 formatFileSize(item.file.size),
-                item.coverFile ? "capa encontrada" : ""
+                item.coverFile ? "capa encontrada" : "",
+                item.metadataSource ? `dados: ${item.metadataSource}` : ""
             ].filter(Boolean).join(" · ")
 
             return `
@@ -3926,6 +4532,48 @@ function removeCatalogItem(itemId) {
     }
 }
 
+function shouldCompleteCatalogMetadata({title,artist,album,coverFile,hasReliableMetadata}) {
+    if (!catalogOnlineMetadataInput?.checked || !metadata?.searchTrack || !navigator.onLine) return false
+    if (!title || metadata?.isGenericValue?.(title)) return false
+    if (!artist || metadata?.isGenericValue?.(artist)) return false
+
+    return !hasReliableMetadata || !coverFile || metadata?.isGenericValue?.(album)
+}
+
+async function completeCatalogMetadata({title,artist,album,duration,coverFile,hasReliableMetadata}) {
+    if (!shouldCompleteCatalogMetadata({title,artist,album,coverFile,hasReliableMetadata})) {
+        return {title,artist,album,coverFile,metadataSource:""}
+    }
+
+    try {
+        const result = await findOnlineMetadata({title,artist,album,duration})
+
+        if (!result) return {title,artist,album,coverFile,metadataSource:""}
+
+        const completedTitle = hasReliableMetadata ? title : limitText(result.title,80,title)
+        const completedArtist = hasReliableMetadata ? artist : limitText(result.artist,80,artist)
+        const completedAlbum = metadata?.isGenericValue?.(album)
+            ? limitText(result.album,100,album || "Álbum desconhecido")
+            : album
+        let completedCoverFile = coverFile
+
+        if (!completedCoverFile && metadata?.downloadCover) {
+            completedCoverFile = await metadata.downloadCover(result,{maximumSize:maximumCoverFileSize})
+        }
+
+        return {
+            title:completedTitle,
+            artist:completedArtist,
+            album:completedAlbum || "Álbum desconhecido",
+            coverFile:completedCoverFile,
+            metadataSource:result.source || "MusicBrainz"
+        }
+    } catch (error) {
+        console.warn("Não foi possível completar os metadados desta música.",error)
+        return {title,artist,album,coverFile,metadataSource:""}
+    }
+}
+
 async function analyzeCatalogFiles(fileList) {
     if (catalogAnalyzing || catalogImporting) return
 
@@ -3955,6 +4603,7 @@ async function analyzeCatalogFiles(fileList) {
         signature:"",
         coverFile:null,
         coverUrl:"",
+        metadataSource:"",
         status:"queued",
         message:""
     }))
@@ -4004,15 +4653,44 @@ async function analyzeCatalogFiles(fileList) {
                 getAudioDuration(item.file)
             ])
             const fileHash = await createFileFingerprint(item.file)
-            const title = limitText(embeddedMetadata.title,80,fileMetadata.title || "Música sem título")
-            const artist = limitText(embeddedMetadata.artist,80,fileMetadata.artist || "Artista desconhecido")
-            const album = limitText(embeddedMetadata.album,100,fileMetadata.album || "Álbum desconhecido")
-            const coverFile = createEmbeddedCoverFile(embeddedMetadata.picture,item.file)
+            const initialTitle = limitText(embeddedMetadata.title,80,fileMetadata.title || "Música sem título")
+            const initialArtist = limitText(embeddedMetadata.artist,80,fileMetadata.artist || "Artista desconhecido")
+            const initialAlbum = limitText(embeddedMetadata.album,100,fileMetadata.album || "Álbum desconhecido")
+            const embeddedCoverFile = createEmbeddedCoverFile(embeddedMetadata.picture,item.file)
+            const hasReliableMetadata = Boolean(embeddedMetadata.title && embeddedMetadata.artist)
+
+            if (shouldCompleteCatalogMetadata({
+                title:initialTitle,
+                artist:initialArtist,
+                album:initialAlbum,
+                coverFile:embeddedCoverFile,
+                hasReliableMetadata
+            })) {
+                updateCatalogProgress(
+                    `Analisando ${index + 1} de ${newItems.length}`,
+                    `Buscando informações para ${item.file.name}`,
+                    index,
+                    newItems.length
+                )
+            }
+
+            const completedMetadata = await completeCatalogMetadata({
+                title:initialTitle,
+                artist:initialArtist,
+                album:initialAlbum,
+                duration,
+                coverFile:embeddedCoverFile,
+                hasReliableMetadata
+            })
+            const title = completedMetadata.title
+            const artist = completedMetadata.artist
+            const album = completedMetadata.album
+            const coverFile = completedMetadata.coverFile
             const signature = createCatalogSignature({title,artist,album,duration})
             const looseSignature = createCatalogLooseSignature({title,artist,duration})
-            const hasReliableMetadata = Boolean(embeddedMetadata.title && embeddedMetadata.artist)
+            const hasReliableIdentity = hasReliableMetadata || Boolean(completedMetadata.metadataSource)
             const duplicate = knownHashes.has(fileHash)
-                || hasReliableMetadata && (knownSignatures.has(signature) || knownLooseSignatures.has(looseSignature))
+                || hasReliableIdentity && (knownSignatures.has(signature) || knownLooseSignatures.has(looseSignature))
 
             item.title = title
             item.artist = artist
@@ -4022,13 +4700,14 @@ async function analyzeCatalogFiles(fileList) {
             item.fileHash = fileHash
             item.signature = signature
             item.coverFile = coverFile
+            item.metadataSource = completedMetadata.metadataSource
             item.coverUrl = coverFile ? URL.createObjectURL(coverFile) : ""
             item.status = duplicate ? "duplicate" : "ready"
             item.message = duplicate ? "Esta música já está na biblioteca" : ""
 
             if (!duplicate) {
                 knownHashes.add(fileHash)
-                if (hasReliableMetadata) {
+                if (hasReliableIdentity) {
                     knownSignatures.add(signature)
                     knownLooseSignatures.add(looseSignature)
                 }
@@ -4180,9 +4859,10 @@ async function handleUploadSubmit(event) {
     event.preventDefault()
 
     const audioFile = audioFileInput.files[0]
-    const coverFile = coverFileInput.files[0]
+    const coverFile = coverFileInput.files[0] || selectedOnlineCoverFile
     const title = trackTitleInput.value.trim()
     const artist = trackArtistInput.value.trim()
+    const album = trackAlbumInput.value.trim() || "Álbum desconhecido"
 
     if (!audioFile || !title || !artist) {
         showToast("Escolha o áudio e preencha título e artista.","warning")
@@ -4204,9 +4884,9 @@ async function handleUploadSubmit(event) {
             id:createId("track"),
             title,
             artist,
-            album:"Adicionada por você",
+            album,
             cover:selectedCoverImage ? "" : availableCoverClasses[tracks.length % availableCoverClasses.length],
-            coverImage:selectedCoverImage,
+            coverImage:selectedOnlineCoverFile ? URL.createObjectURL(selectedOnlineCoverFile) : selectedCoverImage,
             duration:0,
             favorite:false,
             sharedBy:"",
@@ -4243,9 +4923,9 @@ async function handleUploadSubmit(event) {
             coverFile,
             title,
             artist,
-            album:"Adicionada por você",
+            album,
             duration,
-            tags:["adicionada",title.toLocaleLowerCase("pt-BR"),artist.toLocaleLowerCase("pt-BR")],
+            tags:["adicionada",title.toLocaleLowerCase("pt-BR"),artist.toLocaleLowerCase("pt-BR"),album.toLocaleLowerCase("pt-BR")],
             fileHash,
             fileSize:audioFile.size,
             mimeType:getAudioMimeType(audioFile)
@@ -4264,8 +4944,16 @@ async function handleUploadSubmit(event) {
 }
 
 audioFileInput?.addEventListener("change",handleAudioFileSelection)
+uploadMetadataButton?.addEventListener("click",handleUploadMetadataLookup)
 coverFileInput?.addEventListener("change",handleCoverFileSelection)
 uploadForm?.addEventListener("submit",handleUploadSubmit)
+
+if (catalogOnlineMetadataInput) {
+    catalogOnlineMetadataInput.checked = localStorage.getItem(metadataLookupStorageKey) !== "off"
+    catalogOnlineMetadataInput.addEventListener("change",() => {
+        localStorage.setItem(metadataLookupStorageKey,catalogOnlineMetadataInput.checked ? "on" : "off")
+    })
+}
 
 catalogFileInput?.addEventListener("change",event => analyzeCatalogFiles(event.target.files))
 catalogFolderInput?.addEventListener("change",event => analyzeCatalogFiles(event.target.files))
@@ -4331,13 +5019,14 @@ function renderPlaylistPicker() {
     playlistPicker.innerHTML = playlists.map(playlist => {
         const hasTrack = Boolean(pendingPlaylistTrackId && playlist.trackIds.includes(pendingPlaylistTrackId))
         const count = playlist.trackIds.length
+        const creator = playlist.createdByName ? `por ${playlist.createdByName}` : "compartilhada"
 
         return `
             <button type="button" class="playlist-picker-button" data-toggle-playlist-track="${escapeAttribute(playlist.id)}" ${pendingPlaylistTrackId ? "" : "disabled"}>
                 <span><svg aria-hidden="true"><use href="#icon-playlist"></use></svg></span>
                 <span>
                     <strong>${escapeHTML(playlist.title)}</strong>
-                    <small>${count === 1 ? "1 música" : `${count} músicas`}</small>
+                    <small>${count === 1 ? "1 música" : `${count} músicas`} · ${escapeHTML(creator)}</small>
                 </span>
                 <small>${pendingPlaylistTrackId ? hasTrack ? "Remover" : "Adicionar" : "Compartilhada"}</small>
             </button>
@@ -4349,6 +5038,7 @@ async function handlePlaylistSubmit(event) {
     event.preventDefault()
 
     const title = playlistTitleInput.value.trim()
+    const description = playlistDescriptionInput?.value.trim() || ""
 
     if (!title) {
         showToast("Digite um nome para a playlist.","warning")
@@ -4366,7 +5056,7 @@ async function handlePlaylistSubmit(event) {
         const queuedTrackIds = pendingPlaylistQueueIds.filter((trackId,index,array) => array.indexOf(trackId) === index)
 
         if (cloudMode) {
-            const playlist = await cloud.createPlaylist(title)
+            const playlist = await cloud.createPlaylist(title,description)
 
             if (pendingPlaylistTrackId) await cloud.addTrackToPlaylist(playlist.id,pendingPlaylistTrackId)
 
@@ -4376,11 +5066,23 @@ async function handlePlaylistSubmit(event) {
 
             await loadCloudApplicationData()
         } else {
+            const now = new Date().toISOString()
+            const trackIds = pendingPlaylistTrackId ? [pendingPlaylistTrackId] : queuedTrackIds
+
             playlists.unshift({
                 id:createId("playlist"),
                 title,
-                description:"",
-                trackIds:pendingPlaylistTrackId ? [pendingPlaylistTrackId] : queuedTrackIds
+                description,
+                createdByName:currentProfile?.name || "Você",
+                createdAt:now,
+                updatedAt:now,
+                trackIds,
+                items:trackIds.map((trackId,position) => ({
+                    trackId,
+                    position,
+                    addedByName:currentProfile?.name || "Você",
+                    createdAt:now
+                }))
             })
             renderApplicationData()
         }
@@ -4427,8 +5129,20 @@ async function toggleTrackInPlaylist(playlistId) {
             await loadCloudApplicationData()
         } else if (hasTrack) {
             playlist.trackIds = playlist.trackIds.filter(trackId => trackId !== pendingPlaylistTrackId)
+            playlist.items = (playlist.items || []).filter(item => item.trackId !== pendingPlaylistTrackId)
         } else {
+            const now = new Date().toISOString()
             playlist.trackIds.push(pendingPlaylistTrackId)
+            playlist.items = [
+                ...(playlist.items || []),
+                {
+                    trackId:pendingPlaylistTrackId,
+                    position:playlist.trackIds.length - 1,
+                    addedByName:currentProfile?.name || "Você",
+                    createdAt:now
+                }
+            ]
+            playlist.updatedAt = now
         }
 
         renderApplicationData()
@@ -4438,8 +5152,243 @@ async function toggleTrackInPlaylist(playlistId) {
     }
 }
 
+function resetPlaylistManager() {
+    playlistManagerPlaylistId = ""
+    playlistActivity = []
+    playlistManagerForm?.reset()
+    if (playlistDeleteConfirmation) playlistDeleteConfirmation.hidden = true
+    if (playlistActivityList) playlistActivityList.innerHTML = '<p class="playlist-activity-empty">Abra uma playlist para ver a atividade.</p>'
+}
+
+function getPlaylistActivityText(item) {
+    const track = tracks.find(trackItem => trackItem.id === item.track_id)
+    const trackTitle = item.details?.track_title || track?.title || "uma música"
+
+    if (item.action === "created") return "criou a playlist"
+    if (item.action === "updated") return "editou a playlist"
+    if (item.action === "track_added") return `adicionou “${trackTitle}”`
+    if (item.action === "track_removed") return `removeu “${trackTitle}”`
+    if (item.action === "track_moved") return `reorganizou “${trackTitle}”`
+
+    return "atualizou a playlist"
+}
+
+function renderPlaylistActivity() {
+    if (!playlistActivityList) return
+
+    if (!cloudMode) {
+        playlistActivityList.innerHTML = '<p class="playlist-activity-empty">O histórico compartilhado aparece quando o Dois Tons está conectado ao Supabase.</p>'
+        return
+    }
+
+    if (!navigator.onLine) {
+        playlistActivityList.innerHTML = '<p class="playlist-activity-empty">Conecte-se à internet para carregar o histórico desta playlist.</p>'
+        return
+    }
+
+    playlistActivityList.innerHTML = playlistActivity.length
+        ? playlistActivity.map(item => `
+            <article class="playlist-activity-item">
+                <span class="playlist-activity-avatar">${escapeHTML(getInitials(item.actorName || "DT"))}</span>
+                <span>
+                    <strong>${escapeHTML(item.actorName || "Sua pessoa")}</strong>
+                    <p>${escapeHTML(getPlaylistActivityText(item))}</p>
+                    <small>${escapeHTML(formatPlaylistDate(item.created_at))}</small>
+                </span>
+            </article>
+        `).join("")
+        : '<p class="playlist-activity-empty">Ainda não há atividades registradas nesta playlist.</p>'
+}
+
+async function openPlaylistManager(playlistId = activePlaylistId) {
+    const playlist = playlists.find(item => item.id === playlistId)
+
+    if (!playlist) return
+
+    playlistManagerPlaylistId = playlist.id
+    playlistManagerTitleInput.value = playlist.title || ""
+    playlistManagerDescriptionInput.value = playlist.description || ""
+    playlistManagerMeta.textContent = [
+        playlist.createdByName ? `Criada por ${playlist.createdByName}` : "Playlist compartilhada",
+        formatPlaylistDate(playlist.created_at || playlist.createdAt)
+    ].filter(Boolean).join(" · ")
+    playlistDeleteConfirmation.hidden = true
+    playlistActivityList.innerHTML = '<p class="playlist-activity-empty">Carregando atividade...</p>'
+    openModal("playlist-manager")
+
+    if (!cloudMode || !cloudReady || !navigator.onLine) {
+        playlistActivity = []
+        renderPlaylistActivity()
+        return
+    }
+
+    try {
+        playlistActivity = await cloud.loadPlaylistActivity(playlist.id)
+    } catch (error) {
+        playlistActivity = []
+    }
+
+    renderPlaylistActivity()
+}
+
+async function handlePlaylistManagerSubmit(event) {
+    event.preventDefault()
+
+    const playlist = playlists.find(item => item.id === playlistManagerPlaylistId)
+    const title = playlistManagerTitleInput.value.trim()
+    const description = playlistManagerDescriptionInput.value.trim()
+
+    if (!playlist || !title) {
+        showToast("Digite um nome para a playlist.","warning")
+        return
+    }
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para editar a playlist.","warning")
+        return
+    }
+
+    setButtonLoading(playlistManagerSubmit,true,"Salvando...")
+
+    try {
+        if (cloudMode) {
+            await cloud.updatePlaylist(playlist.id,{title,description})
+            await loadCloudApplicationData()
+        } else {
+            playlist.title = title
+            playlist.description = description
+            playlist.updatedAt = new Date().toISOString()
+            renderApplicationData()
+        }
+
+        closeModal("playlist-manager")
+        showToast("Playlist atualizada para vocês.")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível atualizar a playlist."),"warning")
+    } finally {
+        setButtonLoading(playlistManagerSubmit,false)
+    }
+}
+
+async function deleteActivePlaylist() {
+    const playlist = playlists.find(item => item.id === playlistManagerPlaylistId)
+
+    if (!playlist) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para excluir a playlist.","warning")
+        return
+    }
+
+    setButtonLoading(playlistDeleteConfirmButton,true,"Excluindo...")
+
+    try {
+        if (cloudMode) {
+            await cloud.deletePlaylist(playlist.id)
+            activePlaylistId = ""
+            playlistOrganizing = false
+            await loadCloudApplicationData()
+        } else {
+            playlists = playlists.filter(item => item.id !== playlist.id)
+            activePlaylistId = ""
+            playlistOrganizing = false
+            renderApplicationData()
+        }
+
+        closeModal("playlist-manager")
+        showToast("Playlist excluída. As músicas continuam na Biblioteca.")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível excluir a playlist."),"warning")
+    } finally {
+        setButtonLoading(playlistDeleteConfirmButton,false)
+    }
+}
+
+function togglePlaylistOrganizing() {
+    if (!activePlaylistId) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para reorganizar a playlist.","warning")
+        return
+    }
+
+    playlistOrganizing = !playlistOrganizing
+    renderPlaylists()
+    renderLibrary()
+    showToast(playlistOrganizing ? "Modo de organização ativado." : "Organização concluída.")
+}
+
+async function moveActivePlaylistTrack(trackId,direction) {
+    const playlist = playlists.find(item => item.id === activePlaylistId)
+
+    if (!playlist || !playlist.trackIds.includes(trackId)) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para reorganizar a playlist.","warning")
+        return
+    }
+
+    try {
+        if (cloudMode) {
+            const moved = await cloud.movePlaylistTrack(playlist.id,trackId,direction)
+
+            if (!moved) return
+            await loadCloudApplicationData()
+        } else {
+            const index = playlist.trackIds.indexOf(trackId)
+            const targetIndex = direction === "up" ? index - 1 : index + 1
+
+            if (targetIndex < 0 || targetIndex >= playlist.trackIds.length) return
+
+            ;[playlist.trackIds[index],playlist.trackIds[targetIndex]] = [playlist.trackIds[targetIndex],playlist.trackIds[index]]
+            const itemByTrack = new Map((playlist.items || []).map(item => [item.trackId,item]))
+            playlist.items = playlist.trackIds.map((id,position) => ({...(itemByTrack.get(id) || {trackId:id}),position}))
+            playlist.updatedAt = new Date().toISOString()
+            renderApplicationData()
+        }
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível reorganizar a playlist."),"warning")
+    }
+}
+
+async function removeTrackFromActivePlaylist(trackId) {
+    const playlist = playlists.find(item => item.id === activePlaylistId)
+
+    if (!playlist || !playlist.trackIds.includes(trackId)) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para alterar a playlist.","warning")
+        return
+    }
+
+    try {
+        if (cloudMode) {
+            await cloud.removeTrackFromPlaylist(playlist.id,trackId)
+            await loadCloudApplicationData()
+        } else {
+            playlist.trackIds = playlist.trackIds.filter(id => id !== trackId)
+            playlist.items = (playlist.items || []).filter(item => item.trackId !== trackId)
+            renderApplicationData()
+        }
+
+        showToast("Música removida da playlist.")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível remover a música da playlist."),"warning")
+    }
+}
+
 createPlaylistButton?.addEventListener("click",() => openPlaylistModal(""))
 playlistForm?.addEventListener("submit",handlePlaylistSubmit)
+playlistManagerForm?.addEventListener("submit",handlePlaylistManagerSubmit)
+organizePlaylistButton?.addEventListener("click",togglePlaylistOrganizing)
+managePlaylistButton?.addEventListener("click",() => openPlaylistManager())
+deletePlaylistButton?.addEventListener("click",() => {
+    playlistDeleteConfirmation.hidden = false
+})
+playlistDeleteCancelButton?.addEventListener("click",() => {
+    playlistDeleteConfirmation.hidden = true
+})
+playlistDeleteConfirmButton?.addEventListener("click",deleteActivePlaylist)
 
 playlistPicker?.addEventListener("click",event => {
     const button = event.target.closest("[data-toggle-playlist-track]")
@@ -4576,8 +5525,9 @@ async function applyRemoteJamState(remoteJam,options = {}) {
         await waitForAudioMetadata()
 
         const expectedPosition = cloud.getExpectedJamPosition(remoteJam)
-        const safePosition = Number.isFinite(audioPlayer.duration)
-            ? Math.min(expectedPosition,Math.max(0,audioPlayer.duration - 0.1))
+        const playbackDuration = getTrackPlaybackDuration(track)
+        const safePosition = playbackDuration > 0
+            ? Math.min(expectedPosition,Math.max(0,playbackDuration - 0.1))
             : expectedPosition
 
         if (Math.abs(audioPlayer.currentTime - safePosition) > 0.35) audioPlayer.currentTime = safePosition
@@ -4753,11 +5703,13 @@ logoutButton?.addEventListener("click",closeApplication)
 
 // controles do sistema
 function seekSystemPlayback(offset) {
-    if (!Number.isFinite(audioPlayer.duration)) return
+    const duration = getTrackPlaybackDuration()
+
+    if (!Number.isFinite(duration) || duration <= 0) return
 
     const nextPosition = Math.min(
         Math.max((Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0) + offset,0),
-        audioPlayer.duration
+        duration
     )
 
     audioPlayer.currentTime = nextPosition
@@ -4784,12 +5736,14 @@ function configureMediaSessionActions() {
         seekbackward:details => seekSystemPlayback(-Math.max(1,Number(details.seekOffset) || 10)),
         seekforward:details => seekSystemPlayback(Math.max(1,Number(details.seekOffset) || 10)),
         seekto:details => {
-            if (!Number.isFinite(details.seekTime) || !Number.isFinite(audioPlayer.duration)) return
+            const duration = getTrackPlaybackDuration()
+
+            if (!Number.isFinite(details.seekTime) || !Number.isFinite(duration) || duration <= 0) return
 
             if (details.fastSeek && typeof audioPlayer.fastSeek === "function") {
-                audioPlayer.fastSeek(Math.min(Math.max(details.seekTime,0),audioPlayer.duration))
+                audioPlayer.fastSeek(Math.min(Math.max(details.seekTime,0),duration))
             } else {
-                audioPlayer.currentTime = Math.min(Math.max(details.seekTime,0),audioPlayer.duration)
+                audioPlayer.currentTime = Math.min(Math.max(details.seekTime,0),duration)
             }
 
             updateProgressInterface()

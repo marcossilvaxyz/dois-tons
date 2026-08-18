@@ -172,6 +172,7 @@ window.DoisTonsOffline = (() => {
             title:track.title || record.title || "Sem título",
             artist:track.artist || record.artist || "Artista desconhecido",
             album:track.album || record.album || "Álbum desconhecido",
+            duration:Number(track.duration || record.duration || 0),
             favorite:Boolean(track.favorite),
             sharedBy:track.sharedBy || "",
             tags:Array.isArray(track.tags) ? track.tags : record.tags || [],
