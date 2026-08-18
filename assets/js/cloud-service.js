@@ -266,7 +266,10 @@ window.DoisTonsCloud = (() => {
 
         if (!validPaths.length) return
 
-        await client.storage.from("media").remove(validPaths)
+        const result = await client.storage.from("media").remove(validPaths)
+
+        unwrap(result)
+        validPaths.forEach(path => signedUrlCache.delete(path))
     }
 
     // biblioteca
@@ -489,9 +492,115 @@ window.DoisTonsCloud = (() => {
             .from("tracks")
             .update({duration_seconds:Math.round(duration)})
             .eq("id",trackId)
-            .eq("added_by",currentUser.id)
+            .eq("duo_id",currentDuoId)
 
         if (result.error && result.error.code !== "PGRST116") throw result.error
+    }
+
+    async function updateTrack(trackId,{title,artist,album,coverFile = null,removeCover = false}) {
+        requireMembership()
+
+        const currentResult = await client
+            .from("tracks")
+            .select("id,cover_path,cover_url")
+            .eq("id",trackId)
+            .eq("duo_id",currentDuoId)
+            .maybeSingle()
+        const currentTrack = unwrap(currentResult)
+
+        if (!currentTrack) throw new Error("Esta música não foi encontrada na biblioteca.")
+
+        const nextCoverPath = coverFile ? createStoragePath("covers",coverFile) : ""
+        const uploadedPaths = []
+
+        try {
+            if (coverFile) {
+                await uploadFile(nextCoverPath,coverFile)
+                uploadedPaths.push(nextCoverPath)
+            }
+
+            const changes = {
+                title:String(title || "").trim(),
+                artist:String(artist || "").trim(),
+                album:String(album || "").trim() || "Álbum desconhecido"
+            }
+
+            if (coverFile) {
+                changes.cover_path = nextCoverPath
+                changes.cover_url = null
+            } else if (removeCover) {
+                changes.cover_path = null
+                changes.cover_url = null
+            }
+
+            const updateResult = await client
+                .from("tracks")
+                .update(changes)
+                .eq("id",trackId)
+                .eq("duo_id",currentDuoId)
+                .select("id")
+                .maybeSingle()
+            const updatedTrack = unwrap(updateResult)
+
+            if (!updatedTrack) {
+                throw new Error("Somente quem adicionou esta música pode editá-la.")
+            }
+
+            if ((coverFile || removeCover) && currentTrack.cover_path && currentTrack.cover_path !== nextCoverPath) {
+                try {
+                    await removeFiles([currentTrack.cover_path])
+                } catch (error) {
+                    console.warn("Não foi possível remover a capa anterior.",error)
+                }
+            }
+
+            return updatedTrack
+        } catch (error) {
+            if (uploadedPaths.length) {
+                try {
+                    await removeFiles(uploadedPaths)
+                } catch (cleanupError) {
+                    console.warn("Não foi possível limpar a nova capa após a falha.",cleanupError)
+                }
+            }
+
+            throw error
+        }
+    }
+
+    async function deleteTrack(trackId) {
+        requireMembership()
+
+        const currentResult = await client
+            .from("tracks")
+            .select("id,audio_path,cover_path")
+            .eq("id",trackId)
+            .eq("duo_id",currentDuoId)
+            .maybeSingle()
+        const currentTrack = unwrap(currentResult)
+
+        if (!currentTrack) throw new Error("Esta música não foi encontrada na biblioteca.")
+
+        const deleteResult = await client
+            .from("tracks")
+            .delete()
+            .eq("id",trackId)
+            .eq("duo_id",currentDuoId)
+            .select("id")
+            .maybeSingle()
+        const deletedTrack = unwrap(deleteResult)
+
+        if (!deletedTrack) {
+            throw new Error("Somente quem adicionou esta música pode excluí-la.")
+        }
+
+        try {
+            await removeFiles([currentTrack.audio_path,currentTrack.cover_path])
+        } catch (error) {
+            console.warn("A música foi excluída, mas alguns arquivos antigos não puderam ser removidos do Storage.",error)
+        }
+
+        return deletedTrack
     }
 
     // playlists
@@ -736,6 +845,7 @@ window.DoisTonsCloud = (() => {
         addTrackToPlaylist,
         createPlaylist,
         createPrivateUrl,
+        deleteTrack,
         disconnectRealtime,
         endJam,
         getActiveJam,
@@ -759,6 +869,7 @@ window.DoisTonsCloud = (() => {
         subscribeLibrary,
         synchronizeServerClock,
         unsubscribeJam,
+        updateTrack,
         updateTrackDuration,
         uploadTrack
     }

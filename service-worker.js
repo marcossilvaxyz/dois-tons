@@ -4,7 +4,7 @@
 // ======================================================
 
 // configuracoes
-const cacheName = "dois-tons-v8"
+const cacheName = "dois-tons-v10"
 const appAssets = [
     "./",
     "./index.html",
@@ -41,6 +41,12 @@ self.addEventListener("activate",event => {
     )
 
     self.clients.claim()
+})
+
+
+// mensagens
+self.addEventListener("message",event => {
+    if (event.data?.type === "SKIP_WAITING") self.skipWaiting()
 })
 
 // requisicoes

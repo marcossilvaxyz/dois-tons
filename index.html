@@ -7,6 +7,7 @@
     <meta name="description" content="Dois Tons — uma experiência musical privada e compartilhada para duas pessoas.">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="format-detection" content="telephone=no">
     <meta name="apple-mobile-web-app-title" content="Dois Tons">
 
     <script>
@@ -547,6 +548,10 @@
                     <svg aria-hidden="true"><use href="#icon-download"></use></svg>
                     <span id="download-current-track-label">Baixar</span>
                 </button>
+                <button type="button" id="manage-current-track">
+                    <svg aria-hidden="true"><use href="#icon-more"></use></svg>
+                    Gerenciar
+                </button>
                 <button type="button" data-open-view="jam" data-close-sheet="player">
                     <svg aria-hidden="true"><use href="#icon-users"></use></svg>
                     Ouvir em Jam
@@ -650,6 +655,84 @@
                 <span><strong>Importar catálogo</strong><small>Escolher várias músicas ou uma pasta inteira</small></span>
                 <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
             </button>
+        </div>
+    </section>
+
+    <!-- gerenciar música -->
+    <section class="modal" id="track-manager-modal" aria-hidden="true" aria-labelledby="track-manager-title">
+        <div class="modal-backdrop" data-close-modal="track-manager"></div>
+        <div class="modal-card track-manager-modal-card">
+            <header class="modal-header">
+                <div>
+                    <p>Gerenciamento do catálogo</p>
+                    <h2 id="track-manager-title">Editar música</h2>
+                </div>
+                <button type="button" data-close-modal="track-manager" aria-label="Fechar">
+                    <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                </button>
+            </header>
+
+            <div class="track-manager-summary">
+                <span class="track-manager-cover cover-rose" id="track-manager-cover"></span>
+                <div>
+                    <strong id="track-manager-summary-title">Música</strong>
+                    <span id="track-manager-summary-artist">Artista</span>
+                    <small id="track-manager-owner">Adicionada ao Dois Tons</small>
+                </div>
+            </div>
+
+            <form id="track-manager-form" novalidate>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="track-manager-title-input">Título</label>
+                        <input type="text" id="track-manager-title-input" maxlength="80" placeholder="Nome da música" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="track-manager-artist-input">Artista</label>
+                        <input type="text" id="track-manager-artist-input" maxlength="80" placeholder="Nome do artista" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="track-manager-album-input">Álbum</label>
+                    <input type="text" id="track-manager-album-input" maxlength="100" placeholder="Nome do álbum">
+                </div>
+
+                <div class="track-cover-editor">
+                    <label class="cover-picker" for="track-manager-cover-file">
+                        <span class="cover-preview cover-rose" id="track-manager-cover-preview">
+                            <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+                        </span>
+                        <span><strong>Substituir capa</strong><small>JPG, PNG, WEBP ou outra imagem de até 10 MB</small></span>
+                        <input type="file" id="track-manager-cover-file" accept="image/*">
+                    </label>
+                    <button type="button" class="text-button track-cover-remove" id="track-manager-remove-cover">Remover capa</button>
+                </div>
+
+                <p class="upload-information" id="track-manager-information">As alterações serão sincronizadas nos aparelhos conectados.</p>
+
+                <button type="submit" class="primary-button" id="track-manager-submit-button">
+                    <span>Salvar alterações</span>
+                </button>
+            </form>
+
+            <section class="track-danger-zone">
+                <div>
+                    <strong>Excluir da biblioteca</strong>
+                    <p>Remove a música da nuvem, playlists, favoritos e compartilhamentos. Downloads desta faixa neste aparelho também serão removidos.</p>
+                </div>
+                <button type="button" class="danger-button" id="track-delete-button">
+                    <svg aria-hidden="true"><use href="#icon-trash"></use></svg>
+                    Excluir música
+                </button>
+                <div class="track-delete-confirmation" id="track-delete-confirmation" hidden>
+                    <p>Tem certeza? Esta ação não pode ser desfeita.</p>
+                    <div>
+                        <button type="button" class="secondary-button" id="track-delete-cancel">Cancelar</button>
+                        <button type="button" class="danger-button" id="track-delete-confirm">Excluir definitivamente</button>
+                    </div>
+                </div>
+            </section>
         </div>
     </section>
 
@@ -793,7 +876,7 @@
 
             <button type="button" class="profile-option" id="install-app-button">
                 <span><svg aria-hidden="true"><use href="#icon-download"></use></svg></span>
-                <span><strong>Instalar aplicativo</strong><small>Adicionar à tela de início</small></span>
+                <span><strong id="install-option-title">Instalar aplicativo</strong><small id="install-option-description">Adicionar à tela de início</small></span>
                 <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
             </button>
 
@@ -811,7 +894,7 @@
         <div class="modal-card compact-modal">
             <header class="modal-header">
                 <div>
-                    <p>PWA para iPhone</p>
+                    <p id="install-platform-label">PWA para iPhone</p>
                     <h2 id="install-title">Instalar Dois Tons</h2>
                 </div>
                 <button type="button" data-close-modal="install" aria-label="Fechar">
@@ -819,11 +902,11 @@
                 </button>
             </header>
 
-            <ol class="install-steps">
+            <ol class="install-steps" id="install-steps">
                 <li><span>1</span><p>Abra esta página pelo <strong>Safari</strong>.</p></li>
                 <li><span>2</span><p>Toque no botão <strong>Compartilhar</strong>.</p></li>
                 <li><span>3</span><p>Escolha <strong>Adicionar à Tela de Início</strong>.</p></li>
-                <li><span>4</span><p>Ative <strong>Abrir como App</strong> e confirme.</p></li>
+                <li><span>4</span><p>Ative <strong>Abrir como App</strong>, se a opção aparecer, e confirme.</p></li>
             </ol>
         </div>
     </section>

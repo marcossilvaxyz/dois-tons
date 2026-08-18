@@ -920,7 +920,7 @@ input:focus-visible,
 }
 
 .track-item-row .track-item {
-  padding-right: 82px;
+  padding-right: 118px;
 }
 
 .track-item-actions {
@@ -932,7 +932,8 @@ input:focus-visible,
 }
 
 .track-download-button,
-.track-queue-button {
+.track-queue-button,
+.track-manage-button {
   display: grid;
   place-items: center;
   width: 34px;
@@ -946,18 +947,21 @@ input:focus-visible,
 }
 
 .track-download-button:hover,
-.track-queue-button:hover {
+.track-queue-button:hover,
+.track-manage-button:hover {
   color: var(--primary-dark);
   background: rgba(255, 249, 239, 0.72);
 }
 
 .track-download-button:active,
-.track-queue-button:active {
+.track-queue-button:active,
+.track-manage-button:active {
   transform: scale(0.94);
 }
 
 .track-download-button svg,
-.track-queue-button svg {
+.track-queue-button svg,
+.track-manage-button svg {
   width: 17px;
   height: 17px;
 }
@@ -972,6 +976,11 @@ input:focus-visible,
 
 .track-download-button:disabled {
   cursor: wait;
+}
+
+.track-manage-button:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
 }
 
 .track-offline-label {
@@ -3581,6 +3590,7 @@ html[data-theme="dark"] .catalog-remove-button:hover {
 
 html[data-theme="dark"] .track-download-button:hover,
 html[data-theme="dark"] .track-queue-button:hover,
+html[data-theme="dark"] .track-manage-button:hover,
 html[data-theme="dark"] .queue-item,
 html[data-theme="dark"] .player-controls .playback-mode-button.active {
   background: rgba(21, 20, 17, 0.76);
@@ -4044,5 +4054,288 @@ html[data-theme="dark"] .library-collection-cover {
 
   .library-select-field {
     min-height: 48px;
+  }
+}
+
+
+/* ==================================================
+   etapa 8 - gerenciamento do catalogo
+================================================== */
+
+.track-manager-modal-card {
+  width: min(100%, 640px);
+}
+
+.track-manager-summary {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 13px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 249, 239, 0.48);
+}
+
+.track-manager-cover {
+  flex: 0 0 auto;
+  width: 68px;
+  height: 68px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) 5px var(--radius-md) 5px;
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-sm);
+}
+
+.track-manager-summary > div {
+  min-width: 0;
+}
+
+.track-manager-summary strong,
+.track-manager-summary span,
+.track-manager-summary small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-manager-summary strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 18px;
+  font-weight: 500;
+}
+
+.track-manager-summary span {
+  margin-top: 4px;
+  color: var(--text-soft);
+  font-size: 10px;
+}
+
+.track-manager-summary small {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.track-cover-editor {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 0 2px;
+}
+
+.track-cover-editor .cover-picker {
+  min-width: 0;
+}
+
+.track-cover-editor .cover-picker > span:last-of-type {
+  min-width: 0;
+}
+
+.track-cover-editor .cover-picker strong,
+.track-cover-editor .cover-picker small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-cover-remove {
+  flex: 0 0 auto;
+  color: var(--danger);
+}
+
+.track-cover-remove:hover {
+  color: var(--danger);
+}
+
+.track-cover-remove:disabled {
+  opacity: 0.34;
+  cursor: not-allowed;
+}
+
+.track-danger-zone {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.track-danger-zone > div:first-child strong {
+  color: var(--danger);
+  font-size: 11px;
+}
+
+.track-danger-zone > div:first-child p,
+.track-delete-confirmation > p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.danger-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  margin-top: 14px;
+  padding: 0 15px;
+  border: 1px solid rgba(160, 67, 60, 0.26);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 10px;
+  font-weight: 800;
+  background: rgba(160, 67, 60, 0.055);
+  transition:
+    color var(--transition),
+    border-color var(--transition),
+    background-color var(--transition),
+    transform var(--transition);
+}
+
+.danger-button:hover {
+  border-color: rgba(160, 67, 60, 0.42);
+  background: rgba(160, 67, 60, 0.1);
+}
+
+.danger-button:active {
+  transform: scale(0.97);
+}
+
+.danger-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.danger-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.track-delete-confirmation {
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid rgba(160, 67, 60, 0.2);
+  border-radius: var(--radius-md);
+  background: rgba(160, 67, 60, 0.045);
+}
+
+.track-delete-confirmation > div {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.track-delete-confirmation .secondary-button,
+.track-delete-confirmation .danger-button {
+  width: 100%;
+  margin-top: 0;
+}
+
+html[data-theme="dark"] .track-manager-summary {
+  background: rgba(21, 20, 17, 0.76);
+}
+
+html[data-theme="dark"] .track-delete-confirmation {
+  border-color: rgba(211, 109, 101, 0.18);
+  background: rgba(211, 109, 101, 0.055);
+}
+
+html[data-theme="dark"] .danger-button {
+  border-color: rgba(211, 109, 101, 0.24);
+  color: var(--danger);
+  background: rgba(211, 109, 101, 0.055);
+}
+
+html[data-theme="dark"] .danger-button:hover {
+  border-color: rgba(211, 109, 101, 0.4);
+  background: rgba(211, 109, 101, 0.1);
+}
+
+@media (max-width: 430px) {
+  .track-cover-editor {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .track-cover-remove {
+    margin-left: 75px;
+  }
+
+  .track-delete-confirmation > div {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+/* ==================================================
+   etapa 9 - experiencia ios e pwa
+================================================== */
+
+html.ios-device,
+html.ios-device body {
+  min-height: 100%;
+  min-height: 100dvh;
+  overscroll-behavior-y: none;
+}
+
+html.ios-device body {
+  -webkit-touch-callout: none;
+}
+
+html.ios-device button,
+html.ios-device a,
+html.ios-device input,
+html.ios-device select,
+html.ios-device textarea,
+html.ios-device label {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.ios-device .sheet-header {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html.ios-device .sheet-content {
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+html.standalone-mode .access-screen,
+html.standalone-mode .app-shell {
+  min-height: 100dvh;
+}
+
+html.standalone-mode .bottom-navigation {
+  padding-bottom: max(9px, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 620px) {
+  html.ios-device input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  html.ios-device select,
+  html.ios-device textarea {
+    font-size: 16px;
+  }
+
+  html.ios-device .sheet-content,
+  html.ios-device .modal-card {
+    scroll-padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bottom-sheet,
+  .sheet-content,
+  .modal,
+  .mini-player,
+  .toast {
+    scroll-behavior: auto;
+    transition-duration: 1ms !important;
   }
 }

@@ -139,6 +139,7 @@ window.DoisTonsOffline = (() => {
             addedByMemberId:track.addedByMemberId || "",
             addedByName:track.addedByName || "",
             createdAt:track.createdAt || "",
+            coverPath:track.coverPath || "",
             audioBlob,
             coverBlob:coverBlob instanceof Blob ? coverBlob : null,
             mimeType:audioBlob.type || track.mimeType || "audio/mpeg",
@@ -155,6 +156,35 @@ window.DoisTonsOffline = (() => {
         if (!duoId || !trackId) return
 
         await runTransaction(downloadStoreName,"readwrite",store => store.delete(createDownloadKey(duoId,trackId)))
+    }
+
+
+    async function updateDownloadMetadata({duoId,track,coverBlob}) {
+        if (!duoId || !track?.id) return null
+
+        const record = await getDownload(duoId,track.id)
+
+        if (!record) return null
+
+        const coverChanged = coverBlob !== undefined
+        const updatedRecord = {
+            ...record,
+            title:track.title || record.title || "Sem título",
+            artist:track.artist || record.artist || "Artista desconhecido",
+            album:track.album || record.album || "Álbum desconhecido",
+            favorite:Boolean(track.favorite),
+            sharedBy:track.sharedBy || "",
+            tags:Array.isArray(track.tags) ? track.tags : record.tags || [],
+            coverPath:track.coverPath ?? record.coverPath ?? "",
+            coverBlob:coverChanged
+                ? coverBlob instanceof Blob ? coverBlob : null
+                : record.coverBlob,
+            downloadedAt:Date.now()
+        }
+
+        await runTransaction(downloadStoreName,"readwrite",store => store.put(updatedRecord))
+
+        return updatedRecord
     }
 
     async function clearDownloads(duoId) {
@@ -237,6 +267,7 @@ window.DoisTonsOffline = (() => {
         initialize,
         removeDownload,
         saveDownload,
+        updateDownloadMetadata,
         saveSnapshot
     }
 })()

@@ -1,4 +1,5 @@
 {
+    "id": "./",
     "name": "Dois Tons",
     "short_name": "Dois Tons",
     "description": "Uma experiência musical privada e compartilhada para duas pessoas.",
@@ -6,10 +7,19 @@
     "start_url": "./",
     "scope": "./",
     "display": "standalone",
+    "display_override": [
+        "standalone",
+        "browser"
+    ],
     "orientation": "portrait-primary",
     "background_color": "#f4e8d7",
     "theme_color": "#f4e8d7",
-    "categories": ["music", "entertainment", "lifestyle"],
+    "categories": [
+        "music",
+        "entertainment",
+        "lifestyle"
+    ],
+    "prefer_related_applications": false,
     "icons": [
         {
             "src": "assets/icons/icon-192.png",

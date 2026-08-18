@@ -90,6 +90,7 @@ const sendCurrentTrackButton = document.getElementById("send-current-track")
 const addCurrentToPlaylistButton = document.getElementById("add-current-to-playlist")
 const downloadCurrentTrackButton = document.getElementById("download-current-track")
 const downloadCurrentTrackLabel = document.getElementById("download-current-track-label")
+const manageCurrentTrackButton = document.getElementById("manage-current-track")
 const audioPlayer = document.getElementById("audio-player")
 const createJamButton = document.getElementById("create-jam-button")
 const copyJamCodeButton = document.getElementById("copy-jam-code")
@@ -109,6 +110,24 @@ const trackTitleInput = document.getElementById("track-title")
 const trackArtistInput = document.getElementById("track-artist")
 const coverFileInput = document.getElementById("cover-file")
 const coverPreview = document.getElementById("cover-preview")
+const trackManagerModal = document.getElementById("track-manager-modal")
+const trackManagerForm = document.getElementById("track-manager-form")
+const trackManagerCover = document.getElementById("track-manager-cover")
+const trackManagerSummaryTitle = document.getElementById("track-manager-summary-title")
+const trackManagerSummaryArtist = document.getElementById("track-manager-summary-artist")
+const trackManagerOwner = document.getElementById("track-manager-owner")
+const trackManagerTitleInput = document.getElementById("track-manager-title-input")
+const trackManagerArtistInput = document.getElementById("track-manager-artist-input")
+const trackManagerAlbumInput = document.getElementById("track-manager-album-input")
+const trackManagerCoverInput = document.getElementById("track-manager-cover-file")
+const trackManagerCoverPreview = document.getElementById("track-manager-cover-preview")
+const trackManagerRemoveCoverButton = document.getElementById("track-manager-remove-cover")
+const trackManagerInformation = document.getElementById("track-manager-information")
+const trackManagerSubmitButton = document.getElementById("track-manager-submit-button")
+const trackDeleteButton = document.getElementById("track-delete-button")
+const trackDeleteConfirmation = document.getElementById("track-delete-confirmation")
+const trackDeleteCancelButton = document.getElementById("track-delete-cancel")
+const trackDeleteConfirmButton = document.getElementById("track-delete-confirm")
 const catalogModal = document.getElementById("catalog-modal")
 const catalogModalCard = catalogModal?.querySelector(".catalog-modal-card")
 const catalogFileInput = document.getElementById("catalog-files")
@@ -131,6 +150,10 @@ const playlistSubmitButton = document.getElementById("playlist-submit-button")
 const profileModal = document.getElementById("profile-modal")
 const installModal = document.getElementById("install-modal")
 const installAppButton = document.getElementById("install-app-button")
+const installOptionTitle = document.getElementById("install-option-title")
+const installOptionDescription = document.getElementById("install-option-description")
+const installPlatformLabel = document.getElementById("install-platform-label")
+const installSteps = document.getElementById("install-steps")
 const downloadsOptionButton = document.getElementById("downloads-option-button")
 const downloadsOptionDescription = document.getElementById("downloads-option-description")
 const themeToggleButton = document.getElementById("theme-toggle-button")
@@ -138,6 +161,7 @@ const themeOptionIcon = document.getElementById("theme-option-icon")
 const themeOptionTitle = document.getElementById("theme-option-title")
 const themeOptionDescription = document.getElementById("theme-option-description")
 const themeColorMeta = document.querySelector('meta[name="theme-color"]')
+const appleStatusBarMeta = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
 const logoutButton = document.getElementById("logout-button")
 const modalCloseButtons = document.querySelectorAll("[data-close-modal]")
 const sheetCloseButtons = document.querySelectorAll("[data-close-sheet]")
@@ -266,12 +290,20 @@ let cloudRefreshTimeout = null
 let seekPublishTimeout = null
 let deferredInstallPrompt = null
 let selectedCoverImage = ""
+let managedTrackId = ""
+let managedCoverRemoved = false
+let managedCoverPreviewUrl = ""
 let pendingPlaylistTrackId = ""
 let metadataLibraryPromise = null
 let catalogItems = []
 let catalogAnalyzing = false
 let catalogImporting = false
 let catalogCancelRequested = false
+let serviceWorkerRegistration = null
+let serviceWorkerReloading = false
+let pendingServiceWorkerReload = false
+let lastMediaSessionPositionUpdate = 0
+let lastForegroundRefresh = 0
 
 // tema
 function getStoredTheme() {
@@ -294,6 +326,7 @@ function applyTheme(theme,{persist = true} = {}) {
     document.documentElement.dataset.theme = nextTheme
     document.documentElement.style.colorScheme = nextTheme
     themeColorMeta?.setAttribute("content",nextTheme === "dark" ? "#0b0b0a" : "#f4e8d7")
+    appleStatusBarMeta?.setAttribute("content",nextTheme === "dark" ? "black-translucent" : "default")
 
     if (persist) localStorage.setItem(themeStorageKey,nextTheme)
 
@@ -308,6 +341,192 @@ function toggleTheme() {
 }
 
 applyTheme(getStoredTheme(),{persist:false})
+
+// experiencia ios e pwa
+function getRuntimePlatform() {
+    const userAgent = navigator.userAgent || ""
+    const iOS = /iPhone|iPad|iPod/i.test(userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+    const safari = /Safari/i.test(userAgent) && !/CriOS|FxiOS|EdgiOS|OPiOS|DuckDuckGo/i.test(userAgent)
+
+    return {
+        iOS,
+        safari,
+        standalone:isStandaloneMode()
+    }
+}
+
+function updateRuntimeInterface() {
+    const runtime = getRuntimePlatform()
+
+    document.documentElement.classList.toggle("ios-device",runtime.iOS)
+    document.documentElement.classList.toggle("standalone-mode",runtime.standalone)
+
+    if (installAppButton) installAppButton.disabled = runtime.standalone
+    if (installOptionTitle) installOptionTitle.textContent = runtime.standalone ? "Aplicativo instalado" : "Instalar aplicativo"
+    if (installOptionDescription) {
+        installOptionDescription.textContent = runtime.standalone
+            ? "Aberto pela Tela de Início"
+            : runtime.iOS
+                ? "Adicionar à Tela de Início"
+                : "Instalar neste dispositivo"
+    }
+
+    if (!installPlatformLabel || !installSteps) return
+
+    if (runtime.iOS) {
+        installPlatformLabel.textContent = "Aplicativo para iPhone"
+        installSteps.innerHTML = runtime.safari
+            ? `
+                <li><span>1</span><p>Toque no botão <strong>Compartilhar</strong> do Safari.</p></li>
+                <li><span>2</span><p>Escolha <strong>Adicionar à Tela de Início</strong>.</p></li>
+                <li><span>3</span><p>Deixe <strong>Abrir como App</strong> ativado, se a opção aparecer.</p></li>
+                <li><span>4</span><p>Toque em <strong>Adicionar</strong> e abra o Dois Tons pelo novo ícone.</p></li>
+            `
+            : `
+                <li><span>1</span><p>Abra o endereço do Dois Tons no <strong>Safari</strong> para uma instalação mais previsível.</p></li>
+                <li><span>2</span><p>Toque em <strong>Compartilhar</strong>.</p></li>
+                <li><span>3</span><p>Escolha <strong>Adicionar à Tela de Início</strong>.</p></li>
+                <li><span>4</span><p>Confirme e abra o aplicativo pelo ícone criado.</p></li>
+            `
+        return
+    }
+
+    installPlatformLabel.textContent = "Aplicativo da web"
+    installSteps.innerHTML = `
+        <li><span>1</span><p>Use a opção <strong>Instalar</strong> do navegador.</p></li>
+        <li><span>2</span><p>Confirme a instalação quando o navegador solicitar.</p></li>
+        <li><span>3</span><p>Abra o Dois Tons pelo atalho criado no sistema.</p></li>
+        <li><span>4</span><p>Os downloads offline continuam vinculados somente a este dispositivo.</p></li>
+    `
+}
+
+function updateMediaSessionPosition(force = false) {
+    if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return
+
+    const now = Date.now()
+
+    if (!force && now - lastMediaSessionPositionUpdate < 900) return
+
+    const duration = Number.isFinite(audioPlayer.duration) ? audioPlayer.duration : Number(getCurrentTrack()?.duration || 0)
+    const position = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
+
+    if (!Number.isFinite(duration) || duration <= 0) return
+
+    try {
+        navigator.mediaSession.setPositionState({
+            duration,
+            playbackRate:Number.isFinite(audioPlayer.playbackRate) && audioPlayer.playbackRate > 0 ? audioPlayer.playbackRate : 1,
+            position:Math.min(Math.max(position,0),duration)
+        })
+        lastMediaSessionPositionUpdate = now
+    } catch (error) {
+        return
+    }
+}
+
+function configureSheetGestures() {
+    document.querySelectorAll(".bottom-sheet .sheet-header").forEach(header => {
+        const sheet = header.closest(".bottom-sheet")
+        const content = header.closest(".sheet-content")
+
+        if (!sheet || !content || header.dataset.gestureReady === "true") return
+
+        header.dataset.gestureReady = "true"
+        let startY = 0
+        let currentY = 0
+        let startedAt = 0
+        let pointerId = null
+        let dragging = false
+
+        const reset = () => {
+            content.style.removeProperty("transition")
+            content.style.removeProperty("transform")
+            pointerId = null
+            dragging = false
+        }
+
+        const finish = event => {
+            if (pointerId === null || event.pointerId !== pointerId) return
+
+            const distance = Math.max(0,currentY - startY)
+            const elapsed = Math.max(1,performance.now() - startedAt)
+            const velocity = distance / elapsed
+            const shouldClose = distance > 92 || (distance > 42 && velocity > 0.55)
+
+            if (shouldClose) {
+                const sheetName = sheet.id.replace(/-sheet$/,"")
+                content.style.transition = "transform 180ms ease-out"
+                content.style.transform = "translateY(100%)"
+                setTimeout(() => {
+                    closeSheet(sheetName)
+                    reset()
+                },160)
+            } else {
+                content.style.transition = "transform 180ms ease-out"
+                content.style.transform = "translateY(0)"
+                setTimeout(reset,180)
+            }
+        }
+
+        header.addEventListener("pointerdown",event => {
+            if (event.pointerType === "mouse" && event.button !== 0) return
+            if (event.target.closest("button") && event.pointerType === "mouse") return
+
+            startY = event.clientY
+            currentY = event.clientY
+            startedAt = performance.now()
+            pointerId = event.pointerId
+            dragging = true
+            content.style.transition = "none"
+
+            try {
+                header.setPointerCapture(event.pointerId)
+            } catch (error) {
+                return
+            }
+        })
+
+        header.addEventListener("pointermove",event => {
+            if (!dragging || event.pointerId !== pointerId) return
+
+            currentY = event.clientY
+            const distance = Math.max(0,currentY - startY)
+
+            if (distance <= 0) return
+
+            content.style.transform = `translateY(${Math.min(distance,240)}px)`
+        })
+
+        header.addEventListener("pointerup",finish)
+        header.addEventListener("pointercancel",reset)
+    })
+}
+
+async function refreshAfterForeground() {
+    if (document.visibilityState !== "visible") return
+
+    const now = Date.now()
+
+    updateRuntimeInterface()
+    updateConnectionInterface()
+    updateMediaSession(getCurrentTrack())
+    updateMediaSessionPosition(true)
+
+    if (serviceWorkerRegistration && now - lastForegroundRefresh > 30000) {
+        serviceWorkerRegistration.update().catch(() => {})
+    }
+
+    if (cloudMode && navigator.onLine) {
+        if (!cloudReady) {
+            await restoreCloudConnection()
+        } else if (currentProfile && now - lastForegroundRefresh > 15000) {
+            scheduleCloudRefresh()
+        }
+    }
+
+    lastForegroundRefresh = now
+}
 
 // utilitarios
 function escapeHTML(value) {
@@ -445,6 +664,16 @@ function releaseOfflineObjectUrls() {
     offlineObjectUrls.clear()
 }
 
+function releaseOfflineTrackObjectUrls(trackId) {
+    const objectUrls = offlineObjectUrls.get(trackId)
+
+    if (!objectUrls) return
+
+    if (objectUrls.audioUrl) URL.revokeObjectURL(objectUrls.audioUrl)
+    if (objectUrls.coverUrl) URL.revokeObjectURL(objectUrls.coverUrl)
+    offlineObjectUrls.delete(trackId)
+}
+
 function createOfflineTrack(record,index = 0) {
     const objectUrls = getOfflineObjectUrls(record)
 
@@ -500,9 +729,73 @@ async function updateOfflineStorageInterface() {
 async function synchronizeOfflineTracks() {
     if (!offlineReady || !currentProfile?.duoId) return
 
-    const records = await offline.getDownloads(currentProfile.duoId)
+    let records = await offline.getDownloads(currentProfile.duoId)
+
+    if (navigator.onLine) {
+        const cloudTrackIds = new Set(tracks.map(track => track.id))
+        const orphanDownloads = records.filter(record => !cloudTrackIds.has(record.trackId))
+
+        if (orphanDownloads.length) {
+            await Promise.all(orphanDownloads.map(async record => {
+                try {
+                    await offline.removeDownload(currentProfile.duoId,record.trackId)
+                    releaseOfflineTrackObjectUrls(record.trackId)
+                } catch (error) {
+                    console.warn("Não foi possível remover um download de uma música excluída.",error)
+                }
+            }))
+
+            records = records.filter(record => cloudTrackIds.has(record.trackId))
+        }
+    }
 
     offlineDownloads = new Map(records.map(record => [record.trackId,record]))
+
+    if (navigator.onLine && offline?.updateDownloadMetadata) {
+        for (const track of tracks) {
+            const record = offlineDownloads.get(track.id)
+
+            if (!record) continue
+
+            const cloudCoverPath = track.coverPath || ""
+            const coverPathChanged = record.coverPath !== undefined && record.coverPath !== cloudCoverPath
+            const metadataChanged = record.title !== track.title
+                || record.artist !== track.artist
+                || record.album !== track.album
+                || record.coverPath === undefined
+
+            if (!coverPathChanged && !metadataChanged) continue
+
+            let coverBlob
+
+            if (coverPathChanged) {
+                coverBlob = null
+
+                if (cloudCoverPath && (track.cloudCoverImage || track.coverImage)) {
+                    try {
+                        coverBlob = await fetchOfflineBlob(track.cloudCoverImage || track.coverImage)
+                    } catch (error) {
+                        coverBlob = null
+                    }
+                }
+            }
+
+            try {
+                const updatedRecord = await offline.updateDownloadMetadata({
+                    duoId:currentProfile.duoId,
+                    track,
+                    coverBlob
+                })
+
+                if (updatedRecord) {
+                    releaseOfflineTrackObjectUrls(track.id)
+                    offlineDownloads.set(track.id,updatedRecord)
+                }
+            } catch (error) {
+                console.warn("Não foi possível sincronizar os metadados da cópia offline.",error)
+            }
+        }
+    }
 
     tracks = tracks.map((track,index) => {
         const record = offlineDownloads.get(track.id)
@@ -1394,6 +1687,15 @@ async function loadCloudApplicationData() {
         cloud.getMembers(),
         cloud.getActiveJam()
     ])
+    const previousTrackRemoved = Boolean(previousTrackId && !cloudTracks.some(track => track.id === previousTrackId))
+
+    if (previousTrackRemoved) {
+        pauseTrack({syncJam:false})
+        audioPlayer.removeAttribute("src")
+        audioPlayer.dataset.trackId = ""
+        audioPlayer.dataset.source = ""
+        audioPlayer.load()
+    }
 
     tracks = cloudTracks.map((track,index) => ({
         ...track,
@@ -1539,6 +1841,16 @@ function createAlbumCard(track,index) {
     `
 }
 
+function canManageTrack(track) {
+    if (!track) return false
+    if (!cloudMode) return true
+    if (!currentProfile) return false
+
+    if (track.addedByMemberId) return track.addedByMemberId === currentProfile.memberId
+
+    return Boolean(track.addedBy && track.addedBy === currentProfile.userId)
+}
+
 function createTrackItem(track,index) {
     const currentClass = track.id === currentTrackId ? "current" : ""
     const downloading = downloadOperations.has(track.id)
@@ -1571,6 +1883,15 @@ function createTrackItem(track,index) {
                 </button>
                 <button type="button" class="track-queue-button" data-add-to-queue="${escapeAttribute(track.id)}" aria-label="Adicionar ${escapeAttribute(track.title)} à fila">
                     <svg aria-hidden="true"><use href="#icon-queue"></use></svg>
+                </button>
+                <button
+                    type="button"
+                    class="track-manage-button"
+                    data-manage-track="${escapeAttribute(track.id)}"
+                    aria-label="Gerenciar ${escapeAttribute(track.title)}"
+                    ${canManageTrack(track) && (!cloudMode || cloudReady && navigator.onLine) ? "" : "disabled"}
+                >
+                    <svg aria-hidden="true"><use href="#icon-more"></use></svg>
                 </button>
             </span>
         </div>
@@ -2036,6 +2357,13 @@ document.addEventListener("click",event => {
         return
     }
 
+    const manageButton = event.target.closest("[data-manage-track]")
+
+    if (manageButton) {
+        openTrackManager(manageButton.dataset.manageTrack)
+        return
+    }
+
     const trackButton = event.target.closest("[data-track-id]")
 
     if (trackButton) {
@@ -2347,18 +2675,24 @@ function setCoverElement(element,track) {
 }
 
 function updateMediaSession(track) {
-    if (!("mediaSession" in navigator) || !("MediaMetadata" in window)) return
+    if (!("mediaSession" in navigator) || !("MediaMetadata" in window) || !track) return
 
     const metadata = {
         title:track.title,
         artist:track.artist,
-        album:track.album
+        album:track.album || "Dois Tons",
+        artwork:track.coverImage
+            ? [{src:track.coverImage,sizes:"512x512"}]
+            : [{src:"assets/icons/icon-512.png",sizes:"512x512",type:"image/png"}]
     }
 
-    if (track.coverImage) metadata.artwork = [{src:track.coverImage,sizes:"512x512"}]
-
-    navigator.mediaSession.metadata = new MediaMetadata(metadata)
-    navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused"
+    try {
+        navigator.mediaSession.metadata = new MediaMetadata(metadata)
+        navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused"
+        updateMediaSessionPosition(true)
+    } catch (error) {
+        return
+    }
 }
 
 function updatePlayerInterface() {
@@ -2393,6 +2727,14 @@ function updatePlayerInterface() {
         if (downloadCurrentTrackLabel) downloadCurrentTrackLabel.textContent = downloading ? "Baixando" : track.downloaded ? "Baixada" : "Baixar"
     }
 
+    if (manageCurrentTrackButton) {
+        const manageable = canManageTrack(track)
+        const unavailable = cloudMode && (!cloudReady || !navigator.onLine)
+
+        manageCurrentTrackButton.disabled = !manageable || unavailable
+        manageCurrentTrackButton.setAttribute("aria-label",manageable ? `Gerenciar ${track.title}` : "Somente quem adicionou esta música pode gerenciá-la")
+    }
+
     setCoverElement(miniCover,track)
     setCoverElement(playerArtwork,track)
     updateProgressInterface()
@@ -2414,6 +2756,7 @@ function updateProgressInterface() {
     miniProgress.style.setProperty("--player-progress",`${progress}%`)
     currentTime.textContent = formatTime(position)
     durationTime.textContent = formatTime(duration)
+    updateMediaSessionPosition()
 }
 
 function prepareAudioTrack(track) {
@@ -2713,11 +3056,18 @@ trackProgress?.addEventListener("change",() => {
 audioPlayer?.addEventListener("play",() => {
     isPlaying = true
     updatePlayerInterface()
+    updateMediaSessionPosition(true)
 })
 
 audioPlayer?.addEventListener("pause",() => {
     isPlaying = false
     updatePlayerInterface()
+    updateMediaSessionPosition(true)
+
+    if (pendingServiceWorkerReload && document.visibilityState === "visible") {
+        pendingServiceWorkerReload = false
+        showToast("Atualização pronta. Ela será aplicada ao reabrir o Dois Tons.")
+    }
 })
 
 audioPlayer?.addEventListener("timeupdate",() => {
@@ -2741,10 +3091,350 @@ audioPlayer?.addEventListener("loadedmetadata",() => {
     }
 
     updateProgressInterface()
+    updateMediaSessionPosition(true)
     renderApplicationData()
 })
 
+audioPlayer?.addEventListener("durationchange",() => updateMediaSessionPosition(true))
+audioPlayer?.addEventListener("ratechange",() => updateMediaSessionPosition(true))
+
 audioPlayer?.addEventListener("ended",() => changeTrack(1,{automatic:true}))
+
+// gerenciamento das musicas
+function resetTrackManager() {
+    if (managedCoverPreviewUrl) URL.revokeObjectURL(managedCoverPreviewUrl)
+
+    managedTrackId = ""
+    managedCoverRemoved = false
+    managedCoverPreviewUrl = ""
+    trackManagerForm?.reset()
+
+    if (trackDeleteConfirmation) trackDeleteConfirmation.hidden = true
+    if (trackDeleteButton) trackDeleteButton.hidden = false
+}
+
+function getTrackOwnerLabel(track) {
+    if (!cloudMode) return "Música desta demonstração"
+    if (canManageTrack(track)) return "Adicionada por você"
+
+    return track.addedByName ? `Adicionada por ${track.addedByName}` : "Adicionada pela outra pessoa"
+}
+
+function updateTrackManagerCoverPreview(track) {
+    if (!trackManagerCoverPreview || !track) return
+
+    if (managedCoverPreviewUrl) {
+        setCoverElement(trackManagerCoverPreview,{...track,coverImage:managedCoverPreviewUrl})
+        return
+    }
+
+    if (managedCoverRemoved) {
+        setCoverElement(trackManagerCoverPreview,{...track,coverImage:""})
+        return
+    }
+
+    setCoverElement(trackManagerCoverPreview,track)
+}
+
+function openTrackManager(trackId) {
+    const track = tracks.find(item => item.id === trackId)
+
+    if (!track) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para gerenciar esta música.","warning")
+        return
+    }
+
+    if (!canManageTrack(track)) {
+        showToast(`${getTrackOwnerLabel(track)}. Somente esse perfil pode editar ou excluir a música.`,"warning")
+        return
+    }
+
+    resetTrackManager()
+    managedTrackId = track.id
+    trackManagerTitleInput.value = track.title || ""
+    trackManagerArtistInput.value = track.artist || ""
+    trackManagerAlbumInput.value = track.album || ""
+    trackManagerSummaryTitle.textContent = track.title || "Música"
+    trackManagerSummaryArtist.textContent = track.artist || "Artista desconhecido"
+    trackManagerOwner.textContent = getTrackOwnerLabel(track)
+    trackManagerInformation.textContent = cloudMode
+        ? "Título, artista, álbum e capa serão sincronizados nos aparelhos conectados."
+        : "As alterações desta demonstração permanecem somente nesta página."
+
+    setCoverElement(trackManagerCover,track)
+    updateTrackManagerCoverPreview(track)
+
+    const hasCover = Boolean(track.coverPath || track.cloudCoverImage || track.coverImage)
+
+    trackManagerRemoveCoverButton.disabled = !hasCover
+    trackDeleteButton.disabled = jamActive
+    if (jamActive) trackManagerInformation.textContent = "Durante uma Jam você pode editar os dados, mas a exclusão fica bloqueada até a Jam terminar."
+
+    openModal("track-manager")
+}
+
+function handleTrackManagerCoverSelection() {
+    const track = tracks.find(item => item.id === managedTrackId)
+    const file = trackManagerCoverInput.files[0]
+
+    if (!track) return
+
+    if (managedCoverPreviewUrl) {
+        URL.revokeObjectURL(managedCoverPreviewUrl)
+        managedCoverPreviewUrl = ""
+    }
+
+    if (!file) {
+        managedCoverRemoved = false
+        updateTrackManagerCoverPreview(track)
+        return
+    }
+
+    if (!file.type.startsWith("image/")) {
+        trackManagerCoverInput.value = ""
+        showToast("Escolha um arquivo de imagem para a capa.","warning")
+        return
+    }
+
+    if (file.size > maximumCoverFileSize) {
+        trackManagerCoverInput.value = ""
+        showToast("A imagem da capa deve ter no máximo 10 MB.","warning")
+        return
+    }
+
+    managedCoverRemoved = false
+    managedCoverPreviewUrl = URL.createObjectURL(file)
+    trackManagerRemoveCoverButton.disabled = false
+    updateTrackManagerCoverPreview(track)
+}
+
+function markTrackCoverForRemoval() {
+    const track = tracks.find(item => item.id === managedTrackId)
+
+    if (!track) return
+
+    if (managedCoverPreviewUrl) {
+        URL.revokeObjectURL(managedCoverPreviewUrl)
+        managedCoverPreviewUrl = ""
+    }
+
+    trackManagerCoverInput.value = ""
+    managedCoverRemoved = true
+    trackManagerRemoveCoverButton.disabled = true
+    updateTrackManagerCoverPreview(track)
+    showToast("A capa será removida quando você salvar as alterações.")
+}
+
+async function updateDownloadedTrackAfterEdit(track,changes,coverFile) {
+    if (!offlineReady || !track?.downloaded || !currentProfile?.duoId || !offline?.updateDownloadMetadata) return
+
+    const updatedTrack = {
+        ...track,
+        title:changes.title,
+        artist:changes.artist,
+        album:changes.album
+    }
+    const coverBlob = coverFile || (managedCoverRemoved ? null : undefined)
+
+    try {
+        await offline.updateDownloadMetadata({
+            duoId:currentProfile.duoId,
+            track:updatedTrack,
+            coverBlob
+        })
+        releaseOfflineTrackObjectUrls(track.id)
+    } catch (error) {
+        console.warn("Não foi possível atualizar a cópia offline desta música.",error)
+    }
+}
+
+async function handleTrackManagerSubmit(event) {
+    event.preventDefault()
+
+    const track = tracks.find(item => item.id === managedTrackId)
+
+    if (!track) return
+
+    const changes = {
+        title:trackManagerTitleInput.value.trim(),
+        artist:trackManagerArtistInput.value.trim(),
+        album:trackManagerAlbumInput.value.trim() || "Álbum desconhecido"
+    }
+    const coverFile = trackManagerCoverInput.files[0] || null
+
+    if (!changes.title || !changes.artist) {
+        showToast("Preencha pelo menos o título e o artista.","warning")
+        return
+    }
+
+    if (coverFile && (!coverFile.type.startsWith("image/") || coverFile.size > maximumCoverFileSize)) {
+        showToast("Escolha uma capa válida de até 10 MB.","warning")
+        return
+    }
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para salvar as alterações.","warning")
+        return
+    }
+
+    if (!canManageTrack(track)) {
+        showToast("Somente quem adicionou esta música pode editá-la.","warning")
+        return
+    }
+
+    setButtonLoading(trackManagerSubmitButton,true,"Salvando...")
+
+    try {
+        if (cloudMode) {
+            await cloud.updateTrack(track.id,{
+                ...changes,
+                coverFile,
+                removeCover:managedCoverRemoved
+            })
+            await updateDownloadedTrackAfterEdit(track,changes,coverFile)
+
+            if (activeLibraryEntity?.type === "album" && getAlbumKey({...track,...changes}) !== activeLibraryEntity.key) activeLibraryEntity = null
+            if (activeLibraryEntity?.type === "artist" && getArtistKey({...track,...changes}) !== activeLibraryEntity.key) activeLibraryEntity = null
+
+            closeModal("track-manager")
+            await loadCloudApplicationData()
+            showToast("Informações da música atualizadas nos dois aparelhos.")
+            return
+        }
+
+        track.title = changes.title
+        track.artist = changes.artist
+        track.album = changes.album
+
+        if (coverFile) {
+            track.coverImage = URL.createObjectURL(coverFile)
+        } else if (managedCoverRemoved) {
+            track.coverImage = ""
+        }
+
+        closeModal("track-manager")
+        renderApplicationData()
+        updatePlayerInterface()
+        showToast("Música atualizada nesta demonstração.","warning")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível atualizar a música."),"warning")
+    } finally {
+        setButtonLoading(trackManagerSubmitButton,false)
+    }
+}
+
+function openTrackDeleteConfirmation() {
+    if (jamActive) {
+        showToast("Encerre a Jam antes de excluir uma música.","warning")
+        return
+    }
+
+    trackDeleteButton.hidden = true
+    trackDeleteConfirmation.hidden = false
+}
+
+function closeTrackDeleteConfirmation() {
+    trackDeleteConfirmation.hidden = true
+    trackDeleteButton.hidden = false
+}
+
+function clearDeletedTrackPlayback(trackId) {
+    if (currentTrackId !== trackId) return
+
+    pauseTrack({syncJam:false})
+    audioPlayer.removeAttribute("src")
+    audioPlayer.dataset.trackId = ""
+    audioPlayer.dataset.source = ""
+    audioPlayer.load()
+}
+
+function removeDemoTrack(trackId) {
+    clearDeletedTrackPlayback(trackId)
+    tracks = tracks.filter(track => track.id !== trackId)
+    playlists = playlists.map(playlist => ({
+        ...playlist,
+        trackIds:playlist.trackIds.filter(id => id !== trackId)
+    }))
+    playbackQueue = playbackQueue.filter(id => id !== trackId)
+
+    if (currentTrackId === trackId) currentTrackId = tracks[0]?.id || ""
+
+    if (currentTrackId) {
+        buildPlaybackQueue(currentTrackId,{type:"library",label:"Biblioteca"})
+    } else {
+        playbackQueue = []
+        playbackQueueIndex = -1
+    }
+}
+
+async function confirmTrackDeletion() {
+    const track = tracks.find(item => item.id === managedTrackId)
+
+    if (!track) return
+
+    if (jamActive) {
+        showToast("Encerre a Jam antes de excluir uma música.","warning")
+        return
+    }
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para excluir a música.","warning")
+        return
+    }
+
+    if (!canManageTrack(track)) {
+        showToast("Somente quem adicionou esta música pode excluí-la.","warning")
+        return
+    }
+
+    const originalLabel = trackDeleteConfirmButton.textContent
+
+    trackDeleteConfirmButton.disabled = true
+    trackDeleteConfirmButton.textContent = "Excluindo..."
+
+    try {
+        if (cloudMode) {
+            clearDeletedTrackPlayback(track.id)
+            await cloud.deleteTrack(track.id)
+
+            if (offlineReady && currentProfile?.duoId) {
+                try {
+                    await offline.removeDownload(currentProfile.duoId,track.id)
+                    releaseOfflineTrackObjectUrls(track.id)
+                    offlineDownloads.delete(track.id)
+                } catch (error) {
+                    console.warn("Não foi possível remover a cópia offline da música excluída.",error)
+                }
+            }
+
+            activeLibraryEntity = null
+            closeModal("track-manager")
+            await loadCloudApplicationData()
+            showToast("Música excluída da biblioteca.")
+            return
+        }
+
+        removeDemoTrack(track.id)
+        closeModal("track-manager")
+        renderApplicationData()
+        updatePlayerInterface()
+        showToast("Música removida desta demonstração.","warning")
+    } catch (error) {
+        showToast(getErrorMessage(error,"Não foi possível excluir a música."),"warning")
+    } finally {
+        trackDeleteConfirmButton.disabled = false
+        trackDeleteConfirmButton.textContent = originalLabel
+    }
+}
+
+trackManagerCoverInput?.addEventListener("change",handleTrackManagerCoverSelection)
+trackManagerRemoveCoverButton?.addEventListener("click",markTrackCoverForRemoval)
+trackManagerForm?.addEventListener("submit",handleTrackManagerSubmit)
+trackDeleteButton?.addEventListener("click",openTrackDeleteConfirmation)
+trackDeleteCancelButton?.addEventListener("click",closeTrackDeleteConfirmation)
+trackDeleteConfirmButton?.addEventListener("click",confirmTrackDeletion)
 
 // paineis e modais
 function getSheet(name) {
@@ -2781,6 +3471,7 @@ function closeSheet(name) {
 function getModal(name) {
     const modalMap = {
         upload:uploadModal,
+        "track-manager":trackManagerModal,
         catalog:catalogModal,
         playlist:playlistModal,
         profile:profileModal,
@@ -2809,6 +3500,8 @@ function closeModal(name) {
         return
     }
 
+    if (name === "track-manager") resetTrackManager()
+
     modal.classList.remove("open")
     modal.setAttribute("aria-hidden","true")
     setOverlayState()
@@ -2826,6 +3519,8 @@ function closeAllOverlays() {
         sheet.classList.remove("open")
         sheet.setAttribute("aria-hidden","true")
     })
+
+    resetTrackManager()
     setOverlayState()
 }
 
@@ -2833,6 +3528,10 @@ openPlayerButton?.addEventListener("click",() => openSheet("player"))
 openQueueButton?.addEventListener("click",() => {
     closeSheet("player")
     openSheet("queue")
+})
+manageCurrentTrackButton?.addEventListener("click",() => {
+    closeSheet("player")
+    openTrackManager(currentTrackId)
 })
 clearQueueButton?.addEventListener("click",clearUpcomingQueue)
 saveQueuePlaylistButton?.addEventListener("click",() => {
@@ -3992,8 +4691,11 @@ copyJamCodeButton?.addEventListener("click",copyJamInvite)
 document.addEventListener("visibilitychange",async () => {
     if (document.visibilityState !== "visible") {
         savePlaybackState()
+        updateMediaSessionPosition(true)
         return
     }
+
+    await refreshAfterForeground()
 
     if (!cloudMode || !jamActive || !jamSession?.id) return
 
@@ -4014,13 +4716,14 @@ function isStandaloneMode() {
 
 async function handleInstallApplication() {
     closeModal("profile")
+    updateRuntimeInterface()
 
     if (isStandaloneMode()) {
         showToast("O Dois Tons já está instalado neste aparelho.")
         return
     }
 
-    if (!deferredInstallPrompt) {
+    if (!deferredInstallPrompt || getRuntimePlatform().iOS) {
         openModal("install")
         return
     }
@@ -4028,11 +4731,19 @@ async function handleInstallApplication() {
     deferredInstallPrompt.prompt()
     await deferredInstallPrompt.userChoice
     deferredInstallPrompt = null
+    updateRuntimeInterface()
 }
 
 window.addEventListener("beforeinstallprompt",event => {
     event.preventDefault()
     deferredInstallPrompt = event
+    updateRuntimeInterface()
+})
+
+window.addEventListener("appinstalled",() => {
+    deferredInstallPrompt = null
+    updateRuntimeInterface()
+    showToast("Dois Tons instalado neste dispositivo.")
 })
 
 installAppButton?.addEventListener("click",handleInstallApplication)
@@ -4041,18 +4752,49 @@ themeToggleButton?.addEventListener("click",toggleTheme)
 logoutButton?.addEventListener("click",closeApplication)
 
 // controles do sistema
+function seekSystemPlayback(offset) {
+    if (!Number.isFinite(audioPlayer.duration)) return
+
+    const nextPosition = Math.min(
+        Math.max((Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0) + offset,0),
+        audioPlayer.duration
+    )
+
+    audioPlayer.currentTime = nextPosition
+    updateProgressInterface()
+    updateMediaSessionPosition(true)
+    schedulePlaybackStateSave()
+    publishJamState()
+}
+
 function configureMediaSessionActions() {
     if (!("mediaSession" in navigator)) return
 
     const actions = {
-        play:playTrack,
+        play:() => playTrack({silent:true}),
         pause:pauseTrack,
+        stop:() => {
+            pauseTrack()
+            audioPlayer.currentTime = 0
+            updateProgressInterface()
+            updateMediaSessionPosition(true)
+        },
         previoustrack:() => changeTrack(-1),
         nexttrack:() => changeTrack(1),
+        seekbackward:details => seekSystemPlayback(-Math.max(1,Number(details.seekOffset) || 10)),
+        seekforward:details => seekSystemPlayback(Math.max(1,Number(details.seekOffset) || 10)),
         seekto:details => {
             if (!Number.isFinite(details.seekTime) || !Number.isFinite(audioPlayer.duration)) return
 
-            audioPlayer.currentTime = Math.min(details.seekTime,audioPlayer.duration)
+            if (details.fastSeek && typeof audioPlayer.fastSeek === "function") {
+                audioPlayer.fastSeek(Math.min(Math.max(details.seekTime,0),audioPlayer.duration))
+            } else {
+                audioPlayer.currentTime = Math.min(Math.max(details.seekTime,0),audioPlayer.duration)
+            }
+
+            updateProgressInterface()
+            updateMediaSessionPosition(true)
+            schedulePlaybackStateSave()
             publishJamState()
         }
     }
@@ -4066,13 +4808,49 @@ function configureMediaSessionActions() {
     })
 }
 
-function registerServiceWorker() {
+function handleServiceWorkerControllerChange() {
+    if (serviceWorkerReloading) return
+
+    if (isPlaying) {
+        pendingServiceWorkerReload = true
+        showToast("Uma atualização do Dois Tons foi instalada. Ela será aplicada quando você reabrir o app.")
+        return
+    }
+
+    serviceWorkerReloading = true
+    window.location.reload()
+}
+
+async function registerServiceWorker() {
     if (!("serviceWorker" in navigator)) return
     if (!window.location.protocol.startsWith("http")) return
 
-    navigator.serviceWorker.register("service-worker.js").catch(() => {
+    const hadController = Boolean(navigator.serviceWorker.controller)
+
+    try {
+        serviceWorkerRegistration = await navigator.serviceWorker.register("service-worker.js")
+
+        if (hadController) navigator.serviceWorker.addEventListener("controllerchange",handleServiceWorkerControllerChange)
+
+        serviceWorkerRegistration.addEventListener("updatefound",() => {
+            const installingWorker = serviceWorkerRegistration.installing
+
+            if (!installingWorker) return
+
+            installingWorker.addEventListener("statechange",() => {
+                if (installingWorker.state !== "installed" || !navigator.serviceWorker.controller) return
+
+                if (isPlaying) {
+                    pendingServiceWorkerReload = true
+                    showToast("Nova versão pronta. Reabra o Dois Tons após terminar de ouvir para atualizar.")
+                }
+            })
+        })
+
+        serviceWorkerRegistration.update().catch(() => {})
+    } catch (error) {
         showToast("A instalação offline será ativada quando o projeto estiver hospedado.","warning")
-    })
+    }
 }
 
 async function restoreCloudConnection() {
@@ -4131,7 +4909,12 @@ window.addEventListener("offline",() => {
     updatePlayerInterface()
     updateJamInterface()
 })
-window.addEventListener("pagehide",savePlaybackState)
+window.addEventListener("pageshow",() => refreshAfterForeground())
+window.addEventListener("focus",() => refreshAfterForeground())
+window.addEventListener("pagehide",() => {
+    savePlaybackState()
+    updateMediaSessionPosition(true)
+})
 window.addEventListener("unload",releaseOfflineObjectUrls)
 
 // inicializacao
@@ -4186,6 +4969,8 @@ async function initializeCloudMode() {
 }
 
 async function initializeApp() {
+    updateRuntimeInterface()
+    configureSheetGestures()
     configureMediaSessionActions()
     registerServiceWorker()
     updateJamInterface()
