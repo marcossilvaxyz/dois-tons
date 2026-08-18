@@ -2310,7 +2310,8 @@ input:focus-visible,
   transform: translateY(0);
 }
 
-.modal-header {
+.modal-header,
+.modal-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2318,7 +2319,8 @@ input:focus-visible,
   margin-bottom: 22px;
 }
 
-.modal-header p {
+.modal-header p,
+.modal-heading p {
   color: var(--primary);
   font-size: 9px;
   font-weight: 800;
@@ -2326,7 +2328,8 @@ input:focus-visible,
   text-transform: uppercase;
 }
 
-.modal-header h2 {
+.modal-header h2,
+.modal-heading h2 {
   margin-top: 5px;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 27px;
@@ -2334,7 +2337,8 @@ input:focus-visible,
   letter-spacing: -0.035em;
 }
 
-.modal-header > button {
+.modal-header > button,
+.modal-heading > button {
   display: grid;
   place-items: center;
   width: 39px;
@@ -2344,7 +2348,8 @@ input:focus-visible,
   background: rgba(255, 249, 239, 0.68);
 }
 
-.modal-header > button svg {
+.modal-header > button svg,
+.modal-heading > button svg {
   width: 18px;
   height: 18px;
 }
@@ -3508,6 +3513,7 @@ html[data-theme="dark"] .sheet-close-button:hover,
 html[data-theme="dark"] .sheet-action-button:hover,
 html[data-theme="dark"] .player-actions button,
 html[data-theme="dark"] .modal-header > button,
+html[data-theme="dark"] .modal-heading > button,
 html[data-theme="dark"] .file-drop,
 html[data-theme="dark"] .catalog-selector,
 html[data-theme="dark"] .catalog-progress,
