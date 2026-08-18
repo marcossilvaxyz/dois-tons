@@ -236,7 +236,7 @@
                 <section class="content-section" aria-labelledby="favorites-title">
                     <header class="section-heading">
                         <h2 id="favorites-title">Favoritas de vocês</h2>
-                        <button type="button" class="text-button" data-open-view="library">Ver coleção</button>
+                        <button type="button" class="text-button" data-library-filter="favorites">Ver coleção</button>
                     </header>
                     <div class="album-grid" id="favorites-grid"></div>
                 </section>
@@ -296,13 +296,68 @@
                     </div>
                 </header>
 
-                <section class="playlist-section" aria-labelledby="playlist-section-title">
+                <nav class="library-category-navigation" aria-label="Organizar biblioteca">
+                    <button type="button" class="active" data-library-mode="songs" aria-current="page">
+                        <svg aria-hidden="true"><use href="#icon-music"></use></svg>
+                        <span>Músicas</span>
+                    </button>
+                    <button type="button" data-library-mode="albums">
+                        <svg aria-hidden="true"><use href="#icon-library"></use></svg>
+                        <span>Álbuns</span>
+                    </button>
+                    <button type="button" data-library-mode="artists">
+                        <svg aria-hidden="true"><use href="#icon-users"></use></svg>
+                        <span>Artistas</span>
+                    </button>
+                    <button type="button" data-library-mode="playlists">
+                        <svg aria-hidden="true"><use href="#icon-playlist"></use></svg>
+                        <span>Playlists</span>
+                    </button>
+                    <button type="button" data-library-mode="favorites">
+                        <svg aria-hidden="true"><use href="#icon-heart"></use></svg>
+                        <span>Favoritos</span>
+                    </button>
+                    <button type="button" data-library-mode="downloads">
+                        <svg aria-hidden="true"><use href="#icon-download"></use></svg>
+                        <span>Downloads</span>
+                    </button>
+                </nav>
+
+                <div class="library-toolbar" id="library-toolbar">
+                    <label class="library-search-field" for="library-search-input">
+                        <svg aria-hidden="true"><use href="#icon-search"></use></svg>
+                        <input type="search" id="library-search-input" placeholder="Filtrar esta seção" autocomplete="off">
+                    </label>
+                    <label class="library-select-field" for="library-sort">
+                        <span>Ordenar</span>
+                        <select id="library-sort">
+                            <option value="recent">Mais recentes</option>
+                            <option value="oldest">Mais antigas</option>
+                            <option value="title">Título</option>
+                            <option value="artist">Artista</option>
+                            <option value="album">Álbum</option>
+                            <option value="duration">Duração</option>
+                        </select>
+                    </label>
+                    <label class="library-select-field" for="library-owner-filter">
+                        <span>Adicionadas por</span>
+                        <select id="library-owner-filter">
+                            <option value="all">Ambos</option>
+                            <option value="me">Você</option>
+                            <option value="partner">Sua pessoa</option>
+                        </select>
+                    </label>
+                </div>
+
+                <section class="playlist-section" id="playlist-section" aria-labelledby="playlist-section-title" hidden>
                     <header class="section-heading">
                         <h2 id="playlist-section-title">Playlists de vocês</h2>
                         <button type="button" class="text-button" id="create-playlist-button">Criar</button>
                     </header>
                     <div class="playlist-grid" id="playlist-grid"></div>
                 </section>
+
+                <div class="library-collection-grid" id="library-collection-grid" hidden></div>
 
                 <div class="playlist-context" id="playlist-context" hidden>
                     <div>
@@ -314,11 +369,15 @@
                     </button>
                 </div>
 
-                <div class="filter-tabs" role="tablist" aria-label="Filtros da biblioteca">
-                    <button type="button" class="active" role="tab" aria-selected="true" data-filter="all">Músicas</button>
-                    <button type="button" role="tab" aria-selected="false" data-filter="favorites">Favoritas</button>
-                    <button type="button" role="tab" aria-selected="false" data-filter="shared">Compartilhadas</button>
-                    <button type="button" role="tab" aria-selected="false" data-filter="downloads">Downloads</button>
+                <div class="playlist-context library-entity-context" id="library-entity-context" hidden>
+                    <div>
+                        <span id="library-entity-type">Coleção selecionada</span>
+                        <strong id="library-entity-title"></strong>
+                        <small id="library-entity-subtitle"></small>
+                    </div>
+                    <button type="button" id="clear-library-entity" aria-label="Voltar para a coleção">
+                        <svg aria-hidden="true"><use href="#icon-close"></use></svg>
+                    </button>
                 </div>
 
                 <div class="library-summary">
@@ -326,7 +385,7 @@
                         <span id="library-count">0 músicas</span>
                         <span class="offline-storage-summary" id="offline-storage-summary" hidden></span>
                     </div>
-                    <div class="library-summary-actions">
+                    <div class="library-summary-actions" id="library-summary-actions">
                         <button type="button" id="download-library">
                             <svg aria-hidden="true"><use href="#icon-download"></use></svg>
                             <span>Baixar</span>

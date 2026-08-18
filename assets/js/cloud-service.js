@@ -328,6 +328,7 @@ window.DoisTonsCloud = (() => {
         const favoriteIds = new Set(favoriteRows.map(item => item.track_id))
         const memberById = new Map(memberRows.map(member => [member.id,member]))
         const memberNames = new Map(memberRows.map(member => [member.user_id,member.display_name]))
+        const memberIdsByUser = new Map(memberRows.map(member => [member.user_id,member.id]))
         const currentMemberUsers = new Set()
 
         deviceRows.forEach(device => {
@@ -336,6 +337,7 @@ window.DoisTonsCloud = (() => {
             if (!member) return
 
             memberNames.set(device.user_id,member.display_name)
+            memberIdsByUser.set(device.user_id,device.member_id)
 
             if (device.member_id === currentMember?.id) currentMemberUsers.add(device.user_id)
         })
@@ -369,6 +371,9 @@ window.DoisTonsCloud = (() => {
                 audioPath:row.audio_path || "",
                 coverPath:row.cover_path || "",
                 addedBy:row.added_by,
+                addedByMemberId:memberIdsByUser.get(row.added_by) || "",
+                addedByName:memberNames.get(row.added_by) || "",
+                createdAt:row.created_at || "",
                 fileHash:row.file_hash || "",
                 fileSize:Number(row.file_size || 0),
                 mimeType:row.mime_type || "",

@@ -40,11 +40,24 @@ const offlineStorageSummary = document.getElementById("offline-storage-summary")
 const libraryTrackList = document.getElementById("library-track-list")
 const downloadLibraryButton = document.getElementById("download-library")
 const playLibraryButton = document.getElementById("play-library")
+const libraryModeButtons = document.querySelectorAll("[data-library-mode]")
+const libraryToolbar = document.getElementById("library-toolbar")
+const librarySearchInput = document.getElementById("library-search-input")
+const librarySortSelect = document.getElementById("library-sort")
+const libraryOwnerSelect = document.getElementById("library-owner-filter")
+const libraryCollectionGrid = document.getElementById("library-collection-grid")
+const librarySummaryActions = document.getElementById("library-summary-actions")
+const playlistSection = document.getElementById("playlist-section")
 const playlistGrid = document.getElementById("playlist-grid")
 const playlistContext = document.getElementById("playlist-context")
 const activePlaylistTitle = document.getElementById("active-playlist-title")
 const clearPlaylistFilterButton = document.getElementById("clear-playlist-filter")
 const createPlaylistButton = document.getElementById("create-playlist-button")
+const libraryEntityContext = document.getElementById("library-entity-context")
+const libraryEntityType = document.getElementById("library-entity-type")
+const libraryEntityTitle = document.getElementById("library-entity-title")
+const libraryEntitySubtitle = document.getElementById("library-entity-subtitle")
+const clearLibraryEntityButton = document.getElementById("clear-library-entity")
 const miniPlayer = document.getElementById("mini-player")
 const openPlayerButton = document.getElementById("open-player")
 const miniCover = document.getElementById("mini-cover")
@@ -228,6 +241,10 @@ let playbackSaveTimeout = null
 let lastPlaybackProgressSave = 0
 let pendingPlaylistQueueIds = []
 let activeLibraryFilter = "all"
+let activeLibraryMode = "songs"
+let activeLibraryEntity = null
+let librarySortMode = "recent"
+let libraryOwnerFilter = "all"
 let activePlaylistId = ""
 let currentProfile = null
 let duoMembers = []
@@ -442,6 +459,10 @@ function createOfflineTrack(record,index = 0) {
         favorite:Boolean(record.favorite),
         sharedBy:record.sharedBy || "",
         tags:Array.isArray(record.tags) ? record.tags : [],
+        addedBy:record.addedBy || "",
+        addedByMemberId:record.addedByMemberId || "",
+        addedByName:record.addedByName || "",
+        createdAt:record.createdAt || "",
         source:objectUrls.audioUrl,
         cloudSource:"",
         cloudCoverImage:"",
@@ -530,6 +551,10 @@ async function saveOfflineLibrarySnapshot(sourceTracks,sourcePlaylists,sourceMem
         favorite:Boolean(track.favorite),
         sharedBy:track.sharedBy || "",
         tags:Array.isArray(track.tags) ? track.tags : [],
+        addedBy:track.addedBy || "",
+        addedByMemberId:track.addedByMemberId || "",
+        addedByName:track.addedByName || "",
+        createdAt:track.createdAt || "",
         fileSize:Number(track.fileSize || 0),
         mimeType:track.mimeType || ""
     }))
@@ -857,6 +882,8 @@ async function downloadVisibleCollection() {
 function openDownloadsLibrary() {
     closeModal("profile")
     activePlaylistId = ""
+    activeLibraryEntity = null
+    activeLibraryMode = "downloads"
     activeLibraryFilter = "downloads"
     openView("library")
     renderPlaylists()
@@ -888,6 +915,12 @@ function getPlaybackContextTracks(context = playbackContext) {
             : tracks
     }
 
+    if (context.type === "collection") {
+        return Array.isArray(context.trackIds)
+            ? context.trackIds.map(trackId => tracks.find(track => track.id === trackId)).filter(Boolean)
+            : tracks
+    }
+
     if (context.type === "favorites") return tracks.filter(track => track.favorite)
     if (context.type === "shared") return tracks.filter(track => track.sharedBy)
     if (context.type === "downloads") return tracks.filter(track => track.downloaded)
@@ -904,21 +937,16 @@ function getPlaybackContextTracks(context = playbackContext) {
 }
 
 function getLibraryPlaybackContext() {
-    if (activePlaylistId) {
-        const playlist = playlists.find(item => item.id === activePlaylistId)
+    const visibleTracks = getFilteredLibraryTracks()
+    const label = activePlaylistId
+        ? playlists.find(item => item.id === activePlaylistId)?.title || "Playlist"
+        : activeLibraryEntity?.title || getLibraryModeLabel()
 
-        return {
-            type:"playlist",
-            id:activePlaylistId,
-            label:playlist?.title || "Playlist"
-        }
+    return {
+        type:"collection",
+        label,
+        trackIds:visibleTracks.map(track => track.id)
     }
-
-    if (activeLibraryFilter === "favorites") return {type:"favorites",label:"Favoritas"}
-    if (activeLibraryFilter === "shared") return {type:"shared",label:"Compartilhadas"}
-    if (activeLibraryFilter === "downloads") return {type:"downloads",label:"Downloads"}
-
-    return {type:"library",label:"Biblioteca"}
 }
 
 function getPlaybackContextFromElement(element) {
@@ -1290,6 +1318,12 @@ function closeApplication() {
     playbackQueue = tracks.map(track => track.id)
     playbackQueueIndex = 0
     playbackContext = {type:"library",label:"Biblioteca"}
+    activeLibraryFilter = "all"
+    activeLibraryMode = "songs"
+    activeLibraryEntity = null
+    librarySortMode = "recent"
+    libraryOwnerFilter = "all"
+    activePlaylistId = ""
     playbackStateRestored = false
     localStorage.removeItem(playbackStorageKey)
     appShell.hidden = true
@@ -1474,8 +1508,16 @@ openViewButtons.forEach(button => {
 
 document.querySelectorAll("[data-library-filter]").forEach(button => {
     button.addEventListener("click",() => {
+        const filter = button.dataset.libraryFilter
+
         activePlaylistId = ""
-        activeLibraryFilter = button.dataset.libraryFilter
+        activeLibraryEntity = null
+        activeLibraryMode = filter === "favorites"
+            ? "favorites"
+            : filter === "downloads"
+                ? "downloads"
+                : "songs"
+        activeLibraryFilter = filter
         openView("library")
         updateLibraryFilters()
         renderLibrary()
@@ -1560,28 +1602,208 @@ function renderHome() {
         : createEmptyState("Nada por aqui","As músicas enviadas entre vocês aparecerão nesta seção.","icon-send")
 }
 
-function createPlaylistCard(playlist) {
-    const count = playlist.trackIds.length
+function getLibraryModeLabel(mode = activeLibraryMode) {
+    const labels = {
+        songs:"Músicas",
+        albums:"Álbuns",
+        artists:"Artistas",
+        playlists:"Playlists",
+        favorites:"Favoritos",
+        downloads:"Downloads"
+    }
+
+    if (activeLibraryFilter === "shared" && mode === "songs") return "Compartilhadas"
+
+    return labels[mode] || "Biblioteca"
+}
+
+function normalizeCollectionLabel(value,fallback) {
+    const normalized = String(value || "").trim()
+
+    return normalized || fallback
+}
+
+function getArtistKey(track) {
+    return normalizeCollectionLabel(track.artist,"Artista desconhecido").toLocaleLowerCase("pt-BR")
+}
+
+function getAlbumKey(track) {
+    const artist = normalizeCollectionLabel(track.artist,"Artista desconhecido").toLocaleLowerCase("pt-BR")
+    const album = normalizeCollectionLabel(track.album,"Sem álbum").toLocaleLowerCase("pt-BR")
+
+    return `${artist}::${album}`
+}
+
+function matchesLibraryOwner(track) {
+    if (libraryOwnerFilter === "all" || !cloudMode) return true
+
+    const belongsToCurrentMember = track.addedByMemberId
+        ? track.addedByMemberId === currentProfile?.memberId
+        : Boolean(track.addedBy && track.addedBy === currentProfile?.userId)
+
+    if (libraryOwnerFilter === "me") return belongsToCurrentMember
+
+    return Boolean(track.addedByMemberId || track.addedBy) && !belongsToCurrentMember
+}
+
+function getLibrarySearchQuery() {
+    return String(librarySearchInput?.value || "").trim().toLocaleLowerCase("pt-BR")
+}
+
+function sortLibraryTracks(sourceTracks) {
+    const indexedTracks = sourceTracks.map((track,index) => ({track,index}))
+    const compareText = (first,second) => String(first || "").localeCompare(String(second || ""),"pt-BR",{sensitivity:"base"})
+
+    indexedTracks.sort((firstItem,secondItem) => {
+        const first = firstItem.track
+        const second = secondItem.track
+        let comparison = 0
+
+        if (librarySortMode === "title") comparison = compareText(first.title,second.title)
+        if (librarySortMode === "artist") comparison = compareText(first.artist,second.artist) || compareText(first.title,second.title)
+        if (librarySortMode === "album") comparison = compareText(first.album,second.album) || compareText(first.title,second.title)
+        if (librarySortMode === "duration") comparison = Number(first.duration || 0) - Number(second.duration || 0)
+
+        if (librarySortMode === "recent" || librarySortMode === "oldest") {
+            const firstDate = Date.parse(first.createdAt || "") || 0
+            const secondDate = Date.parse(second.createdAt || "") || 0
+
+            if (firstDate || secondDate) {
+                comparison = librarySortMode === "recent"
+                    ? secondDate - firstDate
+                    : firstDate - secondDate
+            }
+        }
+
+        return comparison || firstItem.index - secondItem.index
+    })
+
+    return indexedTracks.map(item => item.track)
+}
+
+function applyLibraryTrackFilters(sourceTracks,{includeSearch = true,includeSort = true} = {}) {
+    const query = getLibrarySearchQuery()
+    let filteredTracks = sourceTracks.filter(matchesLibraryOwner)
+
+    if (includeSearch && query) {
+        filteredTracks = filteredTracks.filter(track => getTrackSearchText(track).includes(query))
+    }
+
+    return includeSort ? sortLibraryTracks(filteredTracks) : filteredTracks
+}
+
+function getAlbumGroups(sourceTracks = tracks) {
+    const groups = new Map()
+
+    sourceTracks.forEach(track => {
+        const key = getAlbumKey(track)
+        const album = normalizeCollectionLabel(track.album,"Sem álbum")
+        const artist = normalizeCollectionLabel(track.artist,"Artista desconhecido")
+
+        if (!groups.has(key)) {
+            groups.set(key,{key,album,artist,tracks:[],representative:track})
+        }
+
+        groups.get(key).tracks.push(track)
+    })
+
+    return [...groups.values()].sort((first,second) => first.album.localeCompare(second.album,"pt-BR",{sensitivity:"base"}))
+}
+
+function getArtistGroups(sourceTracks = tracks) {
+    const groups = new Map()
+
+    sourceTracks.forEach(track => {
+        const key = getArtistKey(track)
+        const artist = normalizeCollectionLabel(track.artist,"Artista desconhecido")
+
+        if (!groups.has(key)) {
+            groups.set(key,{key,artist,tracks:[],representative:track,albums:new Set()})
+        }
+
+        const group = groups.get(key)
+        group.tracks.push(track)
+        group.albums.add(normalizeCollectionLabel(track.album,"Sem álbum"))
+    })
+
+    return [...groups.values()].sort((first,second) => first.artist.localeCompare(second.artist,"pt-BR",{sensitivity:"base"}))
+}
+
+function getVisibleAlbumGroups() {
+    return getAlbumGroups(applyLibraryTrackFilters(tracks,{includeSearch:true,includeSort:false}))
+}
+
+function getVisibleArtistGroups() {
+    return getArtistGroups(applyLibraryTrackFilters(tracks,{includeSearch:true,includeSort:false}))
+}
+
+function createLibraryCollectionCard(group,index,type) {
+    const track = group.representative
+    const count = group.tracks.length
+    const countLabel = count === 1 ? "1 música" : `${count} músicas`
+    const subtitle = type === "album"
+        ? `${group.artist} · ${countLabel}`
+        : `${countLabel} · ${group.albums.size === 1 ? "1 álbum" : `${group.albums.size} álbuns`}`
+    const title = type === "album" ? group.album : group.artist
+
+    return `
+        <button
+            type="button"
+            class="library-collection-card"
+            data-library-entity-type="${type}"
+            data-library-entity-key="${escapeAttribute(encodeURIComponent(group.key))}"
+        >
+            <span class="library-collection-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}>
+                <span class="library-collection-badge">
+                    <svg aria-hidden="true"><use href="#${type === "album" ? "icon-library" : "icon-users"}"></use></svg>
+                </span>
+            </span>
+            <span class="library-collection-information">
+                <strong>${escapeHTML(title)}</strong>
+                <small>${escapeHTML(subtitle)}</small>
+            </span>
+        </button>
+    `
+}
+
+function createPlaylistCard(playlist,index) {
+    const playlistTracks = playlist.trackIds.map(trackId => tracks.find(track => track.id === trackId)).filter(Boolean)
+    const count = playlistTracks.length
     const label = count === 1 ? "1 música" : `${count} músicas`
+    const artworkTracks = playlistTracks.slice(0,4)
+    const artwork = artworkTracks.length
+        ? artworkTracks.map((track,coverIndex) => `
+            <span class="playlist-artwork-tile ${escapeAttribute(getCoverClass(track,coverIndex))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
+        `).join("")
+        : `<span class="playlist-artwork-empty"><svg aria-hidden="true"><use href="#icon-playlist"></use></svg></span>`
 
     return `
         <button type="button" class="playlist-card ${playlist.id === activePlaylistId ? "active" : ""}" data-playlist-id="${escapeAttribute(playlist.id)}">
-            <svg aria-hidden="true"><use href="#icon-playlist"></use></svg>
-            <strong>${escapeHTML(playlist.title)}</strong>
-            <small>${label}</small>
+            <span class="playlist-card-artwork">${artwork}</span>
+            <span class="playlist-card-information">
+                <strong>${escapeHTML(playlist.title)}</strong>
+                <small>${label}</small>
+            </span>
         </button>
     `
 }
 
 function renderPlaylists() {
-    playlistGrid.innerHTML = playlists.length
-        ? playlists.map(createPlaylistCard).join("")
-        : `
-            <button type="button" class="playlist-card-create" data-create-playlist>
-                <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
-                <span>Criar a primeira playlist</span>
-            </button>
-        `
+    const query = activeLibraryMode === "playlists" && !activePlaylistId ? getLibrarySearchQuery() : ""
+    const visiblePlaylists = query
+        ? playlists.filter(playlist => `${playlist.title} ${playlist.description || ""}`.toLocaleLowerCase("pt-BR").includes(query))
+        : playlists
+
+    playlistGrid.innerHTML = visiblePlaylists.length
+        ? visiblePlaylists.map(createPlaylistCard).join("")
+        : playlists.length
+            ? createEmptyState("Nenhuma playlist encontrada","Tente outro nome para encontrar uma playlist.","icon-search")
+            : `
+                <button type="button" class="playlist-card-create" data-create-playlist>
+                    <svg aria-hidden="true"><use href="#icon-plus"></use></svg>
+                    <span>Criar a primeira playlist</span>
+                </button>
+            `
 
     const selectedPlaylist = playlists.find(playlist => playlist.id === activePlaylistId)
 
@@ -1590,22 +1812,41 @@ function renderPlaylists() {
 }
 
 function getFilteredLibraryTracks() {
+    let sourceTracks = tracks
+
     if (activePlaylistId) {
         const playlist = playlists.find(item => item.id === activePlaylistId)
 
-        return playlist
+        sourceTracks = playlist
             ? playlist.trackIds.map(trackId => tracks.find(track => track.id === trackId)).filter(Boolean)
             : []
+    } else if (activeLibraryEntity?.type === "album") {
+        sourceTracks = tracks.filter(track => getAlbumKey(track) === activeLibraryEntity.key)
+    } else if (activeLibraryEntity?.type === "artist") {
+        sourceTracks = tracks.filter(track => getArtistKey(track) === activeLibraryEntity.key)
+    } else if (activeLibraryMode === "favorites" || activeLibraryFilter === "favorites") {
+        sourceTracks = tracks.filter(track => track.favorite)
+    } else if (activeLibraryMode === "downloads" || activeLibraryFilter === "downloads") {
+        sourceTracks = tracks.filter(track => track.downloaded)
+    } else if (activeLibraryFilter === "shared") {
+        sourceTracks = tracks.filter(track => track.sharedBy)
     }
 
-    if (activeLibraryFilter === "favorites") return tracks.filter(track => track.favorite)
-    if (activeLibraryFilter === "shared") return tracks.filter(track => track.sharedBy)
-    if (activeLibraryFilter === "downloads") return tracks.filter(track => track.downloaded)
-
-    return tracks
+    return applyLibraryTrackFilters(sourceTracks)
 }
 
 function updateLibraryFilters() {
+    libraryModeButtons.forEach(button => {
+        const active = button.dataset.libraryMode === activeLibraryMode
+        button.classList.toggle("active",active)
+
+        if (active) {
+            button.setAttribute("aria-current","page")
+        } else {
+            button.removeAttribute("aria-current")
+        }
+    })
+
     filterButtons.forEach(button => {
         const active = !activePlaylistId && button.dataset.filter === activeLibraryFilter
         button.classList.toggle("active",active)
@@ -1613,25 +1854,141 @@ function updateLibraryFilters() {
     })
 }
 
-function renderLibrary() {
-    const filteredTracks = getFilteredLibraryTracks()
-    const label = filteredTracks.length === 1 ? "1 música" : `${filteredTracks.length} músicas`
-    const downloadsFilter = !activePlaylistId && activeLibraryFilter === "downloads"
+function updateLibraryEntityContext() {
+    if (!activeLibraryEntity) {
+        libraryEntityContext.hidden = true
+        return
+    }
 
-    libraryCount.textContent = label
-    offlineStorageSummary.hidden = !downloadsFilter
-    downloadLibraryButton.hidden = downloadsFilter
+    const groups = activeLibraryEntity.type === "album" ? getAlbumGroups(tracks) : getArtistGroups(tracks)
+    const group = groups.find(item => item.key === activeLibraryEntity.key)
+
+    if (!group) {
+        activeLibraryEntity = null
+        libraryEntityContext.hidden = true
+        return
+    }
+
+    const countLabel = group.tracks.length === 1 ? "1 música" : `${group.tracks.length} músicas`
+
+    activeLibraryEntity.title = activeLibraryEntity.type === "album" ? group.album : group.artist
+    libraryEntityType.textContent = activeLibraryEntity.type === "album" ? "Álbum selecionado" : "Artista selecionado"
+    libraryEntityTitle.textContent = activeLibraryEntity.title
+    libraryEntitySubtitle.textContent = activeLibraryEntity.type === "album"
+        ? `${group.artist} · ${countLabel}`
+        : `${countLabel} · ${group.albums.size === 1 ? "1 álbum" : `${group.albums.size} álbuns`}`
+    libraryEntityContext.hidden = false
+}
+
+function renderLibraryCollections() {
+    if (activeLibraryMode === "albums" && !activeLibraryEntity) {
+        const groups = getVisibleAlbumGroups()
+
+        libraryCollectionGrid.innerHTML = groups.length
+            ? groups.map((group,index) => createLibraryCollectionCard(group,index,"album")).join("")
+            : createEmptyState("Nenhum álbum encontrado","Os álbuns são criados automaticamente a partir das músicas do catálogo.","icon-library")
+        libraryCollectionGrid.hidden = false
+        return groups.length
+    }
+
+    if (activeLibraryMode === "artists" && !activeLibraryEntity) {
+        const groups = getVisibleArtistGroups()
+
+        libraryCollectionGrid.innerHTML = groups.length
+            ? groups.map((group,index) => createLibraryCollectionCard(group,index,"artist")).join("")
+            : createEmptyState("Nenhum artista encontrado","Os artistas são organizados automaticamente a partir do catálogo.","icon-users")
+        libraryCollectionGrid.hidden = false
+        return groups.length
+    }
+
+    libraryCollectionGrid.hidden = true
+    libraryCollectionGrid.innerHTML = ""
+
+    return 0
+}
+
+function renderLibrary() {
+    const collectionRoot = !activePlaylistId && !activeLibraryEntity && ["albums","artists","playlists"].includes(activeLibraryMode)
+    const playlistsRoot = collectionRoot && activeLibraryMode === "playlists"
+    const downloadsMode = !activePlaylistId && !activeLibraryEntity && activeLibraryMode === "downloads"
+    const filteredTracks = collectionRoot ? [] : getFilteredLibraryTracks()
+    const sortField = librarySortSelect?.closest(".library-select-field")
+    const ownerField = libraryOwnerSelect?.closest(".library-select-field")
+
+    updateLibraryFilters()
+    updateLibraryEntityContext()
+    renderPlaylists()
+
+    playlistSection.hidden = !playlistsRoot
+    libraryTrackList.hidden = collectionRoot
+    librarySummaryActions.hidden = collectionRoot
+    libraryToolbar.hidden = false
+
+    if (librarySearchInput) {
+        librarySearchInput.placeholder = activeLibraryMode === "albums"
+            ? "Filtrar álbuns"
+            : activeLibraryMode === "artists"
+                ? "Filtrar artistas"
+                : activeLibraryMode === "playlists"
+                    ? "Filtrar playlists"
+                    : "Filtrar músicas"
+    }
+
+    if (sortField) sortField.hidden = collectionRoot
+    if (ownerField) {
+        ownerField.hidden = playlistsRoot
+        libraryOwnerSelect.disabled = !cloudMode
+    }
+
+    if (collectionRoot) {
+        let count = 0
+
+        if (activeLibraryMode === "albums" || activeLibraryMode === "artists") {
+            count = renderLibraryCollections()
+        } else {
+            libraryCollectionGrid.hidden = true
+            count = getLibrarySearchQuery()
+                ? playlists.filter(playlist => `${playlist.title} ${playlist.description || ""}`.toLocaleLowerCase("pt-BR").includes(getLibrarySearchQuery())).length
+                : playlists.length
+        }
+
+        libraryCount.textContent = activeLibraryMode === "albums"
+            ? count === 1 ? "1 álbum" : `${count} álbuns`
+            : activeLibraryMode === "artists"
+                ? count === 1 ? "1 artista" : `${count} artistas`
+                : count === 1 ? "1 playlist" : `${count} playlists`
+        offlineStorageSummary.hidden = true
+        downloadLibraryButton.hidden = true
+        playLibraryButton.hidden = true
+        return
+    }
+
+    libraryCollectionGrid.hidden = true
+    playLibraryButton.hidden = false
+    downloadLibraryButton.hidden = downloadsMode
+    offlineStorageSummary.hidden = !downloadsMode
+
+    const label = filteredTracks.length === 1 ? "1 música" : `${filteredTracks.length} músicas`
+    const entityLabel = activeLibraryEntity?.title || playlists.find(item => item.id === activePlaylistId)?.title || getLibraryModeLabel()
+
+    libraryCount.textContent = activeLibraryFilter === "shared" && activeLibraryMode === "songs"
+        ? `${label} · Compartilhadas`
+        : label
+    playLibraryButton.disabled = !filteredTracks.some(track => track.source)
+    playLibraryButton.setAttribute("aria-label",`Reproduzir ${entityLabel}`)
     downloadLibraryButton.disabled = !cloudReady || !navigator.onLine || !filteredTracks.some(track => !track.downloaded && (track.cloudSource || track.source))
     libraryTrackList.innerHTML = filteredTracks.length
         ? filteredTracks.map(createTrackItem).join("")
         : createEmptyState(
-            downloadsFilter ? "Nenhum download" : activePlaylistId ? "Playlist vazia" : "Nenhuma música encontrada",
-            downloadsFilter
+            downloadsMode ? "Nenhum download" : activePlaylistId ? "Playlist vazia" : activeLibraryEntity ? "Nenhuma música nesta coleção" : "Nenhuma música encontrada",
+            downloadsMode
                 ? "Baixe uma música da biblioteca para ouvi-la mesmo sem internet."
                 : activePlaylistId
                     ? "Abra uma música e use o botão Playlist para adicioná-la."
-                    : "Escolha outro filtro ou adicione uma música à biblioteca.",
-            downloadsFilter ? "icon-download" : activePlaylistId ? "icon-playlist" : "icon-search"
+                    : activeLibraryEntity
+                        ? "Tente remover os filtros ou importar outras músicas."
+                        : "Escolha outro filtro ou adicione uma música à biblioteca.",
+            downloadsMode ? "icon-download" : activePlaylistId ? "icon-playlist" : "icon-search"
         )
 }
 
@@ -1686,9 +2043,24 @@ document.addEventListener("click",event => {
         return
     }
 
+    const collectionButton = event.target.closest("[data-library-entity-type]")
+
+    if (collectionButton) {
+        activePlaylistId = ""
+        activeLibraryEntity = {
+            type:collectionButton.dataset.libraryEntityType,
+            key:decodeURIComponent(collectionButton.dataset.libraryEntityKey || "")
+        }
+        renderLibrary()
+        return
+    }
+
     const playlistButton = event.target.closest("[data-playlist-id]")
 
     if (playlistButton) {
+        activeLibraryEntity = null
+        activeLibraryMode = "playlists"
+        activeLibraryFilter = "all"
         activePlaylistId = playlistButton.dataset.playlistId
         openView("library")
         renderPlaylists()
@@ -1700,9 +2072,30 @@ document.addEventListener("click",event => {
     if (event.target.closest("[data-create-playlist]")) openPlaylistModal("")
 })
 
+libraryModeButtons.forEach(button => {
+    button.addEventListener("click",() => {
+        const mode = button.dataset.libraryMode
+
+        activePlaylistId = ""
+        activeLibraryEntity = null
+        activeLibraryMode = mode
+        activeLibraryFilter = mode === "favorites"
+            ? "favorites"
+            : mode === "downloads"
+                ? "downloads"
+                : "all"
+
+        if (librarySearchInput) librarySearchInput.value = ""
+
+        renderLibrary()
+    })
+})
+
 filterButtons.forEach(button => {
     button.addEventListener("click",() => {
         activePlaylistId = ""
+        activeLibraryEntity = null
+        activeLibraryMode = "songs"
         activeLibraryFilter = button.dataset.filter
         renderPlaylists()
         updateLibraryFilters()
@@ -1712,9 +2105,31 @@ filterButtons.forEach(button => {
 
 clearPlaylistFilterButton?.addEventListener("click",() => {
     activePlaylistId = ""
+    activeLibraryEntity = null
+    activeLibraryMode = "playlists"
     activeLibraryFilter = "all"
     renderPlaylists()
     updateLibraryFilters()
+    renderLibrary()
+})
+
+clearLibraryEntityButton?.addEventListener("click",() => {
+    activeLibraryEntity = null
+    renderLibrary()
+})
+
+librarySearchInput?.addEventListener("input",() => {
+    renderPlaylists()
+    renderLibrary()
+})
+
+librarySortSelect?.addEventListener("change",() => {
+    librarySortMode = librarySortSelect.value
+    renderLibrary()
+})
+
+libraryOwnerSelect?.addEventListener("change",() => {
+    libraryOwnerFilter = libraryOwnerSelect.value
     renderLibrary()
 })
 

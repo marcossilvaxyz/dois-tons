@@ -32,7 +32,8 @@ body.overlay-open {
 }
 
 button,
-input {
+input,
+select {
   color: inherit;
   font: inherit;
 }
@@ -3638,4 +3639,410 @@ html[data-theme="dark"] .track-download-button.downloaded,
 html[data-theme="dark"] .track-offline-label,
 html[data-theme="dark"] #download-current-track.active {
   color: var(--success);
+}
+
+/* ==================================================
+   etapa 7 - biblioteca avancada
+================================================== */
+
+.library-category-navigation {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 14px;
+  padding: 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 249, 239, 0.58);
+}
+
+.library-category-navigation button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 41px;
+  padding: 8px 7px;
+  border-radius: calc(var(--radius-md) - 5px);
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 750;
+  transition:
+    color var(--transition),
+    background-color var(--transition),
+    box-shadow var(--transition),
+    transform var(--transition);
+}
+
+.library-category-navigation button svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+}
+
+.library-category-navigation button span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-category-navigation button:hover {
+  color: var(--primary);
+  background: rgba(155, 80, 52, 0.05);
+}
+
+.library-category-navigation button.active {
+  color: var(--primary-dark);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.library-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.library-search-field,
+.library-select-field {
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: rgba(255, 249, 239, 0.58);
+}
+
+.library-search-field {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 45px;
+  padding: 0 13px;
+  border-radius: var(--radius-md);
+}
+
+.library-search-field:focus-within {
+  border-color: var(--primary-light);
+  background: var(--surface);
+  box-shadow: 0 0 0 4px rgba(155, 80, 52, 0.06);
+}
+
+.library-search-field svg {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+}
+
+.library-search-field input {
+  width: 100%;
+  font-size: 11px;
+}
+
+.library-search-field input::placeholder {
+  color: var(--muted);
+}
+
+.library-select-field {
+  display: grid;
+  gap: 4px;
+  min-height: 52px;
+  padding: 8px 11px;
+  border-radius: var(--radius-md);
+}
+
+.library-select-field > span {
+  color: var(--muted);
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.library-select-field select {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 700;
+  background: transparent;
+  cursor: pointer;
+}
+
+.library-select-field select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.library-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px 10px;
+}
+
+.library-collection-card {
+  min-width: 0;
+  text-align: left;
+}
+
+.library-collection-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) 7px var(--radius-md) 7px;
+  background-color: var(--surface-strong);
+  background-position: center;
+  background-size: cover;
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--transition),
+    transform var(--transition),
+    box-shadow var(--transition);
+}
+
+.library-collection-card:hover .library-collection-cover {
+  border-color: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.library-collection-badge {
+  position: absolute;
+  right: 9px;
+  bottom: 9px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid rgba(255, 250, 242, 0.4);
+  border-radius: 50%;
+  color: var(--white);
+  background: rgba(63, 43, 34, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.library-collection-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.library-collection-information {
+  display: block;
+  min-width: 0;
+  padding: 9px 4px 0;
+}
+
+.library-collection-information strong,
+.library-collection-information small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-collection-information strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.library-collection-information small {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.playlist-section .playlist-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-columns: initial;
+  grid-auto-flow: row;
+  gap: 12px 10px;
+  padding: 1px 1px 7px;
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+.playlist-section .playlist-card,
+.playlist-section .playlist-card-create {
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.playlist-section .playlist-card::after {
+  display: none;
+}
+
+.playlist-section .playlist-card:hover,
+.playlist-section .playlist-card.active,
+.playlist-section .playlist-card-create:hover {
+  border-color: transparent;
+  background: transparent;
+  transform: none;
+}
+
+.playlist-card-artwork {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  width: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md) 7px var(--radius-md) 7px;
+  background: var(--surface-soft);
+  box-shadow: var(--shadow-sm);
+  transition:
+    border-color var(--transition),
+    transform var(--transition),
+    box-shadow var(--transition);
+}
+
+.playlist-card:hover .playlist-card-artwork,
+.playlist-card.active .playlist-card-artwork {
+  border-color: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.playlist-artwork-tile {
+  min-width: 0;
+  min-height: 0;
+  background-position: center;
+  background-size: cover;
+}
+
+.playlist-artwork-tile:only-child {
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+}
+
+.playlist-artwork-empty {
+  grid-row: 1 / -1;
+  grid-column: 1 / -1;
+  display: grid;
+  place-items: center;
+  color: var(--primary);
+}
+
+.playlist-artwork-empty svg {
+  width: 28px;
+  height: 28px;
+}
+
+.playlist-card-information {
+  display: block;
+  min-width: 0;
+  padding: 9px 4px 0;
+}
+
+.playlist-section .playlist-card-information strong {
+  margin-top: 0;
+  font-size: 14px;
+}
+
+.playlist-section .playlist-card-information small {
+  margin-top: 4px;
+  font-size: 8px;
+}
+
+.playlist-section .playlist-card-create {
+  min-height: 174px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-md) 7px var(--radius-md) 7px;
+  background: rgba(255, 249, 239, 0.38);
+}
+
+.library-entity-context small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 8px;
+}
+
+html[data-theme="dark"] .library-category-navigation,
+html[data-theme="dark"] .library-search-field,
+html[data-theme="dark"] .library-select-field,
+html[data-theme="dark"] .playlist-section .playlist-card-create {
+  background: rgba(21, 20, 17, 0.76);
+}
+
+html[data-theme="dark"] .library-category-navigation button:hover {
+  background: rgba(213, 167, 95, 0.055);
+}
+
+html[data-theme="dark"] .library-category-navigation button.active {
+  color: var(--primary-light);
+  background: var(--surface);
+}
+
+html[data-theme="dark"] .library-search-field:focus-within {
+  background: var(--surface);
+  box-shadow: 0 0 0 4px rgba(213, 167, 95, 0.07);
+}
+
+html[data-theme="dark"] .library-select-field select {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] .library-collection-badge {
+  color: #18130d;
+  border-color: rgba(237, 204, 148, 0.32);
+  background: rgba(213, 167, 95, 0.88);
+}
+
+html[data-theme="dark"] .playlist-card-artwork,
+html[data-theme="dark"] .library-collection-cover {
+  background-color: var(--surface);
+}
+
+@media (min-width: 560px) {
+  .library-category-navigation {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .library-toolbar {
+    grid-template-columns: minmax(0, 1.6fr) minmax(130px, 0.7fr) minmax(130px, 0.7fr);
+  }
+
+  .library-search-field {
+    grid-column: auto;
+  }
+
+  .library-collection-grid,
+  .playlist-section .playlist-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 390px) {
+  .library-category-navigation button {
+    gap: 5px;
+    padding-right: 4px;
+    padding-left: 4px;
+    font-size: 8px;
+  }
+
+  .library-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .library-search-field {
+    grid-column: auto;
+  }
+
+  .library-select-field {
+    min-height: 48px;
+  }
 }
