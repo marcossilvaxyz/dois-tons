@@ -5115,7 +5115,8 @@ function updatePlayerInterface() {
 function updateProgressInterface() {
     const track = getCurrentTrack()
     const duration = getTrackPlaybackDuration(track)
-    const position = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
+    const rawPosition = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
+    const position = duration > 0 ? Math.min(rawPosition,duration) : rawPosition
     const progress = duration ? Math.min((position / duration) * 100,100) : 0
 
     trackProgress.value = String(progress)
@@ -6340,6 +6341,22 @@ function isMp3Track(track) {
         || audioPath.endsWith(".mp3")
 }
 
+function isM4aAacTrack(track) {
+    if (!track) return false
+
+    const mimeType = String(track.mimeType || "").toLocaleLowerCase("pt-BR")
+    const audioPath = String(track.audioPath || "").toLocaleLowerCase("pt-BR")
+
+    return mimeType === "audio/mp4"
+        || mimeType === "audio/x-m4a"
+        || mimeType === "audio/m4a"
+        || mimeType === "audio/aac"
+        || mimeType === "audio/x-aac"
+        || audioPath.endsWith(".m4a")
+        || audioPath.endsWith(".mp4")
+        || audioPath.endsWith(".aac")
+}
+
 function getMpegFrameInformation(bytes,offset) {
     if (offset + 4 > bytes.length) return null
 
@@ -6635,20 +6652,22 @@ function finishTrackAtValidatedDuration() {
     const position = Number(audioPlayer.currentTime || 0)
     const browserDuration = Number(audioPlayer.duration || 0)
     const cachedDuration = readValidatedDuration(track)
-    const browserRunsPastCatalog = !Number.isFinite(browserDuration)
-        || browserDuration > duration + 0.75
+    const browserDurationIsKnown = Number.isFinite(browserDuration) && browserDuration > 0
+    const browserRunsPastCatalog = browserDurationIsKnown && browserDuration > duration + 0.5
+    const hasContainerDurationMismatch = (isMp3Track(track) || isM4aAacTrack(track))
+        && browserRunsPastCatalog
     const hasReliableCatalogEnd = validatedDurationTrackIds.has(track.id)
         || cachedDuration > 0
-        || (isMp3Track(track) && browserRunsPastCatalog)
+        || hasContainerDurationMismatch
 
     if (!hasReliableCatalogEnd || !duration || !Number.isFinite(position)) return
-    if (position < Math.max(0,duration - 0.1)) return
+    if (position < Math.max(0,duration - 0.08)) return
     if (catalogEndHandledTrackId === track.id) return
 
     catalogEndHandledTrackId = track.id
     audioPlayer.pause()
 
-    if (Number.isFinite(browserDuration) && browserDuration > 0) {
+    if (browserDurationIsKnown) {
         audioPlayer.currentTime = Math.min(duration,browserDuration)
     }
 
