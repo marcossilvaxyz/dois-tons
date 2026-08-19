@@ -4562,6 +4562,13 @@ html[data-theme="dark"] .metadata-toggle-control {
     transform var(--transition);
 }
 
+.playlist-order-actions button svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
 .playlist-order-actions button:hover {
   color: var(--primary-dark);
   background: rgba(255, 249, 239, 0.72);
@@ -4595,7 +4602,21 @@ html.playlist-reordering * {
 
 @media (pointer: coarse) {
   .track-item-row.organizing .track-item {
-    padding-right: 82px;
+    padding-right: 76px;
+  }
+
+  .playlist-order-actions {
+    gap: 3px;
+  }
+
+  .playlist-order-actions button {
+    width: 30px;
+    height: 30px;
+  }
+
+  .playlist-order-actions button svg {
+    width: 15px;
+    height: 15px;
   }
 
   .playlist-order-actions .playlist-order-step {
