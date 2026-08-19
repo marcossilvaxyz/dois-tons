@@ -6629,16 +6629,29 @@ async function validateTrackDuration(track) {
 function finishTrackAtValidatedDuration() {
     const track = getCurrentTrack()
 
-    if (!track || !validatedDurationTrackIds.has(track.id)) return
+    if (!track) return
 
     const duration = Number(track.duration || 0)
     const position = Number(audioPlayer.currentTime || 0)
+    const browserDuration = Number(audioPlayer.duration || 0)
+    const cachedDuration = readValidatedDuration(track)
+    const browserRunsPastCatalog = !Number.isFinite(browserDuration)
+        || browserDuration > duration + 0.75
+    const hasReliableCatalogEnd = validatedDurationTrackIds.has(track.id)
+        || cachedDuration > 0
+        || (isMp3Track(track) && browserRunsPastCatalog)
 
-    if (!duration || !Number.isFinite(position) || position < duration + 1.25) return
+    if (!hasReliableCatalogEnd || !duration || !Number.isFinite(position)) return
+    if (position < Math.max(0,duration - 0.1)) return
     if (catalogEndHandledTrackId === track.id) return
 
     catalogEndHandledTrackId = track.id
     audioPlayer.pause()
+
+    if (Number.isFinite(browserDuration) && browserDuration > 0) {
+        audioPlayer.currentTime = Math.min(duration,browserDuration)
+    }
+
     changeTrack(1,{automatic:true})
 }
 
