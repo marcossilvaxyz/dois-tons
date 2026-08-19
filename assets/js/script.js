@@ -344,6 +344,7 @@ let playbackSaveTimeout = null
 let lastPlaybackProgressSave = 0
 let pendingPlaylistQueueIds = []
 let playlistOrganizing = false
+let playlistDragState = null
 let playlistManagerPlaylistId = ""
 let playlistActivity = []
 let activityNotifications = []
@@ -2239,10 +2240,13 @@ function createTrackItem(track,index) {
     const organizerActions = activePlaylist && playlistOrganizing
         ? `
             <span class="track-item-actions playlist-order-actions">
-                <button type="button" data-playlist-move="up" data-playlist-track="${escapeAttribute(track.id)}" aria-label="Mover ${escapeAttribute(track.title)} para cima">
+                <button type="button" class="playlist-drag-handle" data-playlist-drag="${escapeAttribute(track.id)}" aria-label="Arrastar ${escapeAttribute(track.title)} para outra posição">
+                    <svg aria-hidden="true"><use href="#icon-queue"></use></svg>
+                </button>
+                <button type="button" class="playlist-order-step" data-playlist-move="up" data-playlist-track="${escapeAttribute(track.id)}" aria-label="Mover ${escapeAttribute(track.title)} para cima">
                     <svg aria-hidden="true"><use href="#icon-up"></use></svg>
                 </button>
-                <button type="button" data-playlist-move="down" data-playlist-track="${escapeAttribute(track.id)}" aria-label="Mover ${escapeAttribute(track.title)} para baixo">
+                <button type="button" class="playlist-order-step" data-playlist-move="down" data-playlist-track="${escapeAttribute(track.id)}" aria-label="Mover ${escapeAttribute(track.title)} para baixo">
                     <svg aria-hidden="true"><use href="#icon-down"></use></svg>
                 </button>
                 <button type="button" class="playlist-remove-track-button" data-playlist-remove="${escapeAttribute(track.id)}" aria-label="Remover ${escapeAttribute(track.title)} da playlist">
@@ -2277,7 +2281,7 @@ function createTrackItem(track,index) {
         `
 
     return `
-        <div class="track-item-row ${currentClass} ${activePlaylist && playlistOrganizing ? "organizing" : ""}">
+        <div class="track-item-row ${currentClass} ${activePlaylist && playlistOrganizing ? "organizing" : ""}" ${activePlaylist && playlistOrganizing ? `data-playlist-row-track="${escapeAttribute(track.id)}"` : ""}>
             <button type="button" class="track-item ${currentClass}" data-track-id="${escapeAttribute(track.id)}">
                 <span class="track-cover ${escapeAttribute(getCoverClass(track,index))} ${track.coverImage ? "custom-cover" : ""}" ${getCoverStyle(track)}></span>
                 <span class="track-information">
@@ -4213,16 +4217,22 @@ function renderPlaylists() {
     if (activePlaylistMeta) {
         const creator = selectedPlaylist?.createdByName ? `Criada por ${selectedPlaylist.createdByName}` : "Playlist compartilhada"
         const description = selectedPlaylist?.description?.trim()
+        const organizingHint = playlistOrganizing && selectedPlaylist ? "Segure o ícone de fila e arraste para mudar a ordem" : ""
         activePlaylistMeta.textContent = selectedPlaylist
-            ? [description,creator].filter(Boolean).join(" · ")
+            ? [description,creator,organizingHint].filter(Boolean).join(" · ")
             : ""
     }
 
     if (organizePlaylistButton) {
         const canOrganize = Boolean(selectedPlaylist && (!cloudMode || cloudReady && navigator.onLine))
+        const organizing = playlistOrganizing && Boolean(selectedPlaylist)
+        const label = organizing ? "Concluir organização da playlist" : "Organizar playlist"
+
         organizePlaylistButton.disabled = !canOrganize
-        organizePlaylistButton.classList.toggle("active",playlistOrganizing && Boolean(selectedPlaylist))
-        organizePlaylistButton.setAttribute("aria-pressed",playlistOrganizing && selectedPlaylist ? "true" : "false")
+        organizePlaylistButton.classList.toggle("active",organizing)
+        organizePlaylistButton.setAttribute("aria-pressed",organizing ? "true" : "false")
+        organizePlaylistButton.setAttribute("aria-label",label)
+        organizePlaylistButton.title = label
     }
 
     if (managePlaylistButton) managePlaylistButton.disabled = !selectedPlaylist || cloudMode && (!cloudReady || !navigator.onLine)
@@ -4248,6 +4258,8 @@ function getFilteredLibraryTracks() {
     } else if (activeLibraryFilter === "shared") {
         sourceTracks = tracks.filter(track => track.sharedBy)
     }
+
+    if (activePlaylistId && playlistOrganizing) return sourceTracks
 
     return applyLibraryTrackFilters(sourceTracks)
 }
@@ -7724,10 +7736,12 @@ function togglePlaylistOrganizing() {
         return
     }
 
+    if (playlistDragState) cancelPlaylistDrag()
+
     playlistOrganizing = !playlistOrganizing
     renderPlaylists()
     renderLibrary()
-    showToast(playlistOrganizing ? "Modo de organização ativado." : "Organização concluída.")
+    showToast(playlistOrganizing ? "Arraste as músicas para mudar a ordem." : "Organização concluída.")
 }
 
 async function moveActivePlaylistTrack(trackId,direction) {
@@ -7763,6 +7777,157 @@ async function moveActivePlaylistTrack(trackId,direction) {
     }
 }
 
+async function reorderActivePlaylistTrack(trackId,targetPosition) {
+    const playlist = playlists.find(item => item.id === activePlaylistId)
+
+    if (!playlist || !playlist.trackIds.includes(trackId)) return
+
+    const currentPosition = playlist.trackIds.indexOf(trackId)
+    const boundedTarget = Math.max(0,Math.min(Number(targetPosition) || 0,playlist.trackIds.length - 1))
+
+    if (currentPosition === boundedTarget) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à internet para reorganizar a playlist.","warning")
+        renderLibrary()
+        return
+    }
+
+    try {
+        if (cloudMode) {
+            const moved = await cloud.reorderPlaylistTrack(playlist.id,trackId,boundedTarget)
+
+            if (!moved) {
+                renderLibrary()
+                return
+            }
+
+            await loadCloudApplicationData()
+        } else {
+            const [movedTrackId] = playlist.trackIds.splice(currentPosition,1)
+            playlist.trackIds.splice(boundedTarget,0,movedTrackId)
+
+            const itemByTrack = new Map((playlist.items || []).map(item => [item.trackId,item]))
+            playlist.items = playlist.trackIds.map((id,position) => ({...(itemByTrack.get(id) || {trackId:id}),position}))
+            playlist.updatedAt = new Date().toISOString()
+            renderApplicationData()
+        }
+
+        showToast("Ordem da playlist atualizada.")
+    } catch (error) {
+        renderLibrary()
+        showToast(getErrorMessage(error,"Não foi possível reorganizar a playlist."),"warning")
+    }
+}
+
+function getPlaylistOrganizerRows() {
+    if (!libraryTrackList) return []
+
+    return [...libraryTrackList.querySelectorAll(".track-item-row.organizing[data-playlist-row-track]")]
+}
+
+function cleanPlaylistDragState() {
+    if (!playlistDragState) return null
+
+    const state = playlistDragState
+
+    state.row?.classList.remove("playlist-dragging-row")
+    state.handle?.classList.remove("dragging")
+    document.documentElement.classList.remove("playlist-reordering")
+    playlistDragState = null
+
+    return state
+}
+
+function cancelPlaylistDrag() {
+    const state = cleanPlaylistDragState()
+
+    if (state?.moved) renderLibrary()
+}
+
+function startPlaylistDrag(event) {
+    const handle = event.target.closest("[data-playlist-drag]")
+
+    if (!handle || !playlistOrganizing || !activePlaylistId || !libraryTrackList?.contains(handle)) return
+    if (event.pointerType === "mouse" && event.button !== 0) return
+
+    const row = handle.closest(".track-item-row.organizing")
+    const rows = getPlaylistOrganizerRows()
+    const startIndex = rows.indexOf(row)
+
+    if (!row || startIndex < 0) return
+
+    playlistDragState = {
+        pointerId:event.pointerId,
+        trackId:handle.dataset.playlistDrag,
+        row,
+        handle,
+        startIndex,
+        moved:false
+    }
+
+    row.classList.add("playlist-dragging-row")
+    handle.classList.add("dragging")
+    document.documentElement.classList.add("playlist-reordering")
+
+    try {
+        handle.setPointerCapture(event.pointerId)
+    } catch (error) {
+        // O arraste continua funcionando mesmo sem captura explícita do ponteiro.
+    }
+
+    event.preventDefault()
+}
+
+function movePlaylistDrag(event) {
+    const state = playlistDragState
+
+    if (!state || event.pointerId !== state.pointerId) return
+
+    event.preventDefault()
+
+    const element = document.elementFromPoint(event.clientX,event.clientY)
+    const targetRow = element?.closest?.(".track-item-row.organizing[data-playlist-row-track]")
+
+    if (targetRow && targetRow !== state.row && libraryTrackList.contains(targetRow)) {
+        const targetRect = targetRow.getBoundingClientRect()
+        const insertAfter = event.clientY > targetRect.top + targetRect.height / 2
+
+        if (insertAfter) {
+            targetRow.after(state.row)
+        } else {
+            targetRow.before(state.row)
+        }
+
+        state.moved = true
+    }
+
+    const edge = 72
+
+    if (event.clientY < edge) {
+        window.scrollBy({top:-12,behavior:"auto"})
+    } else if (event.clientY > window.innerHeight - edge) {
+        window.scrollBy({top:12,behavior:"auto"})
+    }
+}
+
+async function finishPlaylistDrag(event) {
+    const state = playlistDragState
+
+    if (!state || event.pointerId !== state.pointerId) return
+
+    const rows = getPlaylistOrganizerRows()
+    const targetIndex = rows.indexOf(state.row)
+    const finishedState = cleanPlaylistDragState()
+
+    if (!finishedState || !finishedState.moved || targetIndex < 0 || targetIndex === finishedState.startIndex) {
+        if (finishedState?.moved) renderLibrary()
+        return
+    }
+
+    await reorderActivePlaylistTrack(finishedState.trackId,targetIndex)
+}
+
 async function removeTrackFromActivePlaylist(trackId) {
     const playlist = playlists.find(item => item.id === activePlaylistId)
 
@@ -7793,6 +7958,11 @@ createPlaylistButton?.addEventListener("click",() => openPlaylistModal(""))
 playlistForm?.addEventListener("submit",handlePlaylistSubmit)
 playlistManagerForm?.addEventListener("submit",handlePlaylistManagerSubmit)
 organizePlaylistButton?.addEventListener("click",togglePlaylistOrganizing)
+
+document.addEventListener("pointerdown",startPlaylistDrag)
+document.addEventListener("pointermove",movePlaylistDrag,{passive:false})
+document.addEventListener("pointerup",finishPlaylistDrag)
+document.addEventListener("pointercancel",cancelPlaylistDrag)
 managePlaylistButton?.addEventListener("click",() => openPlaylistManager())
 deletePlaylistButton?.addEventListener("click",() => {
     playlistDeleteConfirmation.hidden = false
@@ -8123,25 +8293,16 @@ themeToggleButton?.addEventListener("click",toggleTheme)
 logoutButton?.addEventListener("click",closeApplication)
 
 // controles do sistema
-function seekSystemPlayback(offset) {
-    const duration = getTrackPlaybackDuration()
-
-    if (!Number.isFinite(duration) || duration <= 0) return
-
-    const nextPosition = Math.min(
-        Math.max((Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0) + offset,0),
-        duration
-    )
-
-    audioPlayer.currentTime = nextPosition
-    updateProgressInterface()
-    updateMediaSessionPosition(true)
-    schedulePlaybackStateSave()
-    publishJamState()
-}
-
 function configureMediaSessionActions() {
     if (!("mediaSession" in navigator)) return
+
+    for (const action of ["seekbackward","seekforward"]) {
+        try {
+            navigator.mediaSession.setActionHandler(action,null)
+        } catch (error) {
+            // Nem todo navegador expõe todos os controles da Media Session.
+        }
+    }
 
     const actions = {
         play:() => playTrack({silent:true}),
@@ -8154,8 +8315,6 @@ function configureMediaSessionActions() {
         },
         previoustrack:() => changeTrack(-1),
         nexttrack:() => changeTrack(1),
-        seekbackward:details => seekSystemPlayback(-Math.max(1,Number(details.seekOffset) || 10)),
-        seekforward:details => seekSystemPlayback(Math.max(1,Number(details.seekOffset) || 10)),
         seekto:details => {
             const duration = getTrackPlaybackDuration()
 

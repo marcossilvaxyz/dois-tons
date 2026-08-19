@@ -776,6 +776,16 @@ window.DoisTonsCloud = (() => {
         }))
     }
 
+    async function reorderPlaylistTrack(playlistId,trackId,targetPosition) {
+        requireMembership()
+
+        return unwrap(await client.rpc("reorder_playlist_track",{
+            p_playlist_id:playlistId,
+            p_track_id:trackId,
+            p_target_position:targetPosition
+        }))
+    }
+
     async function loadPlaylistActivity(playlistId) {
         requireMembership()
 
@@ -1226,6 +1236,7 @@ window.DoisTonsCloud = (() => {
         markActivityNotifications,
         markMusicDedications,
         movePlaylistTrack,
+        reorderPlaylistTrack,
         recordListeningProgress,
         removeTrackFromPlaylist,
         restoreProfile,

@@ -4546,7 +4546,7 @@ html[data-theme="dark"] .metadata-toggle-control {
 }
 
 .track-item-row.organizing .track-item {
-  padding-right: 118px;
+  padding-right: 154px;
 }
 
 .playlist-order-actions button {
@@ -4569,6 +4569,38 @@ html[data-theme="dark"] .metadata-toggle-control {
 
 .playlist-order-actions .playlist-remove-track-button:hover {
   color: var(--danger);
+}
+
+.playlist-drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+
+.playlist-drag-handle.dragging {
+  cursor: grabbing;
+  color: var(--primary-dark);
+  background: rgba(255, 249, 239, 0.82);
+}
+
+.track-item-row.playlist-dragging-row {
+  z-index: 4;
+  opacity: 0.72;
+  transform: scale(0.992);
+}
+
+html.playlist-reordering,
+html.playlist-reordering * {
+  user-select: none;
+}
+
+@media (pointer: coarse) {
+  .track-item-row.organizing .track-item {
+    padding-right: 82px;
+  }
+
+  .playlist-order-actions .playlist-order-step {
+    display: none;
+  }
 }
 
 .playlist-manager-card {
@@ -4746,6 +4778,11 @@ html[data-theme="dark"] .playlist-activity-item {
 html[data-theme="dark"] .playlist-order-actions button:hover {
   color: var(--primary);
   background: rgba(213, 167, 95, 0.08);
+}
+
+html[data-theme="dark"] .playlist-drag-handle.dragging {
+  color: var(--primary);
+  background: rgba(213, 167, 95, 0.12);
 }
 
 html[data-theme="dark"] .playlist-delete-confirmation {
