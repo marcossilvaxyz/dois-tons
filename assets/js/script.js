@@ -510,6 +510,11 @@ function updateRuntimeInterface() {
 function updateMediaSessionPosition(force = false) {
     if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return
 
+    // No iPhone, o próprio <audio> já informa tempo e duração ao sistema.
+    // Evitamos anunciar uma sessão "seekable" para que a tela bloqueada
+    // priorize anterior/próxima em vez dos atalhos de ±10 segundos.
+    if (getRuntimePlatform().iOS) return
+
     const now = Date.now()
 
     if (!force && now - lastMediaSessionPositionUpdate < 900) return
@@ -5068,6 +5073,7 @@ function updateMediaSession(track) {
     try {
         navigator.mediaSession.metadata = new MediaMetadata(metadata)
         navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused"
+        configureMediaSessionActions()
         updateMediaSessionPosition(true)
     } catch (error) {
         return
@@ -5225,6 +5231,7 @@ async function playTrack(options = {}) {
     try {
         await audioPlayer.play()
         isPlaying = true
+        configureMediaSessionActions()
         updatePlayerInterface()
         schedulePlaybackStateSave()
 
@@ -8296,13 +8303,18 @@ logoutButton?.addEventListener("click",closeApplication)
 function configureMediaSessionActions() {
     if (!("mediaSession" in navigator)) return
 
-    for (const action of ["seekbackward","seekforward"]) {
+    const runtime = getRuntimePlatform()
+    const disabledActions = runtime.iOS
+        ? ["seekbackward","seekforward","seekto"]
+        : ["seekbackward","seekforward"]
+
+    disabledActions.forEach(action => {
         try {
             navigator.mediaSession.setActionHandler(action,null)
         } catch (error) {
             // Nem todo navegador expõe todos os controles da Media Session.
         }
-    }
+    })
 
     const actions = {
         play:() => playTrack({silent:true}),
@@ -8314,8 +8326,11 @@ function configureMediaSessionActions() {
             updateMediaSessionPosition(true)
         },
         previoustrack:() => changeTrack(-1),
-        nexttrack:() => changeTrack(1),
-        seekto:details => {
+        nexttrack:() => changeTrack(1)
+    }
+
+    if (!runtime.iOS) {
+        actions.seekto = details => {
             const duration = getTrackPlaybackDuration()
 
             if (!Number.isFinite(details.seekTime) || !Number.isFinite(duration) || duration <= 0) return
