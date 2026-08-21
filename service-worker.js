@@ -1,5 +1,5 @@
 // arquivos básicos do app
-const cacheName = "dois-tons-v26"
+const cacheName = "dois-tons-v27"
 const appAssets = [
     "./",
     "./index.html",

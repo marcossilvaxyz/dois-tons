@@ -525,6 +525,10 @@ function configurePlaybackAudioSession() {
 function updateMediaSessionPosition(force = false) {
     if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return
 
+    // No iPhone, a duração e a posição já vêm do próprio <audio>.
+    // Anunciar uma sessão seekable faz o iOS trocar anterior/próxima por ±10 s.
+    if (getRuntimePlatform().iOS) return
+
     const now = Date.now()
 
     if (!force && now - lastMediaSessionPositionUpdate < 700) return
@@ -8555,56 +8559,150 @@ function handleMediaSessionPlay() {
 
     configurePlaybackAudioSession()
 
-    if (!prepareAudioTrack(track)) return
+    // Ao retomar pela tela bloqueada, não recarrega a mesma faixa.
+    // O play precisa chegar ao elemento de áudio dentro do próprio comando do iOS.
+    if (audioPlayer.dataset.trackId !== track.id || !audioPlayer.currentSrc) {
+        if (!track.source) return
+
+        audioPlayer.src = track.source
+        audioPlayer.dataset.trackId = track.id
+        audioPlayer.dataset.source = track.source
+    }
 
     try {
         const playbackPromise = audioPlayer.play()
 
-        isPlaying = true
-        setMediaSessionPlaybackState("playing")
-        updateMediaSessionPosition(true)
-        schedulePlaybackStateSave()
-
         if (playbackPromise && typeof playbackPromise.catch === "function") {
-            playbackPromise.catch(() => {
-                isPlaying = false
-                setMediaSessionPlaybackState("paused")
-            })
+            playbackPromise.catch(() => {})
         }
     } catch (error) {
-        isPlaying = false
-        setMediaSessionPlaybackState("paused")
+        return
     }
 }
 
 function handleMediaSessionPause() {
-    updateListeningSessionProgress()
-    audioPlayer.pause()
-    isPlaying = false
-    setMediaSessionPlaybackState("paused")
-    updateMediaSessionPosition(true)
-    schedulePlaybackStateSave()
-    publishJamState()
+    try {
+        audioPlayer.pause()
+    } catch (error) {
+        return
+    }
+}
+
+function getMediaSessionTrackTarget(direction) {
+    let activeQueue = jamActive ? getJamSequence() : playbackQueue
+
+    if (!activeQueue.length) {
+        buildPlaybackQueue(currentTrackId,playbackContext)
+        activeQueue = jamActive ? getJamSequence() : playbackQueue
+    }
+
+    if (!activeQueue.length) return null
+
+    let currentIndex = activeQueue.indexOf(currentTrackId)
+
+    if (currentIndex < 0) currentIndex = direction > 0 ? -1 : 0
+
+    let nextIndex = currentIndex + direction
+
+    if (nextIndex < 0 || nextIndex >= activeQueue.length) {
+        const canWrap = jamActive || repeatMode === "all"
+
+        if (!canWrap) return null
+
+        nextIndex = direction > 0 ? 0 : activeQueue.length - 1
+    }
+
+    const trackId = activeQueue[nextIndex]
+    const track = tracks.find(item => item.id === trackId)
+
+    if (!track?.source) return null
+
+    return {track,activeQueue,nextIndex}
 }
 
 function handleMediaSessionTrackChange(direction) {
     configurePlaybackAudioSession()
 
-    const result = changeTrack(direction,{backgroundSafe:true,mediaSession:true})
+    if (direction < 0 && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
+        try {
+            audioPlayer.currentTime = 0
+        } catch (error) {
+            return
+        }
 
-    if (result && typeof result.catch === "function") result.catch(() => {})
+        schedulePlaybackStateSave()
+        publishJamState()
+        return
+    }
+
+    const target = getMediaSessionTrackTarget(direction)
+
+    if (!target) return
+
+    const wasPlaying = !audioPlayer.paused || isPlaying
+
+    finishListeningSession({completed:false})
+
+    currentTrackId = target.track.id
+    playbackQueueIndex = target.nextIndex
+    catalogEndHandledTrackId = ""
+
+    if (jamActive) {
+        playbackContext = {type:"library",label:"Jam sincronizada"}
+        playbackQueue = target.activeQueue
+    }
+
+    // A troca é feita de forma síncrona para o comando remoto não perder
+    // a janela de execução quando o PWA está em segundo plano.
+    audioPlayer.src = target.track.source
+    audioPlayer.dataset.trackId = target.track.id
+    audioPlayer.dataset.source = target.track.source
+
+    updateMediaSession(target.track)
+    schedulePlaybackStateSave()
+
+    if (wasPlaying) {
+        try {
+            const playbackPromise = audioPlayer.play()
+
+            if (playbackPromise && typeof playbackPromise.catch === "function") {
+                playbackPromise.catch(() => {})
+            }
+        } catch (error) {
+            return
+        }
+    }
+
+    publishJamState()
 }
 
 function configureMediaSessionActions(force = false) {
     if (!("mediaSession" in navigator)) return
     if (mediaSessionActionsConfigured && !force) return
 
+    const runtime = getRuntimePlatform()
     const actions = {
         play:handleMediaSessionPlay,
         pause:handleMediaSessionPause,
         previoustrack:() => handleMediaSessionTrackChange(-1),
         nexttrack:() => handleMediaSessionTrackChange(1),
-        seekto:details => {
+        stop:() => {
+            try {
+                audioPlayer.pause()
+                audioPlayer.currentTime = 0
+            } catch (error) {
+                return
+            }
+
+            schedulePlaybackStateSave()
+            publishJamState()
+        }
+    }
+
+    // No iPhone, seekto muda o conjunto de botões exibido pelo sistema.
+    // Mantemos os comandos de faixa; outros navegadores continuam com scrubber remoto.
+    if (!runtime.iOS) {
+        actions.seekto = details => {
             const duration = getTrackPlaybackDuration()
 
             if (!Number.isFinite(details.seekTime) || !Number.isFinite(duration) || duration <= 0) return
@@ -8617,25 +8715,17 @@ function configureMediaSessionActions(force = false) {
                 audioPlayer.currentTime = nextPosition
             }
 
-            if (document.visibilityState === "visible") updateProgressInterface()
-            else updateMediaSessionPosition(true)
-
-            schedulePlaybackStateSave()
-            publishJamState()
-        },
-        stop:() => {
-            updateListeningSessionProgress()
-            audioPlayer.pause()
-            audioPlayer.currentTime = 0
-            isPlaying = false
-            setMediaSessionPlaybackState("paused")
-            updateMediaSessionPosition(true)
+            updateProgressInterface()
             schedulePlaybackStateSave()
             publishJamState()
         }
     }
 
-    ;["seekbackward","seekforward"].forEach(action => {
+    const disabledActions = runtime.iOS
+        ? ["seekbackward","seekforward","seekto"]
+        : ["seekbackward","seekforward"]
+
+    disabledActions.forEach(action => {
         try {
             navigator.mediaSession.setActionHandler(action,null)
         } catch (error) {
