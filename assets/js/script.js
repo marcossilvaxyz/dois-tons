@@ -406,6 +406,7 @@ let serviceWorkerReloading = false
 let pendingServiceWorkerReload = false
 let lastMediaSessionPositionUpdate = 0
 let mediaSessionActionsConfigured = false
+let iosMediaSessionPositionCleared = false
 let lastForegroundRefresh = 0
 let durationValidationCache = null
 let durationValidationPromises = new Map()
@@ -517,6 +518,20 @@ function configurePlaybackAudioSession() {
 
     try {
         if (navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"
+    } catch (error) {
+        return
+    }
+}
+
+function clearIOSMediaSessionPositionState(force = false) {
+    const runtime = getRuntimePlatform()
+
+    if (!runtime.iOS || !("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return
+    if (iosMediaSessionPositionCleared && !force) return
+
+    try {
+        navigator.mediaSession.setPositionState()
+        iosMediaSessionPositionCleared = true
     } catch (error) {
         return
     }
@@ -5085,6 +5100,7 @@ function updateMediaSession(track) {
     }
 
     try {
+        if (getRuntimePlatform().iOS) clearIOSMediaSessionPositionState()
         navigator.mediaSession.metadata = new MediaMetadata(metadata)
         navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused"
         configureMediaSessionActions()
@@ -5531,7 +5547,7 @@ trackProgress?.addEventListener("change",() => {
 audioPlayer?.addEventListener("play",() => {
     isPlaying = true
     configurePlaybackAudioSession()
-    configureMediaSessionActions()
+    configureMediaSessionActions(true)
     setMediaSessionPlaybackState("playing")
     startListeningSession(currentTrackId)
 
@@ -8552,37 +8568,113 @@ function setMediaSessionPlaybackState(state) {
     }
 }
 
-function handleMediaSessionPlay() {
-    const track = getCurrentTrack()
+function restoreMediaSessionResumePosition(position,track) {
+    if (!Number.isFinite(position) || position <= 0) return
 
-    if (!track) return
+    const applyPosition = () => {
+        if (track?.id !== currentTrackId) return
 
-    configurePlaybackAudioSession()
+        const duration = getTrackPlaybackDuration(track)
+        const safePosition = duration > 0
+            ? Math.min(position,Math.max(0,duration - 0.1))
+            : position
 
-    // Ao retomar pela tela bloqueada, não recarrega a mesma faixa.
-    // O play precisa chegar ao elemento de áudio dentro do próprio comando do iOS.
-    if (audioPlayer.dataset.trackId !== track.id || !audioPlayer.currentSrc) {
-        if (!track.source) return
+        try {
+            if (!Number.isFinite(audioPlayer.currentTime) || Math.abs(audioPlayer.currentTime - safePosition) > 0.75) {
+                audioPlayer.currentTime = safePosition
+            }
+        } catch (error) {
+            return
+        }
+    }
 
+    try {
+        applyPosition()
+    } catch (error) {
+        return
+    }
+
+    if (audioPlayer.readyState < 1) {
+        audioPlayer.addEventListener("loadedmetadata",applyPosition,{once:true})
+    }
+}
+
+function rearmIOSAudioForRemotePlay(track,resumePosition) {
+    const runtime = getRuntimePlatform()
+
+    if (!runtime.iOS || !runtime.standalone || document.visibilityState === "visible") return false
+    if (!track?.source) return false
+
+    try {
+        // Em PWAs do iOS 26, reatribuir o src antes do play ajuda o WebKit
+        // a reativar um elemento de áudio que ficou suspenso em segundo plano.
         audioPlayer.src = track.source
         audioPlayer.dataset.trackId = track.id
         audioPlayer.dataset.source = track.source
+        restoreMediaSessionResumePosition(resumePosition,track)
+
+        return true
+    } catch (error) {
+        return false
     }
+}
+
+function handleMediaSessionPlay() {
+    const track = getCurrentTrack()
+
+    if (!track?.source) return
+
+    configurePlaybackAudioSession()
+    clearIOSMediaSessionPositionState(true)
+
+    const resumePosition = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
+    const wrongTrack = audioPlayer.dataset.trackId !== track.id
+    const missingSource = !audioPlayer.currentSrc && !audioPlayer.src
+
+    if (wrongTrack || missingSource) {
+        try {
+            audioPlayer.src = track.source
+            audioPlayer.dataset.trackId = track.id
+            audioPlayer.dataset.source = track.source
+            restoreMediaSessionResumePosition(resumePosition,track)
+        } catch (error) {
+            return
+        }
+    } else {
+        rearmIOSAudioForRemotePlay(track,resumePosition)
+    }
+
+    try {
+        audioPlayer.muted = false
+        if (audioPlayer.volume <= 0) audioPlayer.volume = 1
+    } catch (error) {
+        // volume pode ser controlado somente pelo sistema em alguns navegadores
+    }
+
+    setMediaSessionPlaybackState("playing")
 
     try {
         const playbackPromise = audioPlayer.play()
 
-        if (playbackPromise && typeof playbackPromise.catch === "function") {
-            playbackPromise.catch(() => {})
+        if (playbackPromise && typeof playbackPromise.then === "function") {
+            playbackPromise
+                .then(() => {
+                    restoreMediaSessionResumePosition(resumePosition,track)
+                    setMediaSessionPlaybackState("playing")
+                })
+                .catch(() => setMediaSessionPlaybackState("paused"))
         }
     } catch (error) {
-        return
+        setMediaSessionPlaybackState("paused")
     }
 }
 
 function handleMediaSessionPause() {
     try {
+        updateListeningSessionProgress()
         audioPlayer.pause()
+        setMediaSessionPlaybackState("paused")
+        schedulePlaybackStateSave()
     } catch (error) {
         return
     }
@@ -8622,6 +8714,7 @@ function getMediaSessionTrackTarget(direction) {
 
 function handleMediaSessionTrackChange(direction) {
     configurePlaybackAudioSession()
+    clearIOSMediaSessionPositionState(true)
 
     if (direction < 0 && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
         try {
@@ -8639,7 +8732,7 @@ function handleMediaSessionTrackChange(direction) {
 
     if (!target) return
 
-    const wasPlaying = !audioPlayer.paused || isPlaying
+    const shouldResume = !audioPlayer.paused || isPlaying
 
     finishListeningSession({completed:false})
 
@@ -8652,24 +8745,28 @@ function handleMediaSessionTrackChange(direction) {
         playbackQueue = target.activeQueue
     }
 
-    // A troca é feita de forma síncrona para o comando remoto não perder
-    // a janela de execução quando o PWA está em segundo plano.
-    audioPlayer.src = target.track.source
-    audioPlayer.dataset.trackId = target.track.id
-    audioPlayer.dataset.source = target.track.source
+    try {
+        audioPlayer.src = target.track.source
+        audioPlayer.dataset.trackId = target.track.id
+        audioPlayer.dataset.source = target.track.source
+    } catch (error) {
+        return
+    }
 
     updateMediaSession(target.track)
+    configureMediaSessionActions(true)
     schedulePlaybackStateSave()
 
-    if (wasPlaying) {
+    if (shouldResume) {
         try {
+            setMediaSessionPlaybackState("playing")
             const playbackPromise = audioPlayer.play()
 
             if (playbackPromise && typeof playbackPromise.catch === "function") {
-                playbackPromise.catch(() => {})
+                playbackPromise.catch(() => setMediaSessionPlaybackState("paused"))
             }
         } catch (error) {
-            return
+            setMediaSessionPlaybackState("paused")
         }
     }
 
@@ -8681,15 +8778,21 @@ function configureMediaSessionActions(force = false) {
     if (mediaSessionActionsConfigured && !force) return
 
     const runtime = getRuntimePlatform()
+
+    if (runtime.iOS) clearIOSMediaSessionPositionState(force)
+
+    const previousTrackHandler = () => handleMediaSessionTrackChange(-1)
+    const nextTrackHandler = () => handleMediaSessionTrackChange(1)
     const actions = {
         play:handleMediaSessionPlay,
         pause:handleMediaSessionPause,
-        previoustrack:() => handleMediaSessionTrackChange(-1),
-        nexttrack:() => handleMediaSessionTrackChange(1),
+        previoustrack:previousTrackHandler,
+        nexttrack:nextTrackHandler,
         stop:() => {
             try {
                 audioPlayer.pause()
                 audioPlayer.currentTime = 0
+                setMediaSessionPlaybackState("paused")
             } catch (error) {
                 return
             }
@@ -8699,8 +8802,6 @@ function configureMediaSessionActions(force = false) {
         }
     }
 
-    // No iPhone, seekto muda o conjunto de botões exibido pelo sistema.
-    // Mantemos os comandos de faixa; outros navegadores continuam com scrubber remoto.
     if (!runtime.iOS) {
         actions.seekto = details => {
             const duration = getTrackPlaybackDuration()
@@ -8721,6 +8822,8 @@ function configureMediaSessionActions(force = false) {
         }
     }
 
+    // Remove primeiro os comandos de seek. Isso também limpa estados deixados
+    // por uma versão anterior da sessão de mídia no iOS.
     const disabledActions = runtime.iOS
         ? ["seekbackward","seekforward","seekto"]
         : ["seekbackward","seekforward"]
@@ -8743,6 +8846,22 @@ function configureMediaSessionActions(force = false) {
             if (criticalActions.has(action)) criticalActionsConfigured = false
         }
     })
+
+    if (runtime.iOS) {
+        // WebKit recente também mapeia previousslide/nextslide para os comandos
+        // físicos de faixa anterior/próxima. Mantemos como reforço sem habilitar seek.
+        try {
+            navigator.mediaSession.setActionHandler("previousslide",previousTrackHandler)
+        } catch (error) {
+            // versões anteriores do Safari simplesmente não conhecem essa ação
+        }
+
+        try {
+            navigator.mediaSession.setActionHandler("nextslide",nextTrackHandler)
+        } catch (error) {
+            // versões anteriores do Safari simplesmente não conhecem essa ação
+        }
+    }
 
     mediaSessionActionsConfigured = criticalActionsConfigured
 }

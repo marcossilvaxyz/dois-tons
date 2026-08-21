@@ -1,5 +1,5 @@
 // arquivos básicos do app
-const cacheName = "dois-tons-v27"
+const cacheName = "dois-tons-v28"
 const appAssets = [
     "./",
     "./index.html",
@@ -9,7 +9,7 @@ const appAssets = [
     "./assets/js/offline-service.js",
     "./assets/js/cloud-service.js",
     "./assets/js/metadata-service.js",
-    "./assets/js/script.js",
+    "./assets/js/script.js?v=28",
     "./assets/icons/icon.svg",
     "./assets/icons/icon-192.png",
     "./assets/icons/icon-512.png",
