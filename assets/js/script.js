@@ -410,6 +410,7 @@ let durationValidationCache = null
 let durationValidationPromises = new Map()
 let validatedDurationTrackIds = new Set()
 let catalogEndHandledTrackId = ""
+let audioRecoveryInProgress = false
 
 // tema
 function getStoredTheme() {
@@ -447,6 +448,7 @@ function toggleTheme() {
 }
 
 applyTheme(getStoredTheme(),{persist:false})
+configurePlaybackAudioSession()
 
 // iOS e instalação
 function getRuntimePlatform() {
@@ -465,6 +467,7 @@ function getRuntimePlatform() {
 function updateRuntimeInterface() {
     const runtime = getRuntimePlatform()
 
+    configurePlaybackAudioSession()
     document.documentElement.classList.toggle("ios-device",runtime.iOS)
     document.documentElement.classList.toggle("standalone-mode",runtime.standalone)
 
@@ -507,17 +510,23 @@ function updateRuntimeInterface() {
     `
 }
 
+function configurePlaybackAudioSession() {
+    if (!getRuntimePlatform().iOS) return
+    if (!("audioSession" in navigator) || !navigator.audioSession) return
+
+    try {
+        if (navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"
+    } catch (error) {
+        return
+    }
+}
+
 function updateMediaSessionPosition(force = false) {
     if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return
 
-    // No iPhone, o próprio <audio> já informa tempo e duração ao sistema.
-    // Evitamos anunciar uma sessão "seekable" para que a tela bloqueada
-    // priorize anterior/próxima em vez dos atalhos de ±10 segundos.
-    if (getRuntimePlatform().iOS) return
-
     const now = Date.now()
 
-    if (!force && now - lastMediaSessionPositionUpdate < 900) return
+    if (!force && now - lastMediaSessionPositionUpdate < 700) return
 
     const duration = getTrackPlaybackDuration()
     const position = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
@@ -528,7 +537,7 @@ function updateMediaSessionPosition(force = false) {
         navigator.mediaSession.setPositionState({
             duration,
             playbackRate:Number.isFinite(audioPlayer.playbackRate) && audioPlayer.playbackRate > 0 ? audioPlayer.playbackRate : 1,
-            position:Math.min(Math.max(position,0),duration)
+            position:Math.min(Math.max(position,0),Math.max(0,duration - 0.001))
         })
         lastMediaSessionPositionUpdate = now
     } catch (error) {
@@ -5209,19 +5218,25 @@ async function refreshTrackCloudAssets(track) {
 async function playTrack(options = {}) {
     const track = getCurrentTrack()
     const syncJam = options.syncJam !== false
+    const backgroundSafe = options.backgroundSafe === true || document.visibilityState !== "visible"
+    const refreshBeforePlayback = options.refreshAssets !== false && !backgroundSafe
 
-    if (track && cloudMode && cloudReady && navigator.onLine) await refreshTrackCloudAssets(track)
+    configurePlaybackAudioSession()
+
+    if (track && refreshBeforePlayback && cloudMode && cloudReady && navigator.onLine) {
+        await refreshTrackCloudAssets(track)
+    }
 
     if (cloudMode && !navigator.onLine && track && !track.downloaded) {
         isPlaying = false
-        updatePlayerInterface()
+        if (document.visibilityState === "visible") updatePlayerInterface()
         showToast("Esta música ainda não foi baixada neste aparelho.","warning")
         return false
     }
 
     if (!prepareAudioTrack(track)) {
         isPlaying = false
-        updatePlayerInterface()
+        if (document.visibilityState === "visible") updatePlayerInterface()
         showToast(cloudMode
             ? "Adicione uma música à biblioteca para reproduzir."
             : "Adicione um arquivo de áudio para testar a reprodução.","warning")
@@ -5229,18 +5244,29 @@ async function playTrack(options = {}) {
     }
 
     try {
-        await audioPlayer.play()
+        const playbackPromise = audioPlayer.play()
+
+        await playbackPromise
         isPlaying = true
         configureMediaSessionActions()
-        updatePlayerInterface()
+
+        if (document.visibilityState === "visible") {
+            updatePlayerInterface()
+        } else {
+            updateMediaSession(track)
+            updateMediaSessionPosition(true)
+        }
+
         schedulePlaybackStateSave()
 
-        if (syncJam) await publishJamState()
+        if (syncJam) publishJamState()
 
         return true
     } catch (error) {
         isPlaying = false
-        updatePlayerInterface()
+
+        if (document.visibilityState === "visible") updatePlayerInterface()
+        else updateMediaSession(track)
 
         if (!options.silent) showToast("Toque em reproduzir para liberar o áudio neste aparelho.","warning")
 
@@ -5287,6 +5313,7 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
     }
 
     const changedTrack = selectedTrack.id !== currentTrackId
+    const backgroundSafe = options.backgroundSafe === true || document.visibilityState !== "visible"
 
     if (changedTrack) finishListeningSession({completed:false})
 
@@ -5294,19 +5321,26 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
 
     if (changedTrack) {
         catalogEndHandledTrackId = ""
-        audioPlayer.pause()
-        audioPlayer.removeAttribute("src")
-        audioPlayer.dataset.trackId = ""
-        audioPlayer.dataset.source = ""
-        audioPlayer.load()
+
+        if (!shouldPlay) audioPlayer.pause()
+
         isPlaying = false
     }
 
-    updatePlayerInterface()
+    if (backgroundSafe) {
+        updateMediaSession(selectedTrack)
+    } else {
+        updatePlayerInterface()
+    }
+
     schedulePlaybackStateSave()
 
     if (shouldPlay) {
-        await playTrack(options)
+        await playTrack({
+            ...options,
+            backgroundSafe,
+            refreshAssets:options.refreshAssets !== false && !backgroundSafe
+        })
     } else if (options.syncJam) {
         await publishJamState()
     }
@@ -5318,19 +5352,23 @@ function getJamSequence() {
 
 function changeTrack(direction,options = {}) {
     const automatic = options.automatic === true
+    const backgroundSafe = options.backgroundSafe === true || document.visibilityState !== "visible"
 
     if (automatic) finishListeningSession({completed:true})
 
     if (automatic && repeatMode === "one" && !jamActive) {
         catalogEndHandledTrackId = ""
         audioPlayer.currentTime = 0
-        playTrack()
+        playTrack({backgroundSafe,refreshAssets:!backgroundSafe})
         return
     }
 
     if (direction < 0 && !automatic && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
         audioPlayer.currentTime = 0
-        updateProgressInterface()
+
+        if (backgroundSafe) updateMediaSessionPosition(true)
+        else updateProgressInterface()
+
         publishJamState()
         schedulePlaybackStateSave()
         return
@@ -5347,7 +5385,7 @@ function changeTrack(direction,options = {}) {
     if (currentIndex < 0 && !jamActive) {
         const fallbackIndex = direction > 0 ? 0 : activeQueue.length - 1
 
-        selectTrack(activeQueue[fallbackIndex],true,{preserveQueue:true,queueIndex:fallbackIndex})
+        selectTrack(activeQueue[fallbackIndex],true,{preserveQueue:true,queueIndex:fallbackIndex,backgroundSafe})
         return
     }
 
@@ -5364,7 +5402,10 @@ function changeTrack(direction,options = {}) {
         if (!canWrap) {
             if (automatic) {
                 isPlaying = false
-                updatePlayerInterface()
+
+                if (backgroundSafe) updateMediaSession(getCurrentTrack())
+                else updatePlayerInterface()
+
                 schedulePlaybackStateSave()
             } else {
                 showToast(direction > 0 ? "Fim da fila." : "Início da fila.","warning")
@@ -5383,7 +5424,7 @@ function changeTrack(direction,options = {}) {
         playbackQueueIndex = nextIndex
     }
 
-    selectTrack(nextTrackId,true,{preserveQueue:true,queueIndex:nextIndex})
+    selectTrack(nextTrackId,true,{preserveQueue:true,queueIndex:nextIndex,backgroundSafe})
 }
 
 async function toggleFavorite() {
@@ -5486,17 +5527,28 @@ trackProgress?.addEventListener("change",() => {
 
 audioPlayer?.addEventListener("play",() => {
     isPlaying = true
+    configurePlaybackAudioSession()
     startListeningSession(currentTrackId)
-    updatePlayerInterface()
-    updateMediaSessionPosition(true)
+
+    if (document.visibilityState === "visible") {
+        updatePlayerInterface()
+    } else {
+        updateMediaSession(getCurrentTrack())
+        updateMediaSessionPosition(true)
+    }
 })
 
 audioPlayer?.addEventListener("pause",() => {
     updateListeningSessionProgress()
     flushListeningSession({force:true})
     isPlaying = false
-    updatePlayerInterface()
-    updateMediaSessionPosition(true)
+
+    if (document.visibilityState === "visible") {
+        updatePlayerInterface()
+    } else {
+        updateMediaSession(getCurrentTrack())
+        updateMediaSessionPosition(true)
+    }
 
     if (pendingServiceWorkerReload && document.visibilityState === "visible") {
         pendingServiceWorkerReload = false
@@ -5506,7 +5558,10 @@ audioPlayer?.addEventListener("pause",() => {
 
 audioPlayer?.addEventListener("timeupdate",() => {
     updateListeningSessionProgress()
-    updateProgressInterface()
+
+    if (document.visibilityState === "visible") updateProgressInterface()
+    else updateMediaSessionPosition()
+
     finishTrackAtValidatedDuration()
 
     if (Date.now() - lastPlaybackProgressSave > 4000) {
@@ -5522,7 +5577,7 @@ audioPlayer?.addEventListener("loadedmetadata",() => {
     catalogEndHandledTrackId = ""
 
     if (track) {
-        if (isMp3Track(track)) {
+        if (isMp3Track(track) || isM4aAacTrack(track)) {
             validateTrackDuration(track).catch(() => {})
         } else if ((!track.duration || Number(track.duration) <= 0) && Number.isFinite(browserDuration) && browserDuration > 0) {
             track.duration = browserDuration
@@ -5533,15 +5588,43 @@ audioPlayer?.addEventListener("loadedmetadata",() => {
         }
     }
 
-    updateProgressInterface()
+    if (document.visibilityState === "visible") {
+        updateProgressInterface()
+        renderApplicationData()
+    }
+
+    updateMediaSession(getCurrentTrack())
     updateMediaSessionPosition(true)
-    renderApplicationData()
 })
 
 audioPlayer?.addEventListener("durationchange",() => updateMediaSessionPosition(true))
 audioPlayer?.addEventListener("ratechange",() => updateMediaSessionPosition(true))
 
-audioPlayer?.addEventListener("ended",() => changeTrack(1,{automatic:true}))
+audioPlayer?.addEventListener("ended",() => changeTrack(1,{
+    automatic:true,
+    backgroundSafe:document.visibilityState !== "visible"
+}))
+
+audioPlayer?.addEventListener("error",async () => {
+    const track = getCurrentTrack()
+
+    if (audioRecoveryInProgress || !track || !track.cloud || !cloudMode || !cloudReady || !navigator.onLine) return
+
+    audioRecoveryInProgress = true
+
+    try {
+        await refreshTrackCloudAssets(track)
+
+        if (track.id !== currentTrackId || !prepareAudioTrack(track)) return
+
+        configurePlaybackAudioSession()
+        await audioPlayer.play()
+    } catch (error) {
+        if (document.visibilityState === "visible") showToast("Não foi possível retomar esta música.","warning")
+    } finally {
+        audioRecoveryInProgress = false
+    }
+})
 
 openMusicalProfileButton?.addEventListener("click",openMusicalProfile)
 openMusicalProfileCard?.addEventListener("click",openMusicalProfile)
@@ -6349,6 +6432,17 @@ function isMp3File(file) {
         || mimeType === "audio/mp3"
 }
 
+function isM4aFile(file) {
+    const mimeType = String(file?.type || "").toLocaleLowerCase("pt-BR")
+    const extension = getFileExtension(file?.name)
+
+    return extension === "m4a"
+        || extension === "mp4"
+        || mimeType === "audio/mp4"
+        || mimeType === "audio/x-m4a"
+        || mimeType === "audio/m4a"
+}
+
 function isMp3Track(track) {
     if (!track) return false
 
@@ -6517,11 +6611,145 @@ async function getMp3FrameDuration(file) {
     }
 }
 
+function readUint32BigEndian(bytes,offset) {
+    if (offset < 0 || offset + 4 > bytes.length) return 0
+
+    return bytes[offset] * 0x1000000
+        + bytes[offset + 1] * 0x10000
+        + bytes[offset + 2] * 0x100
+        + bytes[offset + 3]
+}
+
+function readUint64BigEndian(bytes,offset) {
+    const high = readUint32BigEndian(bytes,offset)
+    const low = readUint32BigEndian(bytes,offset + 4)
+    const value = high * 0x100000000 + low
+
+    return Number.isSafeInteger(value) ? value : 0
+}
+
+function readMp4Type(bytes,offset) {
+    if (offset < 0 || offset + 4 > bytes.length) return ""
+
+    return String.fromCharCode(bytes[offset],bytes[offset + 1],bytes[offset + 2],bytes[offset + 3])
+}
+
+function getMp4Boxes(bytes,start = 0,end = bytes.length) {
+    const boxes = []
+    let offset = Math.max(0,start)
+    const maximum = Math.min(bytes.length,end)
+
+    while (offset + 8 <= maximum) {
+        const size32 = readUint32BigEndian(bytes,offset)
+        const type = readMp4Type(bytes,offset + 4)
+        let headerSize = 8
+        let size = size32
+
+        if (size32 === 1) {
+            if (offset + 16 > maximum) break
+            size = readUint64BigEndian(bytes,offset + 8)
+            headerSize = 16
+        } else if (size32 === 0) {
+            size = maximum - offset
+        }
+
+        if (!type || !Number.isFinite(size) || size < headerSize || offset + size > maximum) break
+
+        boxes.push({
+            type,
+            start:offset,
+            dataStart:offset + headerSize,
+            end:offset + size,
+            size,
+            headerSize
+        })
+
+        offset += size
+    }
+
+    return boxes
+}
+
+function findMp4Child(bytes,parent,type) {
+    if (!parent) return null
+
+    return getMp4Boxes(bytes,parent.dataStart,parent.end).find(box => box.type === type) || null
+}
+
+function readMp4HandlerType(bytes,hdlrBox) {
+    if (!hdlrBox || hdlrBox.dataStart + 12 > hdlrBox.end) return ""
+
+    return readMp4Type(bytes,hdlrBox.dataStart + 8)
+}
+
+function readMp4MediaDuration(bytes,mdhdBox) {
+    if (!mdhdBox || mdhdBox.dataStart + 20 > mdhdBox.end) return 0
+
+    const offset = mdhdBox.dataStart
+    const version = bytes[offset]
+    let timescale = 0
+    let duration = 0
+
+    if (version === 1) {
+        if (offset + 32 > mdhdBox.end) return 0
+        timescale = readUint32BigEndian(bytes,offset + 20)
+        duration = readUint64BigEndian(bytes,offset + 24)
+    } else {
+        timescale = readUint32BigEndian(bytes,offset + 12)
+        duration = readUint32BigEndian(bytes,offset + 16)
+    }
+
+    if (!timescale || !duration) return 0
+
+    const seconds = duration / timescale
+
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : 0
+}
+
+function getM4aDurationFromBuffer(arrayBuffer) {
+    const bytes = new Uint8Array(arrayBuffer)
+    const moov = getMp4Boxes(bytes).find(box => box.type === "moov")
+
+    if (!moov) return 0
+
+    const tracks = getMp4Boxes(bytes,moov.dataStart,moov.end).filter(box => box.type === "trak")
+
+    for (const trackBox of tracks) {
+        const mediaBox = findMp4Child(bytes,trackBox,"mdia")
+        const handlerBox = findMp4Child(bytes,mediaBox,"hdlr")
+
+        if (!mediaBox || readMp4HandlerType(bytes,handlerBox) !== "soun") continue
+
+        const mediaHeader = findMp4Child(bytes,mediaBox,"mdhd")
+        const duration = readMp4MediaDuration(bytes,mediaHeader)
+
+        if (duration > 0) return duration
+    }
+
+    return 0
+}
+
+async function getM4aDuration(file) {
+    if (!isM4aFile(file)) return 0
+
+    try {
+        return getM4aDurationFromBuffer(await file.arrayBuffer())
+    } catch (error) {
+        return 0
+    }
+}
+
 async function getAudioDuration(file) {
     if (isMp3File(file)) {
         const frameDuration = await getMp3FrameDuration(file)
 
         if (frameDuration > 0) return frameDuration
+    }
+
+    if (isM4aFile(file)) {
+        const containerDuration = await getM4aDuration(file)
+
+        if (containerDuration > 0) return containerDuration
     }
 
     return getBrowserAudioDuration(file)
@@ -6611,8 +6839,8 @@ async function applyValidatedTrackDuration(track,duration,{persist = true} = {})
     }
 
     if (track.id === currentTrackId) {
-        updateProgressInterface()
-        updateMediaSessionPosition(true)
+        if (document.visibilityState === "visible") updateProgressInterface()
+        else updateMediaSessionPosition(true)
     }
 
     if (changed) renderApplicationData()
@@ -6621,7 +6849,7 @@ async function applyValidatedTrackDuration(track,duration,{persist = true} = {})
 }
 
 async function validateTrackDuration(track) {
-    if (!track?.id || !isMp3Track(track)) return Number(track?.duration || 0)
+    if (!track?.id || (!isMp3Track(track) && !isM4aAacTrack(track))) return Number(track?.duration || 0)
 
     const cachedDuration = readValidatedDuration(track)
 
@@ -6643,8 +6871,15 @@ async function validateTrackDuration(track) {
             if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
             const blob = await response.blob()
-            const audioFile = new File([blob],`${track.title || "musica"}.mp3`,{type:track.mimeType || blob.type || "audio/mpeg"})
-            const duration = await getMp3FrameDuration(audioFile)
+            let duration = 0
+
+            if (isMp3Track(track)) {
+                const audioFile = new File([blob],`${track.title || "musica"}.mp3`,{type:track.mimeType || blob.type || "audio/mpeg"})
+                duration = await getMp3FrameDuration(audioFile)
+            } else if (isM4aAacTrack(track)) {
+                const audioFile = new File([blob],`${track.title || "musica"}.m4a`,{type:track.mimeType || blob.type || "audio/mp4"})
+                duration = await getM4aDuration(audioFile)
+            }
 
             if (duration > 0) {
                 await applyValidatedTrackDuration(track,duration)
@@ -6684,13 +6919,10 @@ function finishTrackAtValidatedDuration() {
     if (catalogEndHandledTrackId === track.id) return
 
     catalogEndHandledTrackId = track.id
-    audioPlayer.pause()
-
-    if (browserDurationIsKnown) {
-        audioPlayer.currentTime = Math.min(duration,browserDuration)
-    }
-
-    changeTrack(1,{automatic:true})
+    changeTrack(1,{
+        automatic:true,
+        backgroundSafe:document.visibilityState !== "visible"
+    })
 }
 
 function loadMetadataLibrary() {
@@ -8235,10 +8467,13 @@ createJamButton?.addEventListener("click",toggleJam)
 copyJamCodeButton?.addEventListener("click",copyJamInvite)
 
 document.addEventListener("visibilitychange",async () => {
+    configurePlaybackAudioSession()
+
     if (document.visibilityState !== "visible") {
         updateListeningSessionProgress()
         flushListeningSession({force:true})
         savePlaybackState()
+        updateMediaSession(getCurrentTrack())
         updateMediaSessionPosition(true)
         return
     }
@@ -8304,48 +8539,60 @@ function configureMediaSessionActions() {
     if (!("mediaSession" in navigator)) return
 
     const runtime = getRuntimePlatform()
-    const disabledActions = runtime.iOS
-        ? ["seekbackward","seekforward","seekto"]
-        : ["seekbackward","seekforward"]
+    const disabledActions = ["seekbackward","seekforward"]
 
     disabledActions.forEach(action => {
         try {
             navigator.mediaSession.setActionHandler(action,null)
         } catch (error) {
-            // Nem todo navegador expõe todos os controles da Media Session.
+            return
         }
     })
 
-    const actions = {
-        play:() => playTrack({silent:true}),
-        pause:pauseTrack,
-        stop:() => {
-            pauseTrack()
-            audioPlayer.currentTime = 0
-            updateProgressInterface()
-            updateMediaSessionPosition(true)
-        },
-        previoustrack:() => changeTrack(-1),
-        nexttrack:() => changeTrack(1)
+    if (runtime.iOS) {
+        // O Safari controla play/pause do elemento de áudio diretamente no processo de mídia.
+        // Isso continua funcionando melhor quando o web app está em segundo plano.
+        ;["play","pause"].forEach(action => {
+            try {
+                navigator.mediaSession.setActionHandler(action,null)
+            } catch (error) {
+                return
+            }
+        })
     }
 
-    if (!runtime.iOS) {
-        actions.seekto = details => {
+    const actions = {
+        stop:() => {
+            audioPlayer.pause()
+            audioPlayer.currentTime = 0
+            updateMediaSessionPosition(true)
+        },
+        previoustrack:() => changeTrack(-1,{backgroundSafe:document.visibilityState !== "visible"}),
+        nexttrack:() => changeTrack(1,{backgroundSafe:document.visibilityState !== "visible"}),
+        seekto:details => {
             const duration = getTrackPlaybackDuration()
 
             if (!Number.isFinite(details.seekTime) || !Number.isFinite(duration) || duration <= 0) return
 
+            const nextPosition = Math.min(Math.max(details.seekTime,0),Math.max(0,duration - 0.05))
+
             if (details.fastSeek && typeof audioPlayer.fastSeek === "function") {
-                audioPlayer.fastSeek(Math.min(Math.max(details.seekTime,0),duration))
+                audioPlayer.fastSeek(nextPosition)
             } else {
-                audioPlayer.currentTime = Math.min(Math.max(details.seekTime,0),duration)
+                audioPlayer.currentTime = nextPosition
             }
 
-            updateProgressInterface()
-            updateMediaSessionPosition(true)
+            if (document.visibilityState === "visible") updateProgressInterface()
+            else updateMediaSessionPosition(true)
+
             schedulePlaybackStateSave()
             publishJamState()
         }
+    }
+
+    if (!runtime.iOS) {
+        actions.play = () => playTrack({silent:true})
+        actions.pause = pauseTrack
     }
 
     Object.entries(actions).forEach(([action,handler]) => {

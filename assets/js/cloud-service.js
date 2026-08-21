@@ -229,14 +229,14 @@ window.DoisTonsCloud = (() => {
 
         if (cached && cached.expiresAt > Date.now() + 60000) return cached.url
 
-        const result = await client.storage.from("media").createSignedUrl(path,3600)
+        const result = await client.storage.from("media").createSignedUrl(path,21600)
         const data = unwrap(result)
         const url = data?.signedUrl || ""
 
         if (url) {
             signedUrlCache.set(path,{
                 url,
-                expiresAt:Date.now() + 3300000
+                expiresAt:Date.now() + 21000000
             })
         }
 
