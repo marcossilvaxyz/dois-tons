@@ -405,6 +405,7 @@ let serviceWorkerRegistration = null
 let serviceWorkerReloading = false
 let pendingServiceWorkerReload = false
 let lastMediaSessionPositionUpdate = 0
+let mediaSessionActionsConfigured = false
 let lastForegroundRefresh = 0
 let durationValidationCache = null
 let durationValidationPromises = new Map()
@@ -5359,8 +5360,7 @@ function changeTrack(direction,options = {}) {
     if (automatic && repeatMode === "one" && !jamActive) {
         catalogEndHandledTrackId = ""
         audioPlayer.currentTime = 0
-        playTrack({backgroundSafe,refreshAssets:!backgroundSafe})
-        return
+        return playTrack({backgroundSafe,refreshAssets:!backgroundSafe})
     }
 
     if (direction < 0 && !automatic && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
@@ -5385,8 +5385,7 @@ function changeTrack(direction,options = {}) {
     if (currentIndex < 0 && !jamActive) {
         const fallbackIndex = direction > 0 ? 0 : activeQueue.length - 1
 
-        selectTrack(activeQueue[fallbackIndex],true,{preserveQueue:true,queueIndex:fallbackIndex,backgroundSafe})
-        return
+        return selectTrack(activeQueue[fallbackIndex],true,{preserveQueue:true,queueIndex:fallbackIndex,backgroundSafe})
     }
 
     if (currentIndex < 0) {
@@ -5424,7 +5423,7 @@ function changeTrack(direction,options = {}) {
         playbackQueueIndex = nextIndex
     }
 
-    selectTrack(nextTrackId,true,{preserveQueue:true,queueIndex:nextIndex,backgroundSafe})
+    return selectTrack(nextTrackId,true,{preserveQueue:true,queueIndex:nextIndex,backgroundSafe})
 }
 
 async function toggleFavorite() {
@@ -5528,6 +5527,8 @@ trackProgress?.addEventListener("change",() => {
 audioPlayer?.addEventListener("play",() => {
     isPlaying = true
     configurePlaybackAudioSession()
+    configureMediaSessionActions()
+    setMediaSessionPlaybackState("playing")
     startListeningSession(currentTrackId)
 
     if (document.visibilityState === "visible") {
@@ -5542,6 +5543,7 @@ audioPlayer?.addEventListener("pause",() => {
     updateListeningSessionProgress()
     flushListeningSession({force:true})
     isPlaying = false
+    setMediaSessionPlaybackState("paused")
 
     if (document.visibilityState === "visible") {
         updatePlayerInterface()
@@ -8470,6 +8472,7 @@ document.addEventListener("visibilitychange",async () => {
     configurePlaybackAudioSession()
 
     if (document.visibilityState !== "visible") {
+        configureMediaSessionActions(true)
         updateListeningSessionProgress()
         flushListeningSession({force:true})
         savePlaybackState()
@@ -8535,40 +8538,72 @@ themeToggleButton?.addEventListener("click",toggleTheme)
 logoutButton?.addEventListener("click",closeApplication)
 
 // controles do sistema
-function configureMediaSessionActions() {
+function setMediaSessionPlaybackState(state) {
     if (!("mediaSession" in navigator)) return
 
-    const runtime = getRuntimePlatform()
-    const disabledActions = ["seekbackward","seekforward"]
-
-    disabledActions.forEach(action => {
-        try {
-            navigator.mediaSession.setActionHandler(action,null)
-        } catch (error) {
-            return
-        }
-    })
-
-    if (runtime.iOS) {
-        // O Safari controla play/pause do elemento de áudio diretamente no processo de mídia.
-        // Isso continua funcionando melhor quando o web app está em segundo plano.
-        ;["play","pause"].forEach(action => {
-            try {
-                navigator.mediaSession.setActionHandler(action,null)
-            } catch (error) {
-                return
-            }
-        })
+    try {
+        navigator.mediaSession.playbackState = state
+    } catch (error) {
+        return
     }
+}
+
+function handleMediaSessionPlay() {
+    const track = getCurrentTrack()
+
+    if (!track) return
+
+    configurePlaybackAudioSession()
+
+    if (!prepareAudioTrack(track)) return
+
+    try {
+        const playbackPromise = audioPlayer.play()
+
+        isPlaying = true
+        setMediaSessionPlaybackState("playing")
+        updateMediaSessionPosition(true)
+        schedulePlaybackStateSave()
+
+        if (playbackPromise && typeof playbackPromise.catch === "function") {
+            playbackPromise.catch(() => {
+                isPlaying = false
+                setMediaSessionPlaybackState("paused")
+            })
+        }
+    } catch (error) {
+        isPlaying = false
+        setMediaSessionPlaybackState("paused")
+    }
+}
+
+function handleMediaSessionPause() {
+    updateListeningSessionProgress()
+    audioPlayer.pause()
+    isPlaying = false
+    setMediaSessionPlaybackState("paused")
+    updateMediaSessionPosition(true)
+    schedulePlaybackStateSave()
+    publishJamState()
+}
+
+function handleMediaSessionTrackChange(direction) {
+    configurePlaybackAudioSession()
+
+    const result = changeTrack(direction,{backgroundSafe:true,mediaSession:true})
+
+    if (result && typeof result.catch === "function") result.catch(() => {})
+}
+
+function configureMediaSessionActions(force = false) {
+    if (!("mediaSession" in navigator)) return
+    if (mediaSessionActionsConfigured && !force) return
 
     const actions = {
-        stop:() => {
-            audioPlayer.pause()
-            audioPlayer.currentTime = 0
-            updateMediaSessionPosition(true)
-        },
-        previoustrack:() => changeTrack(-1,{backgroundSafe:document.visibilityState !== "visible"}),
-        nexttrack:() => changeTrack(1,{backgroundSafe:document.visibilityState !== "visible"}),
+        play:handleMediaSessionPlay,
+        pause:handleMediaSessionPause,
+        previoustrack:() => handleMediaSessionTrackChange(-1),
+        nexttrack:() => handleMediaSessionTrackChange(1),
         seekto:details => {
             const duration = getTrackPlaybackDuration()
 
@@ -8587,21 +8622,39 @@ function configureMediaSessionActions() {
 
             schedulePlaybackStateSave()
             publishJamState()
+        },
+        stop:() => {
+            updateListeningSessionProgress()
+            audioPlayer.pause()
+            audioPlayer.currentTime = 0
+            isPlaying = false
+            setMediaSessionPlaybackState("paused")
+            updateMediaSessionPosition(true)
+            schedulePlaybackStateSave()
+            publishJamState()
         }
     }
 
-    if (!runtime.iOS) {
-        actions.play = () => playTrack({silent:true})
-        actions.pause = pauseTrack
-    }
+    ;["seekbackward","seekforward"].forEach(action => {
+        try {
+            navigator.mediaSession.setActionHandler(action,null)
+        } catch (error) {
+            return
+        }
+    })
+
+    let criticalActionsConfigured = true
+    const criticalActions = new Set(["play","pause","previoustrack","nexttrack"])
 
     Object.entries(actions).forEach(([action,handler]) => {
         try {
             navigator.mediaSession.setActionHandler(action,handler)
         } catch (error) {
-            return
+            if (criticalActions.has(action)) criticalActionsConfigured = false
         }
     })
+
+    mediaSessionActionsConfigured = criticalActionsConfigured
 }
 
 function handleServiceWorkerControllerChange() {
