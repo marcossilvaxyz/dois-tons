@@ -1,5 +1,5 @@
 // arquivos básicos do app
-const cacheName = "dois-tons-v28"
+const cacheName = "dois-tons-v29"
 const appAssets = [
     "./",
     "./index.html",
@@ -9,7 +9,7 @@ const appAssets = [
     "./assets/js/offline-service.js",
     "./assets/js/cloud-service.js",
     "./assets/js/metadata-service.js",
-    "./assets/js/script.js?v=28",
+    "./assets/js/script.js?v=29",
     "./assets/icons/icon.svg",
     "./assets/icons/icon-192.png",
     "./assets/icons/icon-512.png",
@@ -31,7 +31,7 @@ self.addEventListener("activate",event => {
     event.waitUntil(
         caches.keys().then(cacheNames => Promise.all(
             cacheNames
-                .filter(currentCache => currentCache !== cacheName)
+                .filter(currentCache => currentCache.startsWith("dois-tons-") && currentCache !== cacheName)
                 .map(currentCache => caches.delete(currentCache))
         ))
     )
@@ -56,12 +56,14 @@ self.addEventListener("fetch",event => {
         event.respondWith(
             fetch(request)
                 .then(response => {
-                    const responseCopy = response.clone()
-                    caches.open(cacheName).then(cache => cache.put("./index.html",responseCopy))
+                    if (response.ok) {
+                        const responseCopy = response.clone()
+                        event.waitUntil(caches.open(cacheName).then(cache => cache.put("./index.html",responseCopy)))
+                    }
 
                     return response
                 })
-                .catch(() => caches.match("./index.html"))
+                .catch(() => caches.open(cacheName).then(cache => cache.match("./index.html")))
         )
         return
     }
@@ -72,10 +74,10 @@ self.addEventListener("fetch",event => {
                 if (!response || response.status !== 200) return response
 
                 const responseCopy = response.clone()
-                caches.open(cacheName).then(cache => cache.put(request,responseCopy))
+                event.waitUntil(caches.open(cacheName).then(cache => cache.put(request,responseCopy)))
 
                 return response
             })
-            .catch(() => caches.match(request))
+            .catch(() => caches.open(cacheName).then(cache => cache.match(request)))
     )
 })

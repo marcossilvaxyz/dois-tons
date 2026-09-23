@@ -13,6 +13,7 @@ window.DoisTonsCloud = (() => {
     let serverOffset = 0
 
     const signedUrlCache = new Map()
+    const signedUrlRequests = new Map()
 
     // cliente
     function getConfig() {
@@ -50,6 +51,11 @@ window.DoisTonsCloud = (() => {
             const existingScript = document.querySelector("[data-supabase-library]")
 
             if (existingScript) {
+                if (existingScript.dataset.failed === "true" || existingScript.dataset.loaded === "true") {
+                    existingScript.remove()
+                    return loadSupabaseLibrary().then(resolve,reject)
+                }
+
                 existingScript.addEventListener("load",resolve,{once:true})
                 existingScript.addEventListener("error",() => reject(new Error("Não foi possível carregar a biblioteca do Supabase.")),{once:true})
                 return
@@ -60,8 +66,14 @@ window.DoisTonsCloud = (() => {
             script.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"
             script.crossOrigin = "anonymous"
             script.dataset.supabaseLibrary = "true"
-            script.addEventListener("load",resolve,{once:true})
-            script.addEventListener("error",() => reject(new Error("Não foi possível carregar a biblioteca do Supabase.")),{once:true})
+            script.addEventListener("load",() => {
+                script.dataset.loaded = "true"
+                resolve()
+            },{once:true})
+            script.addEventListener("error",() => {
+                script.dataset.failed = "true"
+                reject(new Error("Não foi possível carregar a biblioteca do Supabase."))
+            },{once:true})
             document.head.append(script)
         })
     }
@@ -222,25 +234,40 @@ window.DoisTonsCloud = (() => {
     }
 
     // storage
-    async function createPrivateUrl(path) {
+    function hasFreshPrivateUrl(path) {
+        return Boolean(path && signedUrlCache.get(path)?.expiresAt > Date.now() + 60000)
+    }
+
+    async function createPrivateUrl(path,{force = false} = {}) {
         if (!path) return ""
 
         const cached = signedUrlCache.get(path)
 
-        if (cached && cached.expiresAt > Date.now() + 60000) return cached.url
+        if (!force && hasFreshPrivateUrl(path)) return cached.url
+        if (!force && signedUrlRequests.has(path)) return signedUrlRequests.get(path)
 
-        const result = await client.storage.from("media").createSignedUrl(path,21600)
-        const data = unwrap(result)
-        const url = data?.signedUrl || ""
+        const request = (async () => {
+            const result = await client.storage.from("media").createSignedUrl(path,21600)
+            const data = unwrap(result)
+            const url = data?.signedUrl || ""
 
-        if (url) {
-            signedUrlCache.set(path,{
-                url,
-                expiresAt:Date.now() + 21000000
-            })
+            if (url && signedUrlRequests.get(path) === request) {
+                signedUrlCache.set(path,{
+                    url,
+                    expiresAt:Date.now() + 21000000
+                })
+            }
+
+            return url
+        })()
+
+        signedUrlRequests.set(path,request)
+
+        try {
+            return await request
+        } finally {
+            if (signedUrlRequests.get(path) === request) signedUrlRequests.delete(path)
         }
-
-        return url
     }
 
     function getSafeFileName(file) {
@@ -751,19 +778,10 @@ window.DoisTonsCloud = (() => {
     async function removeTrackFromPlaylist(playlistId,trackId) {
         requireMembership()
 
-        const result = await client
-            .from("playlist_tracks")
-            .delete()
-            .eq("playlist_id",playlistId)
-            .eq("track_id",trackId)
-
-        unwrap(result)
-
-        unwrap(await client
-            .from("playlists")
-            .update({updated_at:new Date().toISOString()})
-            .eq("id",playlistId)
-            .eq("duo_id",currentDuoId))
+        return unwrap(await client.rpc("remove_track_from_playlist",{
+            p_playlist_id:playlistId,
+            p_track_id:trackId
+        }))
     }
 
     async function movePlaylistTrack(playlistId,trackId,direction) {
@@ -1225,6 +1243,7 @@ window.DoisTonsCloud = (() => {
         getMembers,
         getOrCreateJam,
         getUserId,
+        hasFreshPrivateUrl,
         initialize,
         isConfigured,
         loadActivityNotifications,

@@ -350,15 +350,18 @@ let playlistActivity = []
 let activityNotifications = []
 let activityFilter = "all"
 let activityRefreshTimeout = null
+let activityRefreshSequence = 0
 let musicDedications = []
 let dedicationFilter = "received"
 let dedicationRefreshTimeout = null
+let dedicationRefreshSequence = 0
 let dedicationComposeTrackId = ""
 let listeningHistory = []
 let listeningHistoryFilter = "all"
 let listeningSession = null
 let listeningProgressInterval = null
 let listeningHistoryRefreshTimeout = null
+let listeningHistoryRefreshSequence = 0
 let listeningSyncingPending = false
 let listeningPersistingSessions = new Set()
 let activeSmartMixKey = ""
@@ -377,6 +380,7 @@ let offlineReady = false
 let offlineLaunch = false
 let offlineDownloads = new Map()
 let offlineObjectUrls = new Map()
+let retiredOfflineAudioUrls = new Set()
 let downloadOperations = new Set()
 let isPlaying = false
 let jamActive = false
@@ -384,8 +388,12 @@ let jamSession = null
 let jamInviteCode = ""
 let applyingRemoteJamState = false
 let jamSyncInterval = null
+let jamPublishing = false
+let jamPublishPending = false
+let jamApplySequence = 0
 let toastTimeout = null
 let cloudRefreshTimeout = null
+let cloudLoadSequence = 0
 let seekPublishTimeout = null
 let deferredInstallPrompt = null
 let selectedCoverImage = ""
@@ -408,6 +416,9 @@ let lastMediaSessionPositionUpdate = 0
 let mediaSessionActionsConfigured = false
 let iosMediaSessionPositionCleared = false
 let lastForegroundRefresh = 0
+let playbackOperationId = 0
+let audioRecoveryAttemptedTrackId = ""
+let audioRecoveryStartPosition = 0
 let durationValidationCache = null
 let durationValidationPromises = new Map()
 let validatedDurationTrackIds = new Set()
@@ -539,6 +550,7 @@ function clearIOSMediaSessionPositionState(force = false) {
 
 function updateMediaSessionPosition(force = false) {
     if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setPositionState !== "function") return
+    if (audioPlayer.dataset.trackId !== currentTrackId) return
 
     // No iPhone, a duração e a posição já vêm do próprio <audio>.
     // Anunciar uma sessão seekable faz o iOS trocar anterior/próxima por ±10 s.
@@ -800,15 +812,26 @@ function loadOfflineProfile() {
 function getOfflineObjectUrls(record) {
     const cached = offlineObjectUrls.get(record.trackId)
 
-    if (cached?.downloadedAt === record.downloadedAt) return cached
+    if (cached?.downloadedAt === record.downloadedAt) {
+        const coverUpdatedAt = record.coverUpdatedAt || record.downloadedAt
+
+        if (cached.coverUpdatedAt !== coverUpdatedAt) {
+            if (cached.coverUrl) URL.revokeObjectURL(cached.coverUrl)
+            cached.coverUrl = record.coverBlob ? URL.createObjectURL(record.coverBlob) : ""
+            cached.coverUpdatedAt = coverUpdatedAt
+        }
+
+        return cached
+    }
 
     if (cached) {
-        if (cached.audioUrl) URL.revokeObjectURL(cached.audioUrl)
+        retireOfflineAudioUrl(cached.audioUrl)
         if (cached.coverUrl) URL.revokeObjectURL(cached.coverUrl)
     }
 
     const objectUrls = {
         downloadedAt:record.downloadedAt,
+        coverUpdatedAt:record.coverUpdatedAt || record.downloadedAt,
         audioUrl:URL.createObjectURL(record.audioBlob),
         coverUrl:record.coverBlob ? URL.createObjectURL(record.coverBlob) : ""
     }
@@ -818,6 +841,22 @@ function getOfflineObjectUrls(record) {
     return objectUrls
 }
 
+function retireOfflineAudioUrl(audioUrl) {
+    if (!audioUrl) return
+
+    if (audioPlayer.src === audioUrl) retiredOfflineAudioUrls.add(audioUrl)
+    else URL.revokeObjectURL(audioUrl)
+}
+
+function releaseRetiredOfflineAudioUrls() {
+    retiredOfflineAudioUrls.forEach(audioUrl => {
+        if (audioPlayer.src === audioUrl) return
+
+        URL.revokeObjectURL(audioUrl)
+        retiredOfflineAudioUrls.delete(audioUrl)
+    })
+}
+
 function releaseOfflineObjectUrls() {
     offlineObjectUrls.forEach(objectUrls => {
         if (objectUrls.audioUrl) URL.revokeObjectURL(objectUrls.audioUrl)
@@ -825,6 +864,8 @@ function releaseOfflineObjectUrls() {
     })
 
     offlineObjectUrls.clear()
+    retiredOfflineAudioUrls.forEach(audioUrl => URL.revokeObjectURL(audioUrl))
+    retiredOfflineAudioUrls.clear()
 }
 
 function releaseOfflineTrackObjectUrls(trackId) {
@@ -832,7 +873,7 @@ function releaseOfflineTrackObjectUrls(trackId) {
 
     if (!objectUrls) return
 
-    if (objectUrls.audioUrl) URL.revokeObjectURL(objectUrls.audioUrl)
+    retireOfflineAudioUrl(objectUrls.audioUrl)
     if (objectUrls.coverUrl) URL.revokeObjectURL(objectUrls.coverUrl)
     offlineObjectUrls.delete(trackId)
 }
@@ -912,6 +953,12 @@ async function synchronizeOfflineTracks() {
         }
     }
 
+    const retainedIds = new Set(records.map(record => record.trackId))
+
+    offlineObjectUrls.forEach((objectUrls,trackId) => {
+        if (!retainedIds.has(trackId)) releaseOfflineTrackObjectUrls(trackId)
+    })
+
     offlineDownloads = new Map(records.map(record => [record.trackId,record]))
 
     if (navigator.onLine && offline?.updateDownloadMetadata) {
@@ -951,7 +998,6 @@ async function synchronizeOfflineTracks() {
                 })
 
                 if (updatedRecord) {
-                    releaseOfflineTrackObjectUrls(track.id)
                     offlineDownloads.set(track.id,updatedRecord)
                 }
             } catch (error) {
@@ -1062,6 +1108,7 @@ async function loadOfflineApplicationData() {
         audioPlayer.dataset.trackId = ""
         audioPlayer.dataset.source = ""
         audioPlayer.load()
+        releaseRetiredOfflineAudioUrls()
         isPlaying = false
     }
 
@@ -1526,7 +1573,8 @@ function savePlaybackState() {
 
     const state = {
         currentTrackId,
-        currentTime:Number.isFinite(audioPlayer?.currentTime) ? audioPlayer.currentTime : 0,
+        currentTime:audioPlayer.dataset.trackId === currentTrackId && Number.isFinite(audioPlayer.currentTime)
+            ? audioPlayer.currentTime : 0,
         playbackQueue,
         playbackQueueIndex,
         playbackContext,
@@ -1577,6 +1625,8 @@ function restorePlaybackState() {
 
         if (track?.source && Number(savedState.currentTime) > 0 && prepareAudioTrack(track)) {
             const restorePosition = () => {
+                if (currentTrackId !== track.id || audioPlayer.dataset.trackId !== track.id) return
+
                 const duration = getTrackPlaybackDuration(track)
                 audioPlayer.currentTime = duration
                     ? Math.min(Number(savedState.currentTime),Math.max(0,duration - 0.1))
@@ -1973,6 +2023,11 @@ function openApplication(profile) {
 }
 
 function closeApplication() {
+    cloudLoadSequence += 1
+    playbackOperationId += 1
+    jamApplySequence += 1
+    jamPublishPending = false
+    applyingRemoteJamState = false
     pauseTrack({syncJam:false})
     finishListeningSession({completed:false})
     closeAllOverlays()
@@ -2071,6 +2126,8 @@ accessCodeInput?.addEventListener("input",() => {
 async function loadCloudApplicationData() {
     if (!cloudMode || !cloudReady || !currentProfile) return
 
+    const loadSequence = ++cloudLoadSequence
+    const profileId = currentProfile.memberId
     const previousTrackId = currentTrackId
     const [cloudTracks,cloudPlaylists,members,activeJam,cloudListeningHistory,cloudActivityNotifications,cloudMusicDedications] = await Promise.all([
         cloud.loadTracks(),
@@ -2081,6 +2138,8 @@ async function loadCloudApplicationData() {
         cloud.loadActivityNotifications().catch(() => []),
         cloud.loadMusicDedications().catch(() => [])
     ])
+    if (loadSequence !== cloudLoadSequence || currentProfile?.memberId !== profileId) return
+
     const previousTrackRemoved = Boolean(previousTrackId && !cloudTracks.some(track => track.id === previousTrackId))
 
     if (previousTrackRemoved) {
@@ -2101,6 +2160,7 @@ async function loadCloudApplicationData() {
     }))
     offlineLaunch = false
     await synchronizeOfflineTracks()
+    if (loadSequence !== cloudLoadSequence || currentProfile?.memberId !== profileId) return
     playlists = cloudPlaylists
     duoMembers = members
     listeningHistory = cloudListeningHistory
@@ -2159,6 +2219,7 @@ function configureCloudSubscriptions() {
 
 function handleJamAvailabilityChange(remoteJam) {
     if (!remoteJam) return
+    if (jamSession?.id === remoteJam.id && Number(remoteJam.revision || 0) < Number(jamSession.revision || 0)) return
 
     if (!remoteJam.active) {
         if (jamSession?.id === remoteJam.id) {
@@ -2173,9 +2234,14 @@ function handleJamAvailabilityChange(remoteJam) {
         return
     }
 
+    const shouldApply = jamActive && jamSession?.id === remoteJam.id
+        && Number(remoteJam.revision || 0) > Number(jamSession.revision || 0)
+        && remoteJam.updated_by !== cloud.getUserId()
+
     jamSession = remoteJam
     jamInviteCode = remoteJam.invite_code || ""
     updateJamInterface()
+    if (shouldApply) applyRemoteJamState(remoteJam).catch(error => console.warn("Não foi possível sincronizar a Jam.",error))
 }
 
 // navegação
@@ -2534,10 +2600,16 @@ function renderActivityCenter() {
 async function refreshActivityNotifications({announce = false} = {}) {
     if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return
 
+    const sequence = ++activityRefreshSequence
+    const profileId = currentProfile.memberId
     const previousIds = new Set(activityNotifications.map(item => item.id))
 
     try {
-        activityNotifications = await cloud.loadActivityNotifications()
+        const notifications = await cloud.loadActivityNotifications()
+
+        if (sequence !== activityRefreshSequence || currentProfile?.memberId !== profileId) return
+
+        activityNotifications = notifications
         renderActivityCenter()
 
         if (announce && activityNotifications.some(item => !previousIds.has(item.id) && !item.read_at)) {
@@ -2738,10 +2810,16 @@ function renderDedicationCenter() {
 async function refreshMusicDedications({announce = false} = {}) {
     if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return
 
+    const sequence = ++dedicationRefreshSequence
+    const profileId = currentProfile.memberId
     const previousIds = new Set(musicDedications.map(item => item.id))
 
     try {
-        musicDedications = await cloud.loadMusicDedications()
+        const dedications = await cloud.loadMusicDedications()
+
+        if (sequence !== dedicationRefreshSequence || currentProfile?.memberId !== profileId) return
+
+        musicDedications = dedications
         renderDedicationCenter()
 
         const newReceived = musicDedications.some(item => item.received && !previousIds.has(item.id) && !item.read_at)
@@ -3860,7 +3938,8 @@ async function persistListeningSnapshot(snapshot) {
     // grava localmente antes de sincronizar
     queuePendingListeningRecord(record)
 
-    if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return false
+    if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile
+        || record.duoId !== currentProfile.duoId || record.memberId !== currentProfile.memberId) return false
     if (listeningPersistingSessions.has(persistenceKey)) return false
 
     listeningPersistingSessions.add(persistenceKey)
@@ -3975,6 +4054,8 @@ async function syncPendingListeningRecords() {
 
     try {
         for (const record of ownRecords) {
+            if (record.duoId !== currentProfile?.duoId || record.memberId !== currentProfile?.memberId) break
+
             try {
                 await cloud.recordListeningProgress(record.trackId,record.sessionId,record.listenedSeconds,record.completed)
                 removePendingListeningRecord(record)
@@ -3995,8 +4076,13 @@ async function syncPendingListeningRecords() {
 async function refreshListeningHistory() {
     if (!cloudMode || !cloudReady || !navigator.onLine || !currentProfile) return
 
+    const sequence = ++listeningHistoryRefreshSequence
+    const profileId = currentProfile.memberId
+
     try {
         const recentHistory = await cloud.loadListeningHistory(250)
+        if (sequence !== listeningHistoryRefreshSequence || currentProfile?.memberId !== profileId) return
+
         const historyById = new Map(listeningHistory.map(item => [item.id,item]))
 
         recentHistory.forEach(item => historyById.set(item.id,item))
@@ -5163,7 +5249,8 @@ function updatePlayerInterface() {
 function updateProgressInterface() {
     const track = getCurrentTrack()
     const duration = getTrackPlaybackDuration(track)
-    const rawPosition = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
+    const rawPosition = audioPlayer.dataset.trackId === track?.id && Number.isFinite(audioPlayer.currentTime)
+        ? audioPlayer.currentTime : 0
     const position = duration > 0 ? Math.min(rawPosition,duration) : rawPosition
     const progress = duration ? Math.min((position / duration) * 100,100) : 0
 
@@ -5188,9 +5275,12 @@ function prepareAudioTrack(track) {
         audioPlayer.dataset.trackId = track.id
         audioPlayer.dataset.source = track.source
         audioPlayer.load()
+        releaseRetiredOfflineAudioUrls()
 
         if (restorePosition > 0) {
             audioPlayer.addEventListener("loadedmetadata",() => {
+                if (audioPlayer.dataset.trackId !== track.id || audioPlayer.dataset.source !== track.source) return
+
                 const duration = getTrackPlaybackDuration(track)
 
                 audioPlayer.currentTime = duration
@@ -5204,12 +5294,12 @@ function prepareAudioTrack(track) {
     return true
 }
 
-async function refreshTrackCloudAssets(track) {
+async function refreshTrackCloudAssets(track,{forceAudio = false,includeCover = true} = {}) {
     if (!track || !cloudMode || !cloudReady || !navigator.onLine || !cloud?.createPrivateUrl) return track
 
     if (track.audioPath) {
         try {
-            const source = await cloud.createPrivateUrl(track.audioPath)
+            const source = await cloud.createPrivateUrl(track.audioPath,{force:forceAudio})
 
             if (source) {
                 track.cloudSource = source
@@ -5220,7 +5310,7 @@ async function refreshTrackCloudAssets(track) {
         }
     }
 
-    if (track.coverPath) {
+    if (includeCover && track.coverPath) {
         try {
             const coverImage = await cloud.createPrivateUrl(track.coverPath)
 
@@ -5237,16 +5327,28 @@ async function refreshTrackCloudAssets(track) {
 }
 
 async function playTrack(options = {}) {
+    const operationId = ++playbackOperationId
     const track = getCurrentTrack()
     const syncJam = options.syncJam !== false
     const backgroundSafe = options.backgroundSafe === true || document.visibilityState !== "visible"
-    const refreshBeforePlayback = options.refreshAssets !== false && !backgroundSafe
+    const refreshBeforePlayback = options.refreshAssets !== false
+        && track?.audioPath && !track.downloaded
+        && !cloud?.hasFreshPrivateUrl?.(track.audioPath)
 
     configurePlaybackAudioSession()
 
     if (track && refreshBeforePlayback && cloudMode && cloudReady && navigator.onLine) {
-        await refreshTrackCloudAssets(track)
+        try {
+            await refreshTrackCloudAssets(track,{includeCover:false})
+        } catch (error) {
+            if (operationId === playbackOperationId && !options.silent) {
+                showToast("Não foi possível renovar o acesso a esta música.","warning")
+            }
+            return false
+        }
     }
+
+    if (operationId !== playbackOperationId || track?.id !== currentTrackId) return false
 
     if (cloudMode && !navigator.onLine && track && !track.downloaded) {
         isPlaying = false
@@ -5268,6 +5370,8 @@ async function playTrack(options = {}) {
         const playbackPromise = audioPlayer.play()
 
         await playbackPromise
+        if (operationId !== playbackOperationId || track.id !== currentTrackId) return false
+
         isPlaying = true
         configureMediaSessionActions()
 
@@ -5284,6 +5388,8 @@ async function playTrack(options = {}) {
 
         return true
     } catch (error) {
+        if (operationId !== playbackOperationId) return false
+
         isPlaying = false
 
         if (document.visibilityState === "visible") updatePlayerInterface()
@@ -5296,6 +5402,7 @@ async function playTrack(options = {}) {
 }
 
 function pauseTrack(options = {}) {
+    playbackOperationId += 1
     const syncJam = options.syncJam !== false
 
     updateListeningSessionProgress()
@@ -5320,6 +5427,7 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
     const selectedTrack = tracks.find(track => track.id === trackId)
 
     if (!selectedTrack) return
+    playbackOperationId += 1
     if (shouldPlay) catalogEndHandledTrackId = ""
 
     if (options.context) {
@@ -5342,8 +5450,9 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
 
     if (changedTrack) {
         catalogEndHandledTrackId = ""
+        audioRecoveryAttemptedTrackId = ""
 
-        if (!shouldPlay) audioPlayer.pause()
+        audioPlayer.pause()
 
         isPlaying = false
     }
@@ -5360,7 +5469,7 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
         await playTrack({
             ...options,
             backgroundSafe,
-            refreshAssets:options.refreshAssets !== false && !backgroundSafe
+            refreshAssets:options.refreshAssets !== false
         })
     } else if (options.syncJam) {
         await publishJamState()
@@ -5383,7 +5492,8 @@ function changeTrack(direction,options = {}) {
         return playTrack({backgroundSafe,refreshAssets:!backgroundSafe})
     }
 
-    if (direction < 0 && !automatic && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
+    if (direction < 0 && !automatic && audioPlayer.dataset.trackId === currentTrackId
+        && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
         audioPlayer.currentTime = 0
 
         if (backgroundSafe) updateMediaSessionPosition(true)
@@ -5544,7 +5654,7 @@ trackProgress?.addEventListener("change",() => {
     seekPublishTimeout = setTimeout(publishJamState,120)
 })
 
-audioPlayer?.addEventListener("play",() => {
+audioPlayer?.addEventListener("playing",() => {
     isPlaying = true
     configurePlaybackAudioSession()
     configureMediaSessionActions(true)
@@ -5560,6 +5670,8 @@ audioPlayer?.addEventListener("play",() => {
 })
 
 audioPlayer?.addEventListener("pause",() => {
+    if (!audioPlayer.paused) return
+
     updateListeningSessionProgress()
     flushListeningSession({force:true})
     isPlaying = false
@@ -5579,6 +5691,11 @@ audioPlayer?.addEventListener("pause",() => {
 })
 
 audioPlayer?.addEventListener("timeupdate",() => {
+    if (audioPlayer.dataset.trackId !== currentTrackId) return
+
+    if (audioRecoveryAttemptedTrackId === currentTrackId
+        && audioPlayer.currentTime > audioRecoveryStartPosition + 5) audioRecoveryAttemptedTrackId = ""
+
     updateListeningSessionProgress()
 
     if (document.visibilityState === "visible") updateProgressInterface()
@@ -5595,6 +5712,8 @@ audioPlayer?.addEventListener("timeupdate",() => {
 audioPlayer?.addEventListener("loadedmetadata",() => {
     const track = getCurrentTrack()
     const browserDuration = Number(audioPlayer.duration || 0)
+
+    if (!track || audioPlayer.dataset.trackId !== track.id) return
 
     catalogEndHandledTrackId = ""
 
@@ -5622,26 +5741,45 @@ audioPlayer?.addEventListener("loadedmetadata",() => {
 audioPlayer?.addEventListener("durationchange",() => updateMediaSessionPosition(true))
 audioPlayer?.addEventListener("ratechange",() => updateMediaSessionPosition(true))
 
-audioPlayer?.addEventListener("ended",() => changeTrack(1,{
-    automatic:true,
-    backgroundSafe:document.visibilityState !== "visible"
-}))
+audioPlayer?.addEventListener("ended",() => {
+    if (audioPlayer.dataset.trackId !== currentTrackId || catalogEndHandledTrackId === currentTrackId) return
+
+    changeTrack(1,{
+        automatic:true,
+        backgroundSafe:document.visibilityState !== "visible"
+    })
+})
 
 audioPlayer?.addEventListener("error",async () => {
     const track = getCurrentTrack()
+    const operationId = playbackOperationId
 
-    if (audioRecoveryInProgress || !track || !track.cloud || !cloudMode || !cloudReady || !navigator.onLine) return
+    if (!track || audioPlayer.dataset.trackId !== track.id) return
+
+    if (audioRecoveryInProgress || audioRecoveryAttemptedTrackId === track.id
+        || !track.cloud || track.downloaded || !cloudMode || !cloudReady || !navigator.onLine) {
+        isPlaying = false
+        setMediaSessionPlaybackState("paused")
+        if (document.visibilityState === "visible") updatePlayerInterface()
+        return
+    }
 
     audioRecoveryInProgress = true
+    audioRecoveryAttemptedTrackId = track.id
+    audioRecoveryStartPosition = Number(audioPlayer.currentTime || 0)
 
     try {
-        await refreshTrackCloudAssets(track)
+        await refreshTrackCloudAssets(track,{forceAudio:true,includeCover:false})
 
-        if (track.id !== currentTrackId || !prepareAudioTrack(track)) return
+        if (operationId !== playbackOperationId || track.id !== currentTrackId || !prepareAudioTrack(track)) return
 
         configurePlaybackAudioSession()
         await audioPlayer.play()
     } catch (error) {
+        if (operationId === playbackOperationId) {
+            isPlaying = false
+            setMediaSessionPlaybackState("paused")
+        }
         if (document.visibilityState === "visible") showToast("Não foi possível retomar esta música.","warning")
     } finally {
         audioRecoveryInProgress = false
@@ -5871,7 +6009,6 @@ async function updateDownloadedTrackAfterEdit(track,changes,coverFile) {
             track:updatedTrack,
             coverBlob
         })
-        releaseOfflineTrackObjectUrls(track.id)
     } catch (error) {
         console.warn("Não foi possível atualizar a cópia offline desta música.",error)
     }
@@ -5975,6 +6112,7 @@ function clearDeletedTrackPlayback(trackId) {
     audioPlayer.dataset.trackId = ""
     audioPlayer.dataset.source = ""
     audioPlayer.load()
+    releaseRetiredOfflineAudioUrls()
 }
 
 function removeDemoTrack(trackId) {
@@ -6023,8 +6161,8 @@ async function confirmTrackDeletion() {
 
     try {
         if (cloudMode) {
-            clearDeletedTrackPlayback(track.id)
             await cloud.deleteTrack(track.id)
+            clearDeletedTrackPlayback(track.id)
 
             if (offlineReady && currentProfile?.duoId) {
                 try {
@@ -6818,9 +6956,13 @@ function storeValidatedDuration(track,duration) {
 
 function getTrackPlaybackDuration(track = getCurrentTrack()) {
     const catalogDuration = Number(track?.duration || 0)
+    const cachedDuration = track ? readValidatedDuration(track) : 0
+    const validatedDuration = cachedDuration || (track && validatedDurationTrackIds.has(track.id) ? catalogDuration : 0)
+    const browserDuration = audioPlayer?.dataset.trackId === track?.id ? Number(audioPlayer.duration) : 0
 
+    if (validatedDuration > 0) return validatedDuration
+    if (Number.isFinite(browserDuration) && browserDuration > 0) return browserDuration
     if (catalogDuration > 0) return catalogDuration
-    if (Number.isFinite(audioPlayer?.duration) && audioPlayer.duration > 0) return audioPlayer.duration
 
     return 0
 }
@@ -6924,19 +7066,11 @@ function finishTrackAtValidatedDuration() {
 
     if (!track) return
 
-    const duration = Number(track.duration || 0)
-    const position = Number(audioPlayer.currentTime || 0)
-    const browserDuration = Number(audioPlayer.duration || 0)
     const cachedDuration = readValidatedDuration(track)
-    const browserDurationIsKnown = Number.isFinite(browserDuration) && browserDuration > 0
-    const browserRunsPastCatalog = browserDurationIsKnown && browserDuration > duration + 0.5
-    const hasContainerDurationMismatch = (isMp3Track(track) || isM4aAacTrack(track))
-        && browserRunsPastCatalog
-    const hasReliableCatalogEnd = validatedDurationTrackIds.has(track.id)
-        || cachedDuration > 0
-        || hasContainerDurationMismatch
+    const duration = cachedDuration || (validatedDurationTrackIds.has(track.id) ? Number(track.duration || 0) : 0)
+    const position = Number(audioPlayer.currentTime || 0)
 
-    if (!hasReliableCatalogEnd || !duration || !Number.isFinite(position)) return
+    if (!duration || !Number.isFinite(position)) return
     if (position < Math.max(0,duration - 0.08)) return
     if (catalogEndHandledTrackId === track.id) return
 
@@ -6971,6 +7105,10 @@ function loadMetadataLibrary() {
         script.addEventListener("load",handleLoad,{once:true})
         script.addEventListener("error",() => reject(new Error("Não foi possível carregar o leitor de informações.")),{once:true})
         document.head.append(script)
+    }).catch(error => {
+        metadataLibraryPromise = null
+        document.querySelector("[data-metadata-library]")?.remove()
+        throw error
     })
 
     return metadataLibraryPromise
@@ -8307,6 +8445,8 @@ function stopJamSynchronization() {
 }
 
 function deactivateLocalJam() {
+    jamApplySequence += 1
+    jamPublishPending = false
     stopJamSynchronization()
     jamActive = false
     jamSession = null
@@ -8316,18 +8456,33 @@ function deactivateLocalJam() {
 
 async function publishJamState() {
     if (!cloudMode || !cloudReady || !navigator.onLine || !jamActive || !jamSession?.id || applyingRemoteJamState) return
+    if (jamPublishing) {
+        jamPublishPending = true
+        return
+    }
 
-    const track = getCurrentTrack()
+    jamPublishing = true
+    const jamId = jamSession.id
 
     try {
-        jamSession = await cloud.setJamState(
-            jamSession.id,
-            track?.id || null,
-            isPlaying,
-            Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
-        )
+        do {
+            jamPublishPending = false
+            const track = getCurrentTrack()
+            const updatedJam = await cloud.setJamState(
+                jamId,
+                track?.id || null,
+                isPlaying,
+                Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
+            )
+
+            if (jamSession?.id === jamId && Number(updatedJam?.revision || 0) >= Number(jamSession.revision || 0)) {
+                jamSession = updatedJam
+            }
+        } while (jamPublishPending && jamActive && jamSession?.id === jamId)
     } catch (error) {
         showToast("A Jam perdeu a conexão. Tentando recuperar...","warning")
+    } finally {
+        jamPublishing = false
     }
 }
 
@@ -8347,6 +8502,7 @@ function waitForAudioMetadata() {
 async function applyRemoteJamState(remoteJam,options = {}) {
     if (!jamActive || !remoteJam?.active) return
 
+    const applySequence = ++jamApplySequence
     applyingRemoteJamState = true
     jamSession = remoteJam
     jamInviteCode = remoteJam.invite_code || jamInviteCode
@@ -8361,6 +8517,8 @@ async function applyRemoteJamState(remoteJam,options = {}) {
         const track = getCurrentTrack()
 
         if (track && cloudReady && navigator.onLine) await refreshTrackCloudAssets(track)
+        if (applySequence !== jamApplySequence || !jamActive || track?.id !== currentTrackId || jamSession?.id !== remoteJam.id
+            || Number(jamSession.revision || 0) > Number(remoteJam.revision || 0)) return
 
         if (!track || track.id !== remoteJam.current_track_id || !prepareAudioTrack(track)) {
             updateJamInterface()
@@ -8368,6 +8526,7 @@ async function applyRemoteJamState(remoteJam,options = {}) {
         }
 
         await waitForAudioMetadata()
+        if (applySequence !== jamApplySequence || !jamActive || currentTrackId !== remoteJam.current_track_id) return
 
         const expectedPosition = cloud.getExpectedJamPosition(remoteJam)
         const playbackDuration = getTrackPlaybackDuration(track)
@@ -8383,12 +8542,17 @@ async function applyRemoteJamState(remoteJam,options = {}) {
             pauseTrack({syncJam:false})
         }
     } finally {
-        applyingRemoteJamState = false
-        updateJamInterface()
+        if (applySequence === jamApplySequence) {
+            applyingRemoteJamState = false
+            updateJamInterface()
+        }
     }
 }
 
 async function handleRemoteJamState(remoteJam) {
+    if (jamSession?.id && remoteJam?.id !== jamSession.id) return
+    if (jamSession?.id === remoteJam?.id && Number(remoteJam.revision || 0) <= Number(jamSession.revision || 0)) return
+
     if (!remoteJam?.active) {
         pauseTrack({syncJam:false})
         deactivateLocalJam()
@@ -8396,9 +8560,10 @@ async function handleRemoteJamState(remoteJam) {
         return
     }
 
-    jamSession = remoteJam
-
-    if (remoteJam.updated_by === cloud.getUserId()) return
+    if (remoteJam.updated_by === cloud.getUserId()) {
+        jamSession = remoteJam
+        return
+    }
 
     await applyRemoteJamState(remoteJam)
 }
@@ -8627,20 +8792,10 @@ function handleMediaSessionPlay() {
     configurePlaybackAudioSession()
     clearIOSMediaSessionPositionState(true)
 
-    const resumePosition = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
-    const wrongTrack = audioPlayer.dataset.trackId !== track.id
-    const missingSource = !audioPlayer.currentSrc && !audioPlayer.src
+    if (audioPlayer.dataset.trackId === track.id
+        && (!track.audioPath || track.downloaded || cloud?.hasFreshPrivateUrl?.(track.audioPath))) {
+        const resumePosition = Number.isFinite(audioPlayer.currentTime) ? audioPlayer.currentTime : 0
 
-    if (wrongTrack || missingSource) {
-        try {
-            audioPlayer.src = track.source
-            audioPlayer.dataset.trackId = track.id
-            audioPlayer.dataset.source = track.source
-            restoreMediaSessionResumePosition(resumePosition,track)
-        } catch (error) {
-            return
-        }
-    } else {
         rearmIOSAudioForRemotePlay(track,resumePosition)
     }
 
@@ -8651,126 +8806,18 @@ function handleMediaSessionPlay() {
         // volume pode ser controlado somente pelo sistema em alguns navegadores
     }
 
-    setMediaSessionPlaybackState("playing")
-
-    try {
-        const playbackPromise = audioPlayer.play()
-
-        if (playbackPromise && typeof playbackPromise.then === "function") {
-            playbackPromise
-                .then(() => {
-                    restoreMediaSessionResumePosition(resumePosition,track)
-                    setMediaSessionPlaybackState("playing")
-                })
-                .catch(() => setMediaSessionPlaybackState("paused"))
-        }
-    } catch (error) {
-        setMediaSessionPlaybackState("paused")
-    }
+    playTrack({backgroundSafe:true,silent:true})
 }
 
 function handleMediaSessionPause() {
-    try {
-        updateListeningSessionProgress()
-        audioPlayer.pause()
-        setMediaSessionPlaybackState("paused")
-        schedulePlaybackStateSave()
-    } catch (error) {
-        return
-    }
-}
-
-function getMediaSessionTrackTarget(direction) {
-    let activeQueue = jamActive ? getJamSequence() : playbackQueue
-
-    if (!activeQueue.length) {
-        buildPlaybackQueue(currentTrackId,playbackContext)
-        activeQueue = jamActive ? getJamSequence() : playbackQueue
-    }
-
-    if (!activeQueue.length) return null
-
-    let currentIndex = activeQueue.indexOf(currentTrackId)
-
-    if (currentIndex < 0) currentIndex = direction > 0 ? -1 : 0
-
-    let nextIndex = currentIndex + direction
-
-    if (nextIndex < 0 || nextIndex >= activeQueue.length) {
-        const canWrap = jamActive || repeatMode === "all"
-
-        if (!canWrap) return null
-
-        nextIndex = direction > 0 ? 0 : activeQueue.length - 1
-    }
-
-    const trackId = activeQueue[nextIndex]
-    const track = tracks.find(item => item.id === trackId)
-
-    if (!track?.source) return null
-
-    return {track,activeQueue,nextIndex}
+    pauseTrack()
 }
 
 function handleMediaSessionTrackChange(direction) {
     configurePlaybackAudioSession()
     clearIOSMediaSessionPositionState(true)
 
-    if (direction < 0 && Number.isFinite(audioPlayer.currentTime) && audioPlayer.currentTime > 3) {
-        try {
-            audioPlayer.currentTime = 0
-        } catch (error) {
-            return
-        }
-
-        schedulePlaybackStateSave()
-        publishJamState()
-        return
-    }
-
-    const target = getMediaSessionTrackTarget(direction)
-
-    if (!target) return
-
-    const shouldResume = !audioPlayer.paused || isPlaying
-
-    finishListeningSession({completed:false})
-
-    currentTrackId = target.track.id
-    playbackQueueIndex = target.nextIndex
-    catalogEndHandledTrackId = ""
-
-    if (jamActive) {
-        playbackContext = {type:"library",label:"Jam sincronizada"}
-        playbackQueue = target.activeQueue
-    }
-
-    try {
-        audioPlayer.src = target.track.source
-        audioPlayer.dataset.trackId = target.track.id
-        audioPlayer.dataset.source = target.track.source
-    } catch (error) {
-        return
-    }
-
-    updateMediaSession(target.track)
-    configureMediaSessionActions(true)
-    schedulePlaybackStateSave()
-
-    if (shouldResume) {
-        try {
-            setMediaSessionPlaybackState("playing")
-            const playbackPromise = audioPlayer.play()
-
-            if (playbackPromise && typeof playbackPromise.catch === "function") {
-                playbackPromise.catch(() => setMediaSessionPlaybackState("paused"))
-            }
-        } catch (error) {
-            setMediaSessionPlaybackState("paused")
-        }
-    }
-
-    publishJamState()
+    changeTrack(direction,{backgroundSafe:true})
 }
 
 function configureMediaSessionActions(force = false) {

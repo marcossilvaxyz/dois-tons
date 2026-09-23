@@ -43,6 +43,17 @@ window.DoisTonsMetadata = (() => {
         return new Promise(resolve => setTimeout(resolve,milliseconds))
     }
 
+    async function fetchWithTimeout(url,options = {}) {
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(),9000)
+
+        try {
+            return await fetch(url,{...options,signal:controller.signal})
+        } finally {
+            clearTimeout(timeout)
+        }
+    }
+
     function scheduleMusicBrainzRequest(callback) {
         const queuedRequest = requestQueue.then(async () => {
             const elapsed = Date.now() - lastRequestAt
@@ -186,7 +197,7 @@ window.DoisTonsMetadata = (() => {
             requestUrl.searchParams.set("fmt","json")
             requestUrl.searchParams.set("limit",String(searchLimit))
 
-            const response = await fetch(requestUrl,{headers:{Accept:"application/json"},cache:"no-store"})
+            const response = await fetchWithTimeout(requestUrl,{headers:{Accept:"application/json"},cache:"no-store"})
 
             if (!response.ok) throw new Error(`MusicBrainz respondeu com HTTP ${response.status}.`)
 
@@ -256,7 +267,7 @@ window.DoisTonsMetadata = (() => {
 
         for (const source of sources) {
             try {
-                const response = await fetch(source,{cache:"no-store"})
+                const response = await fetchWithTimeout(source,{cache:"no-store"})
 
                 if (!response.ok) continue
 

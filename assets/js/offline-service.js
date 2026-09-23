@@ -175,7 +175,8 @@ window.DoisTonsOffline = (() => {
             coverBlob:coverChanged
                 ? coverBlob instanceof Blob ? coverBlob : null
                 : record.coverBlob,
-            downloadedAt:Date.now()
+            downloadedAt:record.downloadedAt,
+            coverUpdatedAt:coverChanged ? Date.now() : record.coverUpdatedAt || record.downloadedAt
         }
 
         await runTransaction(downloadStoreName,"readwrite",store => store.put(updatedRecord))
