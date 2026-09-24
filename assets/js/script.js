@@ -414,8 +414,10 @@ let serviceWorkerReloading = false
 let pendingServiceWorkerReload = false
 let lastMediaSessionPositionUpdate = 0
 let mediaSessionActionsConfigured = false
+let mediaSessionActionHandlers = null
 let mediaSessionTrackId = ""
 let mediaSessionMetadataKey = ""
+let iosAudioSessionNeedsRefresh = false
 let lastForegroundRefresh = 0
 let playbackOperationId = 0
 let playbackRequested = false
@@ -527,14 +529,23 @@ function updateRuntimeInterface() {
     `
 }
 
-function configurePlaybackAudioSession() {
+function configurePlaybackAudioSession({reactivate = false} = {}) {
     if (!getRuntimePlatform().iOS) return
     if (!("audioSession" in navigator) || !navigator.audioSession) return
 
     try {
+        if (reactivate && iosAudioSessionNeedsRefresh) {
+            // renovar a categoria força o WebKit a reenviá-la ao processo de áudio
+            navigator.audioSession.type = "ambient"
+        }
         if (navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"
+        if (reactivate) iosAudioSessionNeedsRefresh = false
     } catch (error) {
-        return
+        try {
+            navigator.audioSession.type = "playback"
+        } catch (sessionError) {
+            console.warn("Não foi possível configurar a sessão de áudio.",sessionError)
+        }
     }
 }
 
@@ -669,6 +680,7 @@ async function refreshAfterForeground() {
 
     updateRuntimeInterface()
     updateConnectionInterface()
+    configureMediaSessionActions(true)
     updateMediaSession(getCurrentTrack())
     updateMediaSessionPosition(true)
 
@@ -5352,7 +5364,7 @@ async function playTrack(options = {}) {
 
     playbackRequested = true
     if (!options.recovery) audioRecoveryAttemptedTrackId = ""
-    configurePlaybackAudioSession()
+    configurePlaybackAudioSession({reactivate:true})
 
     if (track && refreshBeforePlayback && cloudMode && cloudReady && navigator.onLine) {
         try {
@@ -5442,6 +5454,7 @@ function pauseTrack(options = {}) {
     const syncJam = options.syncJam !== false
 
     updateListeningSessionProgress()
+    if (getRuntimePlatform().iOS) iosAudioSessionNeedsRefresh = true
     audioPlayer.pause()
     isPlaying = false
     if (document.visibilityState === "visible") updatePlayerInterface()
@@ -5687,17 +5700,25 @@ trackProgress?.addEventListener("change",() => {
     seekPublishTimeout = setTimeout(publishJamState,120)
 })
 
-audioPlayer?.addEventListener("playing",() => {
-    if (audioPlayer.dataset.trackId !== currentTrackId || audioPlayer.paused || audioPlayer.ended) return
-    if (!playbackRequested) {
+audioPlayer?.addEventListener("play",() => {
+    if (audioPlayer.paused) return
+    if (audioPlayer.dataset.trackId !== currentTrackId) {
         audioPlayer.pause()
         return
     }
 
+    playbackRequested = true
+    configurePlaybackAudioSession({reactivate:true})
+})
+
+audioPlayer?.addEventListener("playing",() => {
+    if (audioPlayer.dataset.trackId !== currentTrackId || audioPlayer.paused || audioPlayer.ended) return
+
+    playbackRequested = true
     audioWaiting = false
     isPlaying = true
-    configurePlaybackAudioSession()
-    configureMediaSessionActions()
+    configurePlaybackAudioSession({reactivate:true})
+    configureMediaSessionActions(true)
     setMediaSessionPlaybackState("playing")
     startListeningSession(currentTrackId)
 
@@ -5711,6 +5732,8 @@ audioPlayer?.addEventListener("playing",() => {
 
 audioPlayer?.addEventListener("pause",() => {
     if (!audioPlayer.paused) return
+
+    if (getRuntimePlatform().iOS) iosAudioSessionNeedsRefresh = true
 
     updateListeningSessionProgress()
     flushListeningSession({force:true})
@@ -8733,7 +8756,7 @@ document.addEventListener("visibilitychange",async () => {
     configurePlaybackAudioSession()
 
     if (document.visibilityState !== "visible") {
-        configureMediaSessionActions()
+        configureMediaSessionActions(true)
         updateListeningSessionProgress()
         flushListeningSession({force:true})
         savePlaybackState()
@@ -8867,7 +8890,7 @@ function handleMediaSessionPlay() {
 
     if (!track?.source) return
 
-    configurePlaybackAudioSession()
+    if (getRuntimePlatform().iOS && audioPlayer.paused) iosAudioSessionNeedsRefresh = true
 
     try {
         audioPlayer.muted = false
@@ -8888,15 +8911,15 @@ function handleMediaSessionTrackChange(direction) {
     return changeTrack(direction,{backgroundSafe:true})
 }
 
-function configureMediaSessionActions() {
+function configureMediaSessionActions(force = false) {
     if (!("mediaSession" in navigator) || typeof navigator.mediaSession.setActionHandler !== "function") return
-    if (mediaSessionActionsConfigured) return
+    if (mediaSessionActionsConfigured && !force) return
 
-    const actions = {
+    if (!mediaSessionActionHandlers) mediaSessionActionHandlers = {
+        seekbackward:null,
+        seekforward:null,
         play:handleMediaSessionPlay,
         pause:handleMediaSessionPause,
-        previoustrack:() => handleMediaSessionTrackChange(-1),
-        nexttrack:() => handleMediaSessionTrackChange(1),
         stop:() => {
             pauseTrack({syncJam:false})
             seekAudioTo(0)
@@ -8906,11 +8929,12 @@ function configureMediaSessionActions() {
             seekAudioTo(details.seekTime,{fast:details.fastSeek})
             publishJamState()
         },
-        seekbackward:null,
-        seekforward:null
+        previoustrack:() => handleMediaSessionTrackChange(-1),
+        nexttrack:() => handleMediaSessionTrackChange(1)
     }
 
-    Object.entries(actions).forEach(([action,handler]) => {
+    // O controle nativo pode ser criado somente depois do primeiro play.
+    Object.entries(mediaSessionActionHandlers).forEach(([action,handler]) => {
         try {
             navigator.mediaSession.setActionHandler(action,handler)
         } catch (error) {
