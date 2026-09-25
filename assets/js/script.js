@@ -418,6 +418,7 @@ let mediaSessionActionHandlers = null
 let mediaSessionTrackId = ""
 let mediaSessionMetadataKey = ""
 let iosAudioSessionNeedsRefresh = false
+let lastAudioMetadata = null
 let lastForegroundRefresh = 0
 let playbackOperationId = 0
 let playbackRequested = false
@@ -536,8 +537,8 @@ function configurePlaybackAudioSession({reactivate = false} = {}) {
     if (!("audioSession" in navigator) || !navigator.audioSession) return
 
     try {
-        if (reactivate && iosAudioSessionNeedsRefresh) {
-            // renovar a categoria força o WebKit a reenviá-la ao processo de áudio
+        if (reactivate && iosAudioSessionNeedsRefresh && document.visibilityState === "visible") {
+            // a recuperação da categoria só pode ocorrer com o app visível
             navigator.audioSession.type = "ambient"
         }
         if (navigator.audioSession.type !== "playback") navigator.audioSession.type = "playback"
@@ -5369,7 +5370,7 @@ async function playTrack(options = {}) {
     }
 
     const canResume = !options.reload && audioPlayer.dataset.trackId === track?.id
-        && audioPlayer.readyState >= 1 && !audioPlayer.error
+        && Boolean(audioPlayer.getAttribute("src")) && !audioPlayer.error
     const refreshBeforePlayback = !canResume && options.refreshAssets !== false
         && track?.audioPath && !track.downloaded
         && !cloud?.hasFreshPrivateUrl?.(track.audioPath)
@@ -5915,7 +5916,7 @@ audioPlayer?.addEventListener("seeked",() => {
     schedulePlaybackStateSave()
 })
 audioPlayer?.addEventListener("waiting",() => {
-    if (audioPlayer.dataset.trackId !== currentTrackId) return
+    if (audioPlayer.dataset.trackId !== currentTrackId || audioPlayer.paused || audioPlayer.readyState >= 3) return
 
     audioWaiting = true
     updateMediaSessionPosition(true)
@@ -7146,11 +7147,20 @@ function getTrackPlaybackDuration(track = getCurrentTrack()) {
     const catalogDuration = Number(track?.duration || 0)
     const cachedDuration = track ? readValidatedDuration(track) : 0
     const validatedDuration = cachedDuration || (track && validatedDurationTrackIds.has(track.id) ? catalogDuration : 0)
-    const browserDuration = audioPlayer?.dataset.trackId === track?.id && audioPlayer.readyState >= 1
+    const browserDuration = track && audioPlayer?.dataset.trackId === track.id && audioPlayer.readyState >= 1
         ? Number(audioPlayer.duration) : 0
+
+    if (Number.isFinite(browserDuration) && browserDuration > 0) {
+        lastAudioMetadata = {trackId:track.id,source:audioPlayer.dataset.source,duration:browserDuration}
+    }
+
+    const retainedDuration = track && lastAudioMetadata?.trackId === track.id
+        && audioPlayer.dataset.trackId === track.id && lastAudioMetadata.source === audioPlayer.dataset.source
+        ? lastAudioMetadata.duration : 0
 
     if (Number.isFinite(validatedDuration) && validatedDuration > 0) return validatedDuration
     if (Number.isFinite(browserDuration) && browserDuration > 0) return browserDuration
+    if (retainedDuration > 0) return retainedDuration
     if (Number.isFinite(catalogDuration) && catalogDuration > 0) return catalogDuration
 
     return 0
@@ -8975,7 +8985,7 @@ function seekAudioTo(position,{fast = false} = {}) {
 function handleMediaSessionPlay() {
     const track = getCurrentTrack()
 
-    if (!track?.source) return
+    if (!track) return
 
     if (getRuntimePlatform().iOS && audioPlayer.paused) iosAudioSessionNeedsRefresh = true
 
@@ -9035,7 +9045,7 @@ function configureMediaSessionActions(force = false) {
 function handleServiceWorkerControllerChange() {
     if (serviceWorkerReloading) return
 
-    if (isPlaying) {
+    if (document.visibilityState !== "visible" || isPlaying || playbackRequested || audioPlayer.getAttribute("src")) {
         pendingServiceWorkerReload = true
         showToast("Atualização instalada. Ela será aplicada ao reabrir o app.")
         return
