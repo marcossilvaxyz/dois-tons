@@ -238,6 +238,10 @@ window.DoisTonsCloud = (() => {
         return Boolean(path && signedUrlCache.get(path)?.expiresAt > Date.now() + 60000)
     }
 
+    function getFreshPrivateUrl(path) {
+        return hasFreshPrivateUrl(path) ? signedUrlCache.get(path).url : ""
+    }
+
     async function createPrivateUrl(path,{force = false} = {}) {
         if (!path) return ""
 
@@ -1239,6 +1243,7 @@ window.DoisTonsCloud = (() => {
         getActiveJam,
         getDuoId,
         getExpectedJamPosition,
+        getFreshPrivateUrl,
         getJam,
         getMembers,
         getOrCreateJam,

@@ -430,6 +430,8 @@ let durationValidationPromises = new Map()
 let validatedDurationTrackIds = new Set()
 let catalogEndHandledTrackId = ""
 let audioRecoveryOperationId = 0
+let lastUpcomingTrackPreparation = 0
+let upcomingTrackPreparation = null
 
 // tema
 function getStoredTheme() {
@@ -5040,6 +5042,7 @@ function renderQueue() {
 
     clearQueueButton.disabled = jamActive || !upcomingTracks.length
     saveQueuePlaylistButton.disabled = jamActive || (!currentTrack && !upcomingTracks.length)
+    prepareUpcomingTrack(true)
 }
 
 function updatePlaybackModeInterface() {
@@ -5082,6 +5085,7 @@ function cycleRepeatMode() {
     }
 
     repeatMode = repeatMode === "off" ? "all" : repeatMode === "all" ? "one" : "off"
+    prepareUpcomingTrack(true)
     updatePlaybackModeInterface()
     schedulePlaybackStateSave()
 
@@ -5356,6 +5360,14 @@ async function playTrack(options = {}) {
     const operationId = ++playbackOperationId
     const track = getCurrentTrack()
     const syncJam = options.syncJam !== false
+    const cachedSource = track?.audioPath && !track.downloaded
+        ? cloud?.getFreshPrivateUrl?.(track.audioPath) : ""
+
+    if (cachedSource) {
+        track.source = cachedSource
+        track.cloudSource = cachedSource
+    }
+
     const canResume = !options.reload && audioPlayer.dataset.trackId === track?.id
         && audioPlayer.readyState >= 1 && !audioPlayer.error
     const refreshBeforePlayback = !canResume && options.refreshAssets !== false
@@ -5364,9 +5376,11 @@ async function playTrack(options = {}) {
 
     playbackRequested = true
     if (!options.recovery) audioRecoveryAttemptedTrackId = ""
+    if (options.continuePlayback) iosAudioSessionNeedsRefresh = false
     configurePlaybackAudioSession({reactivate:true})
 
     if (track && refreshBeforePlayback && cloudMode && cloudReady && navigator.onLine) {
+        updateMediaSession(track)
         try {
             await refreshTrackCloudAssets(track,{includeCover:false})
         } catch (error) {
@@ -5407,8 +5421,8 @@ async function playTrack(options = {}) {
             catalogEndHandledTrackId = ""
             seekAudioTo(0)
         }
-        updateMediaSession(getCurrentTrack())
         const playbackPromise = audioPlayer.play()
+        updateMediaSession(getCurrentTrack())
 
         await playbackPromise
         if (operationId !== playbackOperationId || track.id !== currentTrackId) return false
@@ -5477,6 +5491,8 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
     const selectedTrack = tracks.find(track => track.id === trackId)
 
     if (!selectedTrack) return
+    const continuePlayback = options.continuePlayback === true
+        || (shouldPlay && playbackRequested && (!audioPlayer.paused || audioPlayer.ended))
     playbackOperationId += 1
     if (shouldPlay) catalogEndHandledTrackId = ""
 
@@ -5504,32 +5520,101 @@ async function selectTrack(trackId,shouldPlay = false,options = {}) {
         catalogEndHandledTrackId = ""
         audioRecoveryAttemptedTrackId = ""
 
-        audioPlayer.pause()
+        if (!shouldPlay || !selectedTrack.source
+            || (cloudMode && !navigator.onLine && !selectedTrack.downloaded)
+            || (cloudMode && cloudReady && navigator.onLine
+            && selectedTrack.audioPath && !selectedTrack.downloaded
+            && !cloud?.hasFreshPrivateUrl?.(selectedTrack.audioPath))) audioPlayer.pause()
 
         isPlaying = false
     }
-
-    if (backgroundSafe) {
-        updateMediaSession(selectedTrack)
-    } else {
-        updatePlayerInterface()
-    }
-
-    schedulePlaybackStateSave()
 
     if (shouldPlay) {
         await playTrack({
             ...options,
             backgroundSafe,
+            continuePlayback,
             refreshAssets:options.refreshAssets !== false
         })
-    } else if (options.syncJam) {
-        await publishJamState()
+    } else {
+        if (backgroundSafe) updateMediaSession(selectedTrack)
+        else updatePlayerInterface()
+
+        schedulePlaybackStateSave()
+        if (options.syncJam) await publishJamState()
     }
 }
 
 function getJamSequence() {
     return getPlayableTracks().map(track => track.id)
+}
+
+async function prepareUpcomingTrack(force = false) {
+    if (!playbackRequested || audioPlayer.paused || audioPlayer.ended
+        || audioPlayer.dataset.trackId !== currentTrackId
+        || !cloudMode || !cloudReady || !navigator.onLine || !cloud?.createPrivateUrl) return
+
+    const now = Date.now()
+
+    if (!force && now - lastUpcomingTrackPreparation < 30000) return
+    lastUpcomingTrackPreparation = now
+    if (repeatMode === "one" && !jamActive) return
+
+    const queue = jamActive ? getJamSequence() : playbackQueue
+    const currentIndex = queue.indexOf(currentTrackId)
+
+    if (currentIndex < 0 || !queue.length) return
+
+    let nextIndex = currentIndex + 1
+
+    if (nextIndex >= queue.length) {
+        if (!jamActive && repeatMode !== "all") return
+        nextIndex = 0
+    }
+
+    const track = tracks.find(item => item.id === queue[nextIndex])
+
+    if (!track?.audioPath || track.downloaded || cloud.hasFreshPrivateUrl?.(track.audioPath)) return
+
+    const key = `${currentProfile?.duoId || ""}:${track.audioPath}`
+
+    if (upcomingTrackPreparation?.key === key
+        && (upcomingTrackPreparation.pending || now - upcomingTrackPreparation.startedAt < 30000)) return
+
+    const preparation = {key,startedAt:now,pending:true}
+
+    upcomingTrackPreparation = preparation
+
+    try {
+        // prepara apenas o acesso; o áudio continua no elemento atual
+        await cloud.createPrivateUrl(track.audioPath)
+    } catch (error) {
+        console.warn("Não foi possível preparar o acesso à próxima música.",error)
+    } finally {
+        preparation.pending = false
+    }
+}
+
+function advanceAfterTrackEnd() {
+    if (!playbackRequested || audioPlayer.dataset.trackId !== currentTrackId
+        || catalogEndHandledTrackId === currentTrackId) return
+
+    catalogEndHandledTrackId = currentTrackId
+    iosAudioSessionNeedsRefresh = false
+
+    const transition = changeTrack(1,{
+        automatic:true,
+        backgroundSafe:document.visibilityState !== "visible"
+    })
+    const operationId = playbackOperationId
+
+    return Promise.resolve(transition).catch(error => {
+        if (operationId !== playbackOperationId) return
+
+        pauseTrack({syncJam:false})
+        console.warn("Não foi possível avançar a reprodução.",error)
+        showToast("Não foi possível iniciar a próxima música.","warning")
+    })
 }
 
 function changeTrack(direction,options = {}) {
@@ -5541,7 +5626,7 @@ function changeTrack(direction,options = {}) {
     if (automatic && repeatMode === "one" && !jamActive) {
         catalogEndHandledTrackId = ""
         audioPlayer.currentTime = 0
-        return playTrack({backgroundSafe,refreshAssets:!backgroundSafe})
+        return playTrack({backgroundSafe,continuePlayback:true,refreshAssets:!backgroundSafe})
     }
 
     if (direction < 0 && !automatic && audioPlayer.dataset.trackId === currentTrackId
@@ -5556,18 +5641,22 @@ function changeTrack(direction,options = {}) {
         return
     }
 
+    if (!jamActive && !playbackQueue.length) {
+        buildPlaybackQueue(currentTrackId,playbackContext)
+    }
+
     const activeQueue = jamActive ? getJamSequence() : playbackQueue
     const currentIndex = activeQueue.indexOf(currentTrackId)
 
     if (!activeQueue.length) {
-        buildPlaybackQueue(currentTrackId,playbackContext)
+        if (automatic) pauseTrack()
         return
     }
 
     if (currentIndex < 0 && !jamActive) {
         const fallbackIndex = direction > 0 ? 0 : activeQueue.length - 1
 
-        return selectTrack(activeQueue[fallbackIndex],true,{preserveQueue:true,queueIndex:fallbackIndex,backgroundSafe})
+        return selectTrack(activeQueue[fallbackIndex],true,{preserveQueue:true,queueIndex:fallbackIndex,backgroundSafe,continuePlayback:automatic})
     }
 
     if (currentIndex < 0) {
@@ -5600,7 +5689,7 @@ function changeTrack(direction,options = {}) {
         playbackQueueIndex = nextIndex
     }
 
-    return selectTrack(nextTrackId,true,{preserveQueue:true,queueIndex:nextIndex,backgroundSafe})
+    return selectTrack(nextTrackId,true,{preserveQueue:true,queueIndex:nextIndex,backgroundSafe,continuePlayback:automatic})
 }
 
 async function toggleFavorite() {
@@ -5721,6 +5810,7 @@ audioPlayer?.addEventListener("playing",() => {
     configureMediaSessionActions(true)
     setMediaSessionPlaybackState("playing")
     startListeningSession(currentTrackId)
+    prepareUpcomingTrack(true)
 
     if (document.visibilityState === "visible") {
         updatePlayerInterface()
@@ -5731,9 +5821,14 @@ audioPlayer?.addEventListener("playing",() => {
 })
 
 audioPlayer?.addEventListener("pause",() => {
-    if (!audioPlayer.paused) return
+    if (!audioPlayer.paused || audioPlayer.dataset.trackId !== currentTrackId) return
 
-    if (getRuntimePlatform().iOS) iosAudioSessionNeedsRefresh = true
+    if (audioPlayer.ended && playbackRequested) {
+        advanceAfterTrackEnd()
+        return
+    }
+
+    if (getRuntimePlatform().iOS && !audioPlayer.ended) iosAudioSessionNeedsRefresh = true
 
     updateListeningSessionProgress()
     flushListeningSession({force:true})
@@ -5767,6 +5862,7 @@ audioPlayer?.addEventListener("timeupdate",() => {
     else updateMediaSessionPosition()
 
     finishTrackAtValidatedDuration()
+    prepareUpcomingTrack()
 
     if (Date.now() - lastPlaybackProgressSave > 4000) {
         lastPlaybackProgressSave = Date.now()
@@ -5826,13 +5922,7 @@ audioPlayer?.addEventListener("waiting",() => {
 })
 
 audioPlayer?.addEventListener("ended",() => {
-    if (!audioPlayer.ended || audioPlayer.dataset.trackId !== currentTrackId
-        || catalogEndHandledTrackId === currentTrackId) return
-
-    changeTrack(1,{
-        automatic:true,
-        backgroundSafe:document.visibilityState !== "visible"
-    })
+    if (audioPlayer.ended) advanceAfterTrackEnd()
 })
 
 async function recoverAudioPlayback() {
@@ -7173,11 +7263,7 @@ function finishTrackAtValidatedDuration() {
     if (position < Math.max(0,duration - 0.08)) return
     if (catalogEndHandledTrackId === track.id) return
 
-    catalogEndHandledTrackId = track.id
-    changeTrack(1,{
-        automatic:true,
-        backgroundSafe:document.visibilityState !== "visible"
-    })
+    advanceAfterTrackEnd()
 }
 
 function loadMetadataLibrary() {
@@ -8757,6 +8843,7 @@ document.addEventListener("visibilitychange",async () => {
 
     if (document.visibilityState !== "visible") {
         configureMediaSessionActions(true)
+        prepareUpcomingTrack(true)
         updateListeningSessionProgress()
         flushListeningSession({force:true})
         savePlaybackState()
