@@ -769,23 +769,6 @@ function normalizeCatalogText(value) {
         .trim()
 }
 
-function createCatalogSignature({title,artist,album,duration}) {
-    return [
-        normalizeCatalogText(title),
-        normalizeCatalogText(artist),
-        normalizeCatalogText(album),
-        Math.max(0,Math.round(Number(duration || 0)))
-    ].join("|")
-}
-
-function createCatalogLooseSignature({title,artist,duration}) {
-    return [
-        normalizeCatalogText(title),
-        normalizeCatalogText(artist),
-        Math.max(0,Math.round(Number(duration || 0)))
-    ].join("|")
-}
-
 function getFileExtension(fileName) {
     return String(fileName || "").split(".").at(-1)?.toLocaleLowerCase("pt-BR") || ""
 }
@@ -7347,7 +7330,7 @@ function createEmbeddedCoverFile(picture,audioFile) {
 
 async function createFileFingerprint(file) {
     if (!window.crypto?.subtle) {
-        return `arquivo:${file.size}:${file.lastModified}:${normalizeCatalogText(file.name)}`
+        return ""
     }
 
     const fileBuffer = await file.arrayBuffer()
@@ -7613,7 +7596,6 @@ async function analyzeCatalogFiles(fileList) {
         duration:0,
         genres:[],
         fileHash:"",
-        signature:"",
         coverFile:null,
         coverUrl:"",
         metadataSource:"",
@@ -7623,18 +7605,6 @@ async function analyzeCatalogFiles(fileList) {
     const knownHashes = new Set([
         ...tracks.map(track => track.fileHash).filter(Boolean),
         ...catalogItems.map(item => item.fileHash).filter(Boolean)
-    ])
-    const knownSignatures = new Set([
-        ...tracks.map(createCatalogSignature),
-        ...catalogItems
-            .filter(item => item.signature && item.status !== "duplicate")
-            .map(item => item.signature)
-    ])
-    const knownLooseSignatures = new Set([
-        ...tracks.map(createCatalogLooseSignature),
-        ...catalogItems
-            .filter(item => item.signature && item.status !== "duplicate")
-            .map(createCatalogLooseSignature)
     ])
 
     catalogItems.push(...newItems)
@@ -7699,11 +7669,7 @@ async function analyzeCatalogFiles(fileList) {
             const artist = completedMetadata.artist
             const album = completedMetadata.album
             const coverFile = completedMetadata.coverFile
-            const signature = createCatalogSignature({title,artist,album,duration})
-            const looseSignature = createCatalogLooseSignature({title,artist,duration})
-            const hasReliableIdentity = hasReliableMetadata || Boolean(completedMetadata.metadataSource)
-            const duplicate = knownHashes.has(fileHash)
-                || hasReliableIdentity && (knownSignatures.has(signature) || knownLooseSignatures.has(looseSignature))
+            const duplicate = Boolean(fileHash) && knownHashes.has(fileHash)
 
             item.title = title
             item.artist = artist
@@ -7711,20 +7677,13 @@ async function analyzeCatalogFiles(fileList) {
             item.duration = duration
             item.genres = getMetadataGenres(embeddedMetadata.genre)
             item.fileHash = fileHash
-            item.signature = signature
             item.coverFile = coverFile
             item.metadataSource = completedMetadata.metadataSource
             item.coverUrl = coverFile ? URL.createObjectURL(coverFile) : ""
             item.status = duplicate ? "duplicate" : "ready"
             item.message = duplicate ? "Esta música já está na biblioteca" : ""
 
-            if (!duplicate) {
-                knownHashes.add(fileHash)
-                if (hasReliableIdentity) {
-                    knownSignatures.add(signature)
-                    knownLooseSignatures.add(looseSignature)
-                }
-            }
+            if (!duplicate && fileHash) knownHashes.add(fileHash)
         } catch (error) {
             item.status = "invalid"
             item.message = getErrorMessage(error,"Não foi possível analisar")
@@ -7756,9 +7715,7 @@ async function analyzeCatalogFiles(fileList) {
 }
 
 function isCatalogDuplicateError(error) {
-    const message = String(error?.message || "").toLocaleLowerCase("pt-BR")
-
-    return error?.code === "23505" || message.includes("já existe na biblioteca") || message.includes("duplicate")
+    return error?.code === "TRACK_DUPLICATE"
 }
 
 async function importCatalog() {
@@ -7925,14 +7882,7 @@ async function handleUploadSubmit(event) {
         // processa em sequência para poupar memória
         const duration = await getAudioDuration(audioFile)
         const fileHash = await createFileFingerprint(audioFile)
-        const signature = createCatalogSignature({title,artist,album,duration})
-        const looseSignature = createCatalogLooseSignature({title,artist,duration})
-        const duplicate = tracks.some(track => {
-            if (track.fileHash && track.fileHash === fileHash) return true
-
-            return createCatalogSignature(track) === signature
-                || createCatalogLooseSignature(track) === looseSignature
-        })
+        const duplicate = Boolean(fileHash) && tracks.some(track => track.fileHash === fileHash)
 
         if (duplicate) throw new Error("Esta música já existe na biblioteca.")
 

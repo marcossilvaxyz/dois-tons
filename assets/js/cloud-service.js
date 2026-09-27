@@ -340,9 +340,7 @@ window.DoisTonsCloud = (() => {
         const message = String(error?.message || "").toLocaleLowerCase("pt-BR")
 
         return ["42703","PGRST204"].includes(error?.code)
-            || message.includes("file_hash")
-            || message.includes("file_size")
-            || message.includes("mime_type")
+            && ["file_hash","file_size","mime_type"].some(column => message.includes(column))
     }
 
     async function loadTrackRows() {
@@ -511,10 +509,13 @@ window.DoisTonsCloud = (() => {
             await removeFiles(uploadedPaths)
 
             if (error?.code === "23505") {
-                const duplicateError = new Error("Esta música já existe na biblioteca.")
+                const duplicateFile = String(error.message || "").includes("tracks_duo_file_hash_unique")
+                const uploadError = new Error(duplicateFile
+                    ? "Esta música já existe na biblioteca."
+                    : "Não foi possível salvar esta música. Tente novamente.")
 
-                duplicateError.code = error.code
-                throw duplicateError
+                uploadError.code = duplicateFile ? "TRACK_DUPLICATE" : error.code
+                throw uploadError
             }
 
             throw error
