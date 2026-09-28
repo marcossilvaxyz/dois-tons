@@ -1,5 +1,5 @@
 // arquivos básicos do app
-const cacheName = "dois-tons-v34"
+const cacheName = "dois-tons-v35"
 const appAssets = [
     "./",
     "./index.html",
@@ -7,9 +7,9 @@ const appAssets = [
     "./assets/css/style.css",
     "./assets/js/supabase-config.js",
     "./assets/js/offline-service.js",
-    "./assets/js/cloud-service.js?v=34",
+    "./assets/js/cloud-service.js?v=35",
     "./assets/js/metadata-service.js",
-    "./assets/js/script.js?v=34",
+    "./assets/js/script.js?v=35",
     "./assets/icons/icon.svg",
     "./assets/icons/icon-192.png",
     "./assets/icons/icon-512.png",

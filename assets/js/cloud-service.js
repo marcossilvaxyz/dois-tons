@@ -345,21 +345,65 @@ window.DoisTonsCloud = (() => {
 
     async function loadTrackRows() {
         const baseColumns = "id,duo_id,added_by,title,artist,album,audio_path,source_url,cover_path,cover_url,duration_seconds,tags,created_at"
-        let result = await client
-            .from("tracks")
-            .select(`${baseColumns},file_hash,file_size,mime_type`)
-            .eq("duo_id",currentDuoId)
-            .order("created_at",{ascending:false})
+        const duoId = currentDuoId
+        const rows = []
+        let columns = `${baseColumns},file_hash,file_size,mime_type`
+        let lastId = ""
 
-        if (result.error && isMissingCatalogColumn(result.error)) {
-            result = await client
+        while (true) {
+            let query = client
                 .from("tracks")
-                .select(baseColumns)
-                .eq("duo_id",currentDuoId)
-                .order("created_at",{ascending:false})
+                .select(columns)
+                .eq("duo_id",duoId)
+                .order("id",{ascending:true})
+                .limit(500)
+
+            if (lastId) query = query.gt("id",lastId)
+
+            const result = await query
+
+            if (result.error && columns !== baseColumns && isMissingCatalogColumn(result.error)) {
+                columns = baseColumns
+                continue
+            }
+
+            if (result.error) return result
+            if (!result.data?.length) break
+
+            rows.push(...result.data)
+            lastId = result.data.at(-1).id
         }
 
-        return result
+        rows.sort((first,second) => Date.parse(second.created_at) - Date.parse(first.created_at) || first.id.localeCompare(second.id))
+
+        return {data:rows,error:null}
+    }
+
+    async function findTrackByFileHash(fileHash) {
+        requireMembership()
+
+        if (!fileHash) return null
+
+        const result = await client
+            .from("tracks")
+            .select("id,title,artist")
+            .eq("duo_id",currentDuoId)
+            .eq("file_hash",fileHash)
+            .maybeSingle()
+
+        if (result.error && isMissingCatalogColumn(result.error)) return null
+
+        return unwrap(result)
+    }
+
+    function createTrackDuplicateError(track = null) {
+        const error = new Error(track
+            ? `Este arquivo já está na biblioteca como “${track.title}” (${track.artist}).`
+            : "Esta música já existe na biblioteca.")
+
+        error.code = "TRACK_DUPLICATE"
+
+        return error
     }
 
     async function loadTracks() {
@@ -478,6 +522,13 @@ window.DoisTonsCloud = (() => {
     async function uploadTrack({audioFile,coverFile,title,artist,album,duration,tags,fileHash,fileSize,mimeType}) {
         requireMembership()
 
+        const duoId = currentDuoId
+        const userId = currentUser.id
+        const existingTrack = await findTrackByFileHash(fileHash)
+
+        if (existingTrack) throw createTrackDuplicateError(existingTrack)
+        if (currentDuoId !== duoId || currentUser?.id !== userId) throw new Error("O perfil mudou durante o envio. Tente adicionar a música novamente.")
+
         const audioPath = createStoragePath("audio",audioFile)
         const coverPath = coverFile ? createStoragePath("covers",coverFile) : ""
         const uploadedPaths = []
@@ -492,8 +543,8 @@ window.DoisTonsCloud = (() => {
             }
 
             return await insertTrack({
-                duo_id:currentDuoId,
-                added_by:currentUser.id,
+                duo_id:duoId,
+                added_by:userId,
                 title,
                 artist,
                 album:album || "Adicionada ao Dois Tons",
@@ -510,11 +561,12 @@ window.DoisTonsCloud = (() => {
 
             if (error?.code === "23505") {
                 const duplicateFile = String(error.message || "").includes("tracks_duo_file_hash_unique")
-                const uploadError = new Error(duplicateFile
-                    ? "Esta música já existe na biblioteca."
-                    : "Não foi possível salvar esta música. Tente novamente.")
 
-                uploadError.code = duplicateFile ? "TRACK_DUPLICATE" : error.code
+                if (duplicateFile) throw createTrackDuplicateError()
+
+                const uploadError = new Error("Não foi possível salvar esta música. Tente novamente.")
+
+                uploadError.code = error.code
                 throw uploadError
             }
 
@@ -1258,6 +1310,7 @@ window.DoisTonsCloud = (() => {
         loadPlaylistActivity,
         loadPlaylists,
         loadTracks,
+        findTrackByFileHash,
         markActivityNotifications,
         markMusicDedications,
         movePlaylistTrack,

@@ -7573,7 +7573,9 @@ async function completeCatalogMetadata({title,artist,album,duration,coverFile,ha
 async function analyzeCatalogFiles(fileList) {
     if (catalogAnalyzing || catalogImporting) return
 
-    const selectedKeys = new Set(catalogItems.map(item => item.selectionKey))
+    const selectedKeys = new Set(catalogItems
+        .filter(item => ["ready","failed"].includes(item.status))
+        .map(item => item.selectionKey))
     const selectedFiles = Array.from(fileList || [])
         .filter(isSupportedAudioFile)
         .filter(file => !selectedKeys.has(getCatalogSelectionKey(file)))
@@ -7602,10 +7604,10 @@ async function analyzeCatalogFiles(fileList) {
         status:"queued",
         message:""
     }))
-    const knownHashes = new Set([
-        ...tracks.map(track => track.fileHash).filter(Boolean),
-        ...catalogItems.map(item => item.fileHash).filter(Boolean)
-    ])
+    const knownHashes = new Set(catalogItems
+        .filter(item => ["ready","failed"].includes(item.status))
+        .map(item => item.fileHash)
+        .filter(Boolean))
 
     catalogItems.push(...newItems)
     catalogAnalyzing = true
@@ -7669,7 +7671,6 @@ async function analyzeCatalogFiles(fileList) {
             const artist = completedMetadata.artist
             const album = completedMetadata.album
             const coverFile = completedMetadata.coverFile
-            const duplicate = Boolean(fileHash) && knownHashes.has(fileHash)
 
             item.title = title
             item.artist = artist
@@ -7680,12 +7681,23 @@ async function analyzeCatalogFiles(fileList) {
             item.coverFile = coverFile
             item.metadataSource = completedMetadata.metadataSource
             item.coverUrl = coverFile ? URL.createObjectURL(coverFile) : ""
+
+            const selectedDuplicate = Boolean(fileHash) && knownHashes.has(fileHash)
+            const existingTrack = fileHash && !selectedDuplicate
+                ? cloudMode
+                    ? navigator.onLine ? await cloud.findTrackByFileHash(fileHash) : null
+                    : tracks.find(track => track.fileHash === fileHash)
+                : null
+            const duplicate = selectedDuplicate || Boolean(existingTrack)
+
             item.status = duplicate ? "duplicate" : "ready"
-            item.message = duplicate ? "Esta música já está na biblioteca" : ""
+            item.message = existingTrack
+                ? `Este arquivo já está na biblioteca como “${existingTrack.title}” (${existingTrack.artist}).`
+                : selectedDuplicate ? "Este arquivo já foi selecionado para importação." : ""
 
             if (!duplicate && fileHash) knownHashes.add(fileHash)
         } catch (error) {
-            item.status = "invalid"
+            item.status = item.fileHash ? "failed" : "invalid"
             item.message = getErrorMessage(error,"Não foi possível analisar")
         }
 
@@ -7771,7 +7783,7 @@ async function importCatalog() {
         } catch (error) {
             if (isCatalogDuplicateError(error)) {
                 item.status = "duplicate"
-                item.message = "Esta música já está na biblioteca"
+                item.message = error.message
                 duplicateItems += 1
             } else {
                 item.status = "failed"
@@ -7882,9 +7894,6 @@ async function handleUploadSubmit(event) {
         // processa em sequência para poupar memória
         const duration = await getAudioDuration(audioFile)
         const fileHash = await createFileFingerprint(audioFile)
-        const duplicate = Boolean(fileHash) && tracks.some(track => track.fileHash === fileHash)
-
-        if (duplicate) throw new Error("Esta música já existe na biblioteca.")
 
         const createdTrack = await cloud.uploadTrack({
             audioFile,
@@ -7901,11 +7910,25 @@ async function handleUploadSubmit(event) {
 
         closeModal("upload")
         resetUploadForm()
-        await loadCloudApplicationData()
-        await selectTrack(createdTrack.id,true)
-        showToast("Música adicionada à biblioteca.")
+
+        try {
+            await loadCloudApplicationData()
+            await selectTrack(createdTrack.id,true)
+            showToast("Música adicionada à biblioteca.")
+        } catch (error) {
+            console.warn("A música foi salva, mas não foi possível atualizar a biblioteca.",error)
+            showToast("A música foi salva. Ela aparecerá quando a biblioteca voltar a sincronizar.","warning")
+        }
     } catch (error) {
-        showToast(getErrorMessage(error,"Não foi possível enviar o arquivo."),"warning")
+        if (isCatalogDuplicateError(error)) {
+            try {
+                await loadCloudApplicationData()
+            } catch (refreshError) {
+                console.warn("Não foi possível atualizar a biblioteca após verificar a música.",refreshError)
+            }
+        }
+
+        showToast(isCatalogDuplicateError(error) ? error.message : getErrorMessage(error,"Não foi possível enviar o arquivo."),"warning")
     } finally {
         setButtonLoading(uploadSubmitButton,false)
     }
