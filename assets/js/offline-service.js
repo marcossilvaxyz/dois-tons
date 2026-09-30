@@ -114,6 +114,45 @@ window.DoisTonsOffline = (() => {
         })
     }
 
+    async function getDownloadLibraries() {
+        const database = await openDatabase()
+
+        return new Promise((resolve,reject) => {
+            const libraries = []
+            const transaction = database.transaction([downloadStoreName,snapshotStoreName],"readonly")
+            const index = transaction.objectStore(downloadStoreName).index("duoId")
+            const snapshots = transaction.objectStore(snapshotStoreName)
+            const request = index.openKeyCursor(null,"nextunique")
+
+            request.addEventListener("success",() => {
+                const cursor = request.result
+
+                if (!cursor) return
+
+                const library = {duoId:cursor.key,count:0,names:[]}
+                const countRequest = index.count(cursor.key)
+                const snapshotRequest = snapshots.get(cursor.key)
+
+                libraries.push(library)
+                countRequest.addEventListener("success",() => {
+                    library.count = Number(countRequest.result || 0)
+                },{once:true})
+                snapshotRequest.addEventListener("success",() => {
+                    const members = snapshotRequest.result?.members
+
+                    library.names = Array.isArray(members)
+                        ? members.map(member => String(member.display_name || "").trim()).filter(Boolean)
+                        : []
+                },{once:true})
+                cursor.continue()
+            })
+
+            transaction.addEventListener("complete",() => resolve(libraries.filter(library => library.count > 0)),{once:true})
+            transaction.addEventListener("abort",() => reject(transaction.error || new Error("Não foi possível localizar os downloads deste aparelho.")),{once:true})
+            transaction.addEventListener("error",() => reject(transaction.error || new Error("Não foi possível localizar os downloads deste aparelho.")),{once:true})
+        })
+    }
+
     async function saveDownload({duoId,track,audioBlob,coverBlob = null}) {
         if (!duoId || !track?.id || !(audioBlob instanceof Blob)) {
             throw new Error("Dados inválidos para salvar a música offline.")
@@ -258,6 +297,7 @@ window.DoisTonsOffline = (() => {
     return {
         clearDownloads,
         getDownload,
+        getDownloadLibraries,
         getDownloads,
         getSnapshot,
         getUsage,

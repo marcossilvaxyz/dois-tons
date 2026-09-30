@@ -3,6 +3,9 @@ const accessScreen = document.getElementById("access-screen")
 const accessForm = document.getElementById("access-form")
 const accessButton = accessForm?.querySelector(".access-button")
 const accessNote = document.getElementById("access-note")
+const offlineAccessButton = document.getElementById("offline-access-button")
+const offlineAccessOptions = document.getElementById("offline-access-options")
+const offlineLibrarySelect = document.getElementById("offline-library-select")
 const displayNameInput = document.getElementById("display-name")
 const accessCodeInput = document.getElementById("access-code")
 const nameMessage = document.getElementById("name-message")
@@ -378,6 +381,7 @@ let cloudMode = false
 let cloudReady = false
 let offlineReady = false
 let offlineLaunch = false
+let offlineAccessOpening = false
 let offlineDownloads = new Map()
 let offlineObjectUrls = new Map()
 let retiredOfflineAudioUrls = new Set()
@@ -798,7 +802,7 @@ function saveOfflineProfile(profile) {
         memberId:profile.memberId || "",
         duoId:profile.duoId,
         userId:profile.userId || "",
-        mode:"cloud"
+        mode:profile.mode === "downloads" ? "downloads" : "cloud"
     }))
 }
 
@@ -813,6 +817,70 @@ function loadOfflineProfile() {
         return null
     }
 }
+
+async function updateOfflineAccess() {
+    if (!offlineReady || !offlineAccessButton) return
+
+    try {
+        const libraries = await offline.getDownloadLibraries()
+
+        offlineLibrarySelect.innerHTML = libraries.map((library,index) => {
+            const label = library.names.join(" + ") || `Biblioteca ${index + 1}`
+
+            return `<option value="${escapeAttribute(library.duoId)}">${escapeHTML(label)} · ${library.count} músicas</option>`
+        }).join("")
+        offlineAccessOptions.hidden = libraries.length < 2
+        offlineAccessButton.hidden = !libraries.length
+    } catch (error) {
+        offlineAccessButton.hidden = true
+        offlineAccessOptions.hidden = true
+        console.warn("Não foi possível localizar os downloads deste aparelho.",error)
+    }
+}
+
+async function openDownloadedLibrary(duoId,{silent = false} = {}) {
+    if (!offlineReady || offlineAccessOpening) return false
+
+    offlineAccessOpening = true
+    cloudLoadSequence += 1
+    cloudReady = false
+    setButtonLoading(offlineAccessButton,true,"Abrindo downloads...")
+    accessButton.disabled = true
+
+    const previousProfile = currentProfile
+    const profile = {name:"Downloads",duoId,memberId:"",userId:"",mode:"downloads"}
+
+    try {
+        const libraries = await offline.getDownloadLibraries()
+
+        if (!libraries.some(library => library.duoId === duoId)) {
+            throw new Error("Não há músicas baixadas desta biblioteca neste aparelho.")
+        }
+
+        cloud?.disconnectRealtime()
+        cloudMode = true
+        currentProfile = profile
+        await loadOfflineApplicationData()
+
+        if (!tracks.some(track => track.downloaded)) throw new Error("Nenhuma música baixada foi encontrada neste aparelho.")
+
+        localStorage.removeItem(logoutStorageKey)
+        openApplication(profile)
+        openDownloadsLibrary()
+        if (!silent) showToast("Downloads abertos. O acesso à nuvem continua desconectado.","warning")
+        return true
+    } catch (error) {
+        if (currentProfile === profile) currentProfile = previousProfile
+        showToast(getErrorMessage(error,"Não foi possível abrir os downloads deste aparelho."),"warning")
+        return false
+    } finally {
+        offlineAccessOpening = false
+        accessButton.disabled = false
+        setButtonLoading(offlineAccessButton,false)
+    }
+}
+
+offlineAccessButton?.addEventListener("click",() => openDownloadedLibrary(offlineLibrarySelect.value))
 
 function getOfflineObjectUrls(record) {
     const cached = offlineObjectUrls.get(record.trackId)
@@ -2014,6 +2082,8 @@ function openApplication(profile) {
 }
 
 function closeApplication() {
+    const wasDownloadsOnly = currentProfile?.mode === "downloads"
+
     cloudLoadSequence += 1
     playbackOperationId += 1
     jamApplySequence += 1
@@ -2061,11 +2131,14 @@ function closeApplication() {
     accessCodeInput.value = ""
     displayNameInput.focus()
     updateJamInterface()
+    updateOfflineAccess()
+    if (wasDownloadsOnly) initializeCloudMode()
 }
 
 async function handleAccessSubmit(event) {
     event.preventDefault()
 
+    if (offlineAccessOpening) return
     if (!validateAccessForm()) return
 
     if (!cloudMode) {
@@ -2082,9 +2155,11 @@ async function handleAccessSubmit(event) {
     }
 
     setButtonLoading(accessButton,true,"Entrando...")
+    const accessSequence = cloudLoadSequence
 
     try {
         const profile = await cloud.accessDuo(accessCodeInput.value,displayNameInput.value)
+        if (offlineAccessOpening || accessSequence !== cloudLoadSequence) return
 
         localStorage.removeItem(logoutStorageKey)
         openApplication(profile)
@@ -2094,6 +2169,7 @@ async function handleAccessSubmit(event) {
             ? "Perfil conectado. Falta só o outro perfil entrar."
             : "Os dois perfis estão conectados.")
     } catch (error) {
+        if (offlineAccessOpening || currentProfile?.mode === "downloads") return
         codeMessage.textContent = getErrorMessage(error,"Código incorreto ou sala indisponível.")
         accessCodeInput.closest(".form-group").classList.add("invalid")
     } finally {
@@ -3949,7 +4025,7 @@ async function persistListeningSnapshot(snapshot) {
 }
 
 function startListeningSession(trackId) {
-    if (!trackId || !currentProfile || !cloudMode) return
+    if (!trackId || !currentProfile || !cloudMode || currentProfile.mode === "downloads") return
 
     if (listeningSession?.trackId === trackId) {
         listeningSession.lastPosition = Number(audioPlayer.currentTime || 0)
@@ -7685,7 +7761,7 @@ async function analyzeCatalogFiles(fileList) {
             const selectedDuplicate = Boolean(fileHash) && knownHashes.has(fileHash)
             const existingTrack = fileHash && !selectedDuplicate
                 ? cloudMode
-                    ? navigator.onLine ? await cloud.findTrackByFileHash(fileHash) : null
+                    ? cloudReady && navigator.onLine ? await cloud.findTrackByFileHash(fileHash) : null
                     : tracks.find(track => track.fileHash === fileHash)
                 : null
             const duplicate = selectedDuplicate || Boolean(existingTrack)
@@ -7732,6 +7808,11 @@ function isCatalogDuplicateError(error) {
 
 async function importCatalog() {
     if (catalogAnalyzing || catalogImporting) return
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à nuvem para importar músicas.","warning")
+        return
+    }
 
     const importableItems = catalogItems.filter(item => ["ready","failed"].includes(item.status))
 
@@ -7839,6 +7920,11 @@ async function importCatalog() {
 
 async function handleUploadSubmit(event) {
     event.preventDefault()
+
+    if (cloudMode && (!cloudReady || !navigator.onLine)) {
+        showToast("Conecte-se à nuvem para adicionar músicas.","warning")
+        return
+    }
 
     const audioFile = audioFileInput.files[0]
     const coverFile = coverFileInput.files[0] || selectedOnlineCoverFile
@@ -9061,15 +9147,19 @@ async function registerServiceWorker() {
 }
 
 async function restoreCloudConnection() {
-    if (!cloudMode || cloudReady || !navigator.onLine) return
+    if (!cloudMode || cloudReady || !navigator.onLine || offlineAccessOpening || currentProfile?.mode === "downloads") return
+
+    const previousProfile = currentProfile
 
     try {
         await cloud.initialize()
-        cloudReady = true
+        if (offlineAccessOpening || currentProfile !== previousProfile) return
 
         const restoredProfile = await cloud.restoreProfile()
+        if (offlineAccessOpening || currentProfile !== previousProfile) return
 
         if (restoredProfile) {
+            cloudReady = true
             currentProfile = restoredProfile
             saveOfflineProfile(restoredProfile)
             await loadCloudApplicationData()
@@ -9165,6 +9255,7 @@ async function initializeCloudMode() {
 
     try {
         await cloud.initialize()
+        if (offlineAccessOpening || currentProfile?.mode === "downloads") return false
         cloudReady = true
         accessNote.textContent = "O código é verificado com segurança e nunca fica salvo neste aparelho."
         uploadInformation.textContent = "O áudio e a capa serão salvos no storage privado e aparecerão nos dois aparelhos."
@@ -9191,13 +9282,25 @@ async function initializeApp() {
     renderCatalogQueue()
 
     await initializeOfflineMode()
+    await updateOfflineAccess()
+
+    const explicitlyLoggedOut = localStorage.getItem(logoutStorageKey) === "true"
+    const savedOfflineProfile = loadOfflineProfile()
+
+    if (!explicitlyLoggedOut && savedOfflineProfile?.mode === "downloads") {
+        const restored = await openDownloadedLibrary(savedOfflineProfile.duoId,{silent:true})
+
+        if (restored) return
+    }
 
     const hasCloud = await initializeCloudMode()
-    const explicitlyLoggedOut = localStorage.getItem(logoutStorageKey) === "true"
+
+    if (offlineAccessOpening || currentProfile?.mode === "downloads") return
 
     if (hasCloud && !explicitlyLoggedOut) {
         try {
             const restoredProfile = await cloud.restoreProfile()
+            if (offlineAccessOpening || currentProfile?.mode === "downloads") return
 
             if (restoredProfile) {
                 openApplication(restoredProfile)

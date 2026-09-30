@@ -206,6 +206,15 @@
                     <span>Entrar no Dois Tons</span>
                     <svg aria-hidden="true"><use href="#icon-chevron"></use></svg>
                 </button>
+
+                <label class="library-select-field" id="offline-access-options" hidden>
+                    <span>Biblioteca baixada neste aparelho</span>
+                    <select id="offline-library-select" aria-label="Biblioteca baixada neste aparelho"></select>
+                </label>
+                <button type="button" class="secondary-button" id="offline-access-button" hidden>
+                    <svg aria-hidden="true"><use href="#icon-download"></use></svg>
+                    <span>Ouvir músicas baixadas</span>
+                </button>
             </form>
 
             <p class="preview-note" id="access-note">Depois de conectar ao Supabase, tudo fica sincronizado nos dois aparelhos.</p>
@@ -1441,9 +1450,9 @@
 
     <!-- scripts -->
     <script src="assets/js/supabase-config.js"></script>
-    <script src="assets/js/offline-service.js"></script>
+    <script src="assets/js/offline-service.js?v=36"></script>
     <script src="assets/js/cloud-service.js?v=35"></script>
     <script src="assets/js/metadata-service.js"></script>
-    <script src="assets/js/script.js?v=35"></script>
+    <script src="assets/js/script.js?v=36"></script>
 </body>
 </html>
